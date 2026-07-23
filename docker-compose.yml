@@ -1,6 +1,7 @@
 services:
   birthday-keeper:
-    build: .
+    # 预构建镜像，直接从 GHCR 在线拉取，无需 clone 仓库、无需本地构建
+    image: ghcr.io/marcusyean/birthday-keeper:latest
     container_name: birthday-keeper
     restart: unless-stopped
     ports:
