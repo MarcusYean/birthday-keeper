@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎂 生日管家</title>
+<link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+<!-- 登录 / 初始化 -->
+<div id="auth-view" class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="brand-logo">🎂</div>
+      <h1>生日管家</h1>
+      <p class="brand-sub" id="auth-sub">记录亲友生日 · 农历/公历 · 微信 & 飞书提醒</p>
+    </div>
+    <form id="login-form" class="auth-form">
+      <label>用户名</label>
+      <input id="login-user" type="text" autocomplete="username" placeholder="请输入用户名" required />
+      <label>密码</label>
+      <input id="login-pass" type="password" autocomplete="current-password" placeholder="请输入密码" required />
+      <button type="submit" class="btn btn-primary btn-block">登录</button>
+    </form>
+    <form id="setup-form" class="auth-form hidden">
+      <div class="callout">首次使用，请创建管理员账号（用于配置提醒参数）。</div>
+      <label>管理员用户名</label>
+      <input id="setup-user" type="text" placeholder="如 admin" required />
+      <label>管理员密码</label>
+      <input id="setup-pass" type="password" placeholder="设置登录密码" required />
+      <button type="submit" class="btn btn-primary btn-block">创建并进入</button>
+    </form>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div id="app-view" class="app hidden">
+  <aside class="sidebar">
+    <div class="side-brand">🎂 生日管家</div>
+    <nav class="nav">
+      <a class="nav-item" data-view="contacts"><span>👥</span> 联系人</a>
+      <a class="nav-item" data-view="upcoming"><span>⏰</span> 即将到来</a>
+      <a class="nav-item admin-only" data-view="settings"><span>⚙️</span> 设置</a>
+      <a class="nav-item admin-only" data-view="users"><span>🧑‍💼</span> 用户管理</a>
+    </nav>
+    <div class="side-foot">v2.0 · 自托管</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="view-title">联系人</div>
+      <div class="topbar-right">
+        <span class="user-chip" id="user-chip"></span>
+        <button class="btn btn-ghost btn-sm" id="logout-btn">退出</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- 联系人 -->
+      <section id="view-contacts" class="view">
+        <div class="toolbar">
+          <button class="btn btn-primary" id="add-btn">+ 添加联系人</button>
+          <button class="btn btn-ghost" id="refresh-btn">刷新</button>
+        </div>
+        <div id="contacts-list" class="card"></div>
+      </section>
+
+      <!-- 即将到来 -->
+      <section id="view-upcoming" class="view hidden">
+        <div class="card" id="upcoming-list"></div>
+      </section>
+
+      <!-- 设置 -->
+      <section id="view-settings" class="view hidden">
+        <div class="toolbar">
+          <button class="btn btn-primary" id="save-settings-btn">保存设置</button>
+          <span class="muted" id="settings-hint">修改后立即生效，无需重启。</span>
+        </div>
+        <div id="settings-form"></div>
+      </section>
+
+      <!-- 用户管理 -->
+      <section id="view-users" class="view hidden">
+        <div class="toolbar">
+          <button class="btn btn-primary" id="add-user-btn">+ 新增用户</button>
+        </div>
+        <div class="card" id="users-list"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- 通用弹窗 -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# 运行时数据（生日数据库 / 配置，含隐私与密钥，切勿上传）
+data/
+*.db
+config.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

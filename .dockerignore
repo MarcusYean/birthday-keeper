@@ -1,0 +1,9 @@
+data/
+*.db
+config.yaml
+__pycache__/
+*.pyc
+.git/
+.gitignore
+README.md
+smoke_test.py

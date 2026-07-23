@@ -1,0 +1,11 @@
+services:
+  birthday-keeper:
+    build: .
+    container_name: birthday-keeper
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data:/app/data

@@ -1,0 +1,41 @@
+# 生日管家 配置文件
+# 把本文件复制为 ./data/config.yaml 后按需修改，重启容器生效。
+
+app:
+  port: 8000
+  timezone: Asia/Shanghai        # 定时检查所用时区，建议与你的实际时区一致
+
+notify:
+  check_hour: 8                  # 每天几点检查（24小时制）
+  check_minute: 0
+  default_channels:              # 新增联系人时默认使用的渠道（可多选）
+    - wechat
+    - feishu
+  default_notify_days:           # 提前多少天提醒（可多选）
+    - 1
+    - 3
+    - 7
+
+# 邮件渠道（可选，默认关闭）。SMTP 信息可从群晖邮件服务或邮箱提供商获取。
+email:
+  enabled: false
+  smtp_host: ""
+  smtp_port: 465
+  smtp_user: ""
+  smtp_pass: ""
+  use_tls: true
+  from_addr: ""
+  to_addr: ""
+
+# 微信推送：serverchan( Server酱 ) / pushplus / bark
+wechat:
+  enabled: true
+  type: serverchan               # serverchan | pushplus | bark
+  token: ""                      # Server酱/PushPlus 的 token，或 Bark 的设备 key
+  bark_server: "https://api.day.app"   # 仅 bark 类型需要
+
+# 飞书（Lark）自定义机器人
+feishu:
+  enabled: true
+  webhook: ""                    # 飞书群机器人 webhook 地址
+  secret: ""                     # 可选：若机器人开启了「签名校验」则填写
