@@ -60,13 +60,28 @@ birthday-keeper/
 3. 打开 **Container Manager → 项目 → 新增**，选择该文件夹里的 `docker-compose.yml`，点击「下一步 / 部署」。
 4. 部署完成后，浏览器访问 `http://群晖IP:8000`，按引导**创建管理员账号**即可。
 
-### 方式二：SSH 命令行
+### 方式二：SSH 命令行（从 GitHub 克隆，推荐）
+
+```bash
+# 1. SSH 登录群晖后克隆仓库（把 <你的用户名> 换成实际 GitHub 用户名）
+cd /volume1/docker
+git clone https://github.com/<你的用户名>/birthday-keeper.git
+cd birthday-keeper
+
+# 2. 构建并启动
+mkdir -p data
+sudo docker compose up -d --build
+```
+
+以后升级只需：
 
 ```bash
 cd /volume1/docker/birthday-keeper
-mkdir -p data
-docker compose up -d --build
+git pull
+sudo docker compose up -d --build   # 数据在 ./data 卷中，不会丢失
 ```
+
+> 群晖若未安装 git，可用 Container Manager 方式（上传文件夹），或在「套件中心」搜索安装 Git Server / 通过 Entware 安装 git。
 
 > 群晖系统若使用 `docker-compose`（旧版），把上面 `docker compose` 换成 `docker-compose`。
 
