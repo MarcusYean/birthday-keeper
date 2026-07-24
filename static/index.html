@@ -58,9 +58,43 @@
     <main class="content">
       <!-- 联系人 -->
       <section id="view-contacts" class="view">
-        <div class="toolbar">
-          <button class="btn btn-primary" id="add-btn">+ 添加联系人</button>
-          <button class="btn btn-ghost" id="refresh-btn">刷新</button>
+        <div class="toolbar" id="contacts-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary" id="add-btn">+ 添加联系人</button>
+            <button class="btn btn-ghost" id="refresh-btn">刷新</button>
+          </div>
+          <div class="toolbar-right">
+            <div class="tool-group">
+              <label for="view-mode">视图</label>
+              <select id="view-mode"><option value="list">列表</option><option value="card">卡片</option><option value="compact">紧凑</option></select>
+            </div>
+            <div class="tool-group">
+              <label for="sort-by">排序</label>
+              <select id="sort-by">
+                <option value="days_until_asc">按倒计时 ↑</option>
+                <option value="days_until_desc">按倒计时 ↓</option>
+                <option value="name_asc">名称 A-Z</option>
+                <option value="name_desc">名称 Z-A</option>
+                <option value="age_asc">年龄从小到大</option>
+                <option value="age_desc">年龄从大到小</option>
+                <option value="month_day_asc">按生日月份</option>
+                <option value="created_at_desc">最近添加</option>
+              </select>
+            </div>
+            <div class="tool-group">
+              <label for="group-by">分类</label>
+              <select id="group-by">
+                <option value="none">不分组</option>
+                <option value="relationship">按关系</option>
+                <option value="gender">按性别</option>
+                <option value="zodiac">按星座</option>
+                <option value="chinese_zodiac">按生肖</option>
+                <option value="calendar_type">按历法</option>
+                <option value="birth_month">按生日月份</option>
+              </select>
+            </div>
+            <button class="btn btn-ghost" id="fields-btn">显示字段</button>
+          </div>
         </div>
         <div id="contacts-list" class="card"></div>
       </section>

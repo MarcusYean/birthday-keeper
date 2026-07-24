@@ -3,11 +3,11 @@
 每个调用各自打开连接，避免 FastAPI 线程池下的「跨线程使用 SQLite 对象」错误。
 """
 
-import os
 import json
+import os
 import sqlite3
 import threading
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 
 from . import auth
 
@@ -20,6 +20,11 @@ _SCHEMA = [
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
         name          TEXT NOT NULL,
         relationship  TEXT,
+        gender        TEXT,
+        birth_time    TEXT,
+        zodiac        TEXT,
+        hobbies       TEXT,
+        avatar        TEXT,
         calendar_type TEXT NOT NULL DEFAULT 'solar',
         month         INTEGER NOT NULL,
         day           INTEGER NOT NULL,
@@ -60,6 +65,15 @@ _SCHEMA = [
     """,
 ]
 
+# v2.1 新增列（兼容旧数据库）
+_MIGRATIONS = [
+    "ALTER TABLE birthdays ADD COLUMN gender TEXT",
+    "ALTER TABLE birthdays ADD COLUMN birth_time TEXT",
+    "ALTER TABLE birthdays ADD COLUMN zodiac TEXT",
+    "ALTER TABLE birthdays ADD COLUMN hobbies TEXT",
+    "ALTER TABLE birthdays ADD COLUMN avatar TEXT",
+]
+
 
 def _get_conn() -> sqlite3.Connection:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -70,19 +84,106 @@ def _get_conn() -> sqlite3.Connection:
 
 def _ensure_schema():
     conn = _get_conn()
-    for stmt in _SCHEMA:
-        conn.execute(stmt)
-    conn.commit()
-    conn.close()
+    try:
+        for stmt in _SCHEMA:
+            conn.execute(stmt)
+        for stmt in _MIGRATIONS:
+            try:
+                conn.execute(stmt)
+            except sqlite3.OperationalError as e:
+                # 列已存在则忽略
+                if "duplicate column name" in str(e).lower():
+                    continue
+                raise
+        conn.commit()
+    finally:
+        conn.close()
 
 
 _ensure_schema()
 
 
-# ---------- 生日 ----------
+# ---------- 生日计算辅助 ----------
+
+def _zodiac_sign(month: int, day: int) -> str:
+    """西方星座（按公历月日）。"""
+    boundaries = [
+        (1, 20, "水瓶座"), (2, 19, "双鱼座"), (3, 21, "白羊座"),
+        (4, 20, "金牛座"), (5, 21, "双子座"), (6, 22, "巨蟹座"),
+        (7, 23, "狮子座"), (8, 23, "处女座"), (9, 23, "天秤座"),
+        (10, 24, "天蝎座"), (11, 23, "射手座"), (12, 22, "摩羯座"),
+    ]
+    for m, d, sign in boundaries:
+        if (month, day) < (m, d):
+            return sign
+    return "摩羯座"  # 12.22 以后仍归摩羯
+
+
+_ZODIAC_ANIMALS = ["猴", "鸡", "狗", "猪", "鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊"]
+
+
+def _chinese_zodiac(year: int | None) -> str | None:
+    if year is None:
+        return None
+    return _ZODIAC_ANIMALS[year % 12]
+
+
+def _birthday_stats(r: dict, today: date | None = None) -> dict:
+    """为生日记录计算 next_date / days_until / age / days_lived / zodiac / is_today 等。"""
+    from . import lunar  # 延迟导入避免循环
+
+    if today is None:
+        today = date.today()
+
+    item = dict(r)
+    # 派生字段
+    target = lunar.next_occurrence(
+        item["calendar_type"], item["month"], item["day"], item["is_leap"]
+    )
+    item["next_date"] = target.isoformat() if target else None
+    item["days_until"] = (target - today).days if target else None
+    item["is_today"] = item["days_until"] == 0 if target else False
+    item["is_passed"] = item["days_until"] is None or item["days_until"] < 0
+
+    # 西方星座：使用生日的公历月日（如果是农历，用当年的公历对应月日）
+    z_month, z_day = item["month"], item["day"]
+    if target and item["calendar_type"] == "lunar":
+        z_month, z_day = target.month, target.day
+    item["zodiac"] = item.get("zodiac") or _zodiac_sign(z_month, z_day)
+
+    # 生肖与年龄/已活天数依赖 year
+    year = item.get("year")
+    item["chinese_zodiac"] = _chinese_zodiac(year)
+
+    if year:
+        # 精确出生日期：农历优先按农历年月日转换回公历
+        if item["calendar_type"] == "lunar":
+            birth_date = lunar._lunar_to_solar(year, item["month"], item["day"], item["is_leap"])
+        else:
+            birth_date = date(year, item["month"], item["day"])
+        if birth_date:
+            days_lived = (today - birth_date).days
+            item["days_lived"] = max(0, days_lived)
+            # 周岁：到今年生日（公历）是否已过
+            try:
+                this_year_birth = date(today.year, item["month"], item["day"])
+            except ValueError:
+                this_year_birth = date(today.year, item["month"] + 1, 1)
+            age = today.year - year - (1 if today < this_year_birth else 0)
+            item["age"] = max(0, age)
+            # 下一个生日时的周岁
+            item["age_on_next"] = item["age"] + (1 if item["days_until"] is not None and item["days_until"] > 0 else 0)
+    else:
+        item["days_lived"] = None
+        item["age"] = None
+        item["age_on_next"] = None
+
+    return item
+
 
 def _row_to_dict(r) -> dict:
     d = dict(r)
+    # 兼容旧数据，JSON 列留空时给空列表
     d["notify_days"] = json.loads(d["notify_days"]) if d.get("notify_days") else []
     d["channels"] = json.loads(d["channels"]) if d.get("channels") else []
     d["is_leap"] = bool(d["is_leap"])
@@ -94,7 +195,7 @@ def get_all_birthdays() -> list:
     conn = _get_conn()
     try:
         cur = conn.execute("SELECT * FROM birthdays ORDER BY month, day")
-        return [_row_to_dict(r) for r in cur.fetchall()]
+        return [_birthday_stats(_row_to_dict(r)) for r in cur.fetchall()]
     finally:
         conn.close()
 
@@ -104,7 +205,7 @@ def get_birthday(bid: int) -> dict | None:
     try:
         cur = conn.execute("SELECT * FROM birthdays WHERE id=?", (bid,))
         r = cur.fetchone()
-        return _row_to_dict(r) if r else None
+        return _birthday_stats(_row_to_dict(r)) if r else None
     finally:
         conn.close()
 
@@ -117,13 +218,19 @@ def create_birthday(data: dict) -> dict:
         cur = conn.execute(
             """
             INSERT INTO birthdays
-              (name, relationship, calendar_type, month, day, year, is_leap,
+              (name, relationship, gender, birth_time, zodiac, hobbies, avatar,
+               calendar_type, month, day, year, is_leap,
                notify_days, channels, note, enabled, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 data.get("name"),
                 data.get("relationship"),
+                data.get("gender"),
+                data.get("birth_time"),
+                data.get("zodiac"),
+                data.get("hobbies"),
+                data.get("avatar"),
                 data.get("calendar_type", "solar"),
                 data.get("month"),
                 data.get("day"),
@@ -150,13 +257,19 @@ def update_birthday(bid: int, data: dict) -> dict | None:
         conn.execute(
             """
             UPDATE birthdays SET
-              name=?, relationship=?, calendar_type=?, month=?, day=?, year=?,
+              name=?, relationship=?, gender=?, birth_time=?, zodiac=?, hobbies=?, avatar=?,
+              calendar_type=?, month=?, day=?, year=?,
               is_leap=?, notify_days=?, channels=?, note=?, enabled=?
             WHERE id=?
             """,
             (
                 data.get("name"),
                 data.get("relationship"),
+                data.get("gender"),
+                data.get("birth_time"),
+                data.get("zodiac"),
+                data.get("hobbies"),
+                data.get("avatar"),
                 data.get("calendar_type", "solar"),
                 data.get("month"),
                 data.get("day"),
@@ -228,6 +341,7 @@ def upcoming(days: int = 30) -> list:
             item = dict(r)
             item["next_date"] = target.isoformat()
             item["days_until"] = delta
+            item["is_today"] = delta == 0
             out.append(item)
     out.sort(key=lambda x: x["days_until"])
     return out

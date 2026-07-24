@@ -60,6 +60,11 @@ class UserIn(BaseModel):
 class BirthdayIn(BaseModel):
     name: str
     relationship: str | None = None
+    gender: str | None = None
+    birth_time: str | None = None
+    zodiac: str | None = None
+    hobbies: str | None = None
+    avatar: str | None = None
     calendar_type: str = "solar"  # 'solar' | 'lunar'
     month: int
     day: int
@@ -133,12 +138,12 @@ def list_birthdays(user: dict = Depends(get_current_user)):
 
 @app.post("/api/birthdays")
 def create_birthday(b: BirthdayIn, user: dict = Depends(get_current_user)):
-    return db.create_birthday(b.dict())
+    return db.create_birthday(b.model_dump())
 
 
 @app.put("/api/birthdays/{bid}")
 def update_birthday(bid: int, b: BirthdayIn, user: dict = Depends(get_current_user)):
-    row = db.update_birthday(bid, b.dict())
+    row = db.update_birthday(bid, b.model_dump())
     if not row:
         raise HTTPException(status_code=404, detail="未找到该联系人")
     return row

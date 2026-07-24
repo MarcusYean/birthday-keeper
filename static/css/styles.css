@@ -204,8 +204,81 @@ tbody tr:hover { background: #fafbff; }
 
 #toast.err { background: var(--bad); }
 
-/* ---------- 响应式 ---------- */
-@media (max-width: 760px) {
+/* 数字高亮 */
+.num { font-weight: 700; color: var(--primary-d); }
+.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 工具栏 ---------- */
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toolbar-right { margin-left: auto; }
+.tool-group { display: flex; align-items: center; gap: 6px; }
+.tool-group label { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.tool-group select, #view-mode, #sort-by, #group-by {
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: #fff; color: var(--text); font-size: 13px; min-width: 92px;
+}
+.tool-group select:focus, #view-mode:focus, #sort-by:focus, #group-by:focus { outline: none; border-color: var(--primary); }
+
+/* ---------- 分组标题 ---------- */
+.group + .group { margin-top: 18px; }
+.group .group-title {
+  font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+}
+.group .group-count {
+  font-size: 11.5px; font-weight: 600; color: var(--muted); background: #eef1f7; padding: 2px 8px; border-radius: 999px;
+}
+
+/* ---------- 头像 ---------- */
+.avatar {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; font-size: 18px;
+  background: var(--primary-soft); border-radius: 50%; vertical-align: middle; margin-right: 6px;
+}
+.avatar-lg { width: 46px; height: 46px; font-size: 26px; margin-right: 0; }
+
+/* ---------- 列表视图增强标签 ---------- */
+.tag.male { background: #e6f0ff; color: #2b6cb0; }
+.tag.female { background: #ffeef5; color: #b83280; }
+.tag.zodiac { background: #f3e8ff; color: #7e3af2; }
+.tag.near { background: #fff8e1; color: #b45309; }
+.tag.today { background: #ffe9e3; color: #d9534f; }
+
+/* ---------- 卡片视图 ---------- */
+.card-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+}
+.contact-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; transition: .15s;
+}
+.contact-card:hover { border-color: #d7deea; transform: translateY(-1px); }
+.cc-head { display: flex; align-items: center; gap: 12px; }
+.cc-head-info { flex: 1; min-width: 0; }
+.cc-name { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.cc-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.cc-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.cc-stat { background: #fafbff; border-radius: 10px; padding: 10px; }
+.cc-stat-label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 3px; }
+.cc-stat-val { font-size: 13px; font-weight: 600; }
+.cc-tags, .cc-note { font-size: 12.5px; color: var(--muted); word-break: break-word; }
+.cc-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding-top: 4px; }
+
+/* ---------- 紧凑列表 ---------- */
+.compact-list { display: flex; flex-direction: column; }
+.compact-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--line);
+}
+.compact-item:last-child { border-bottom: none; }
+.compact-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.compact-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.compact-right .actions { display: inline-flex; gap: 6px; }
+
+/* ---------- 字段选择器 ---------- */
+.field-picker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 50vh; overflow: auto; padding-right: 4px; }
+.field-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.field-check input { accent-color: var(--primary); width: 15px; height: 15px; }
+
+/* 修正弹窗 select 被表格样式覆盖 */
+.modal-form select { appearance: auto; }
   .sidebar { position: static; width: 100%; height: auto; flex-direction: row; align-items: center; padding: 12px; gap: 8px; }
   .side-brand { display: none; }
   .nav { flex-direction: row; flex-wrap: wrap; flex: 1; }

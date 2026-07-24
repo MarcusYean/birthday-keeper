@@ -53,21 +53,35 @@ check("正确密码登录成功", r.status_code == 200, r.text)
 r = requests.get(BASE + "/api/me", headers=AH).json()
 check("/api/me 返回 admin", r.get("username") == "admin" and r.get("role") == "admin", str(r))
 
-# 7. 生日 CRUD（公历 + 农历）
+# 7. 生日 CRUD（公历 + 农历 + 扩展字段）
 r = requests.post(BASE + "/api/birthdays", headers=AH, json={
     "name": "老爸", "relationship": "家人", "calendar_type": "lunar",
-    "month": 8, "day": 15, "year": 1960, "notify_days": [1, 7], "channels": ["wechat"]})
-check("添加农历联系人", r.status_code == 200, r.text)
+    "month": 8, "day": 15, "year": 1960,
+    "gender": "男", "birth_time": "辰时 07:00-09:00", "zodiac": "", "hobbies": "喝茶、钓鱼", "avatar": "🎣",
+    "notify_days": [1, 7], "channels": ["wechat"]})
+check("添加农历联系人（含扩展字段）", r.status_code == 200, r.text[:300])
 bid = r.json()["id"]
+rdata = r.json()
+check("返回含派生字段 (next_date/days_until/age/chinese_zodiac)",
+      all(k in rdata for k in ("next_date", "days_until", "age", "chinese_zodiac", "zodiac")),
+      str({k: rdata.get(k) for k in ("next_date", "days_until", "age", "chinese_zodiac", "zodiac")}))
+check("生肖为鼠", rdata.get("chinese_zodiac") == "鼠", rdata.get("chinese_zodiac"))
+
 r = requests.post(BASE + "/api/birthdays", headers=AH, json={
-    "name": "小明", "calendar_type": "solar", "month": 12, "day": 1})
-check("添加公历联系人", r.status_code == 200, r.text)
+    "name": "小明", "calendar_type": "solar", "month": 12, "day": 1,
+    "gender": "男", "birth_time": "", "zodiac": "射手座", "hobbies": "篮球", "avatar": ""})
+check("添加公历联系人（含扩展字段）", r.status_code == 200, r.text[:300])
+
 r = requests.get(BASE + "/api/birthdays", headers=AH).json()
 check("列表返回 2 条", len(r) == 2, str(len(r)))
+check("列表项含 days_lived", all("days_lived" in x for x in r), str([x.get("days_lived") for x in r]))
+
 r = requests.put(BASE + f"/api/birthdays/{bid}", headers=AH, json={
     "name": "老爸", "relationship": "家人", "calendar_type": "lunar",
-    "month": 8, "day": 15, "year": 1960, "notify_days": [1, 3, 7], "channels": ["wechat", "feishu"]})
-check("更新联系人", r.status_code == 200 and r.json()["notify_days"] == [1, 3, 7], r.text)
+    "month": 8, "day": 15, "year": 1960, "gender": "男", "birth_time": "辰时 07:00-09:00", "zodiac": "", "hobbies": "喝茶、钓鱼、下棋", "avatar": "🎣",
+    "notify_days": [1, 3, 7], "channels": ["wechat", "feishu"]})
+check("更新联系人（含扩展字段）", r.status_code == 200 and r.json()["notify_days"] == [1, 3, 7], r.text)
+check("更新后爱好字段正确", r.json().get("hobbies") == "喝茶、钓鱼、下棋", r.json().get("hobbies"))
 
 # 8. 即将到来
 r = requests.get(BASE + "/api/upcoming?days=400", headers=AH).json()

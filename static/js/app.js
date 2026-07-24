@@ -1,4 +1,4 @@
-/* 生日管家 v2 前端 SPA */
+/* 生日管家 v2.1 前端 SPA */
 "use strict";
 
 /* ============ 工具 ============ */
@@ -7,6 +7,7 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 let TOKEN = localStorage.getItem("bk_token") || "";
 let ME = null; // {username, role}
+let CONTACTS = []; // 当前缓存，带派生字段
 
 function toast(msg, ok = true) {
   const t = $("#toast");
@@ -142,52 +143,298 @@ function switchView(name) {
 $$(".nav-item").forEach((n) =>
   n.addEventListener("click", () => switchView(n.dataset.view)));
 
-/* ============ 联系人 ============ */
-const CH_NAMES = { wechat: "微信", feishu: "飞书", email: "邮件" };
+/* ============ 视图偏好（联系人页） ============ */
+const VIEW_PREFS_KEY = "bk_view_prefs";
+const DEFAULT_FIELDS = [
+  "avatar", "name", "relationship", "gender", "calendar_badge", "next_date",
+  "days_until", "age", "zodiac", "enabled_actions"
+];
 
+function loadViewPrefs() {
+  try {
+    return { ...JSON.parse(localStorage.getItem(VIEW_PREFS_KEY) || "{}") };
+  } catch {
+    return {};
+  }
+}
+function saveViewPrefs(prefs) {
+  localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(prefs));
+}
+let VIEW_PREFS = {
+  mode: "list",
+  sort: "days_until_asc",
+  group: "none",
+  fields: [...DEFAULT_FIELDS],
+  ...loadViewPrefs(),
+};
+
+const FIELD_META = [
+  { key: "avatar", label: "头像" },
+  { key: "name", label: "姓名" },
+  { key: "relationship", label: "关系" },
+  { key: "gender", label: "性别" },
+  { key: "birth_time", label: "时辰" },
+  { key: "calendar_badge", label: "历法标签" },
+  { key: "birth_date", label: "出生日期" },
+  { key: "next_date", label: "下次生日" },
+  { key: "days_until", label: "倒计时" },
+  { key: "age", label: "当前年龄" },
+  { key: "age_on_next", label: "届时年龄" },
+  { key: "days_lived", label: "已活天数" },
+  { key: "zodiac", label: "星座" },
+  { key: "chinese_zodiac", label: "生肖" },
+  { key: "hobbies", label: "爱好" },
+  { key: "note", label: "备注" },
+  { key: "enabled_actions", label: "状态与操作" },
+];
+
+const CH_NAMES = { wechat: "微信", feishu: "飞书", email: "邮件" };
+const BIRTH_TIMES = [
+  "", "子时 23:00-01:00", "丑时 01:00-03:00", "寅时 03:00-05:00", "卯时 05:00-07:00",
+  "辰时 07:00-09:00", "巳时 09:00-11:00", "午时 11:00-13:00", "未时 13:00-15:00",
+  "申时 15:00-17:00", "酉时 17:00-19:00", "戌时 19:00-21:00", "亥时 21:00-23:00"
+];
+const ZODIACS = ["", "白羊座", "金牛座", "双子座", "巨蟹座", "狮子座", "处女座", "天秤座", "天蝎座", "射手座", "摩羯座", "水瓶座", "双鱼座"];
+const AVATARS = ["", "🎂", "🎈", "🎁", "🧸", "🎊", "🎉", "👶", "👧", "👦", "👩", "👨", "👴", "👵", "🧑", "🐶", "🐱", "🐰", "🐯", "🐼", "🐨", "🦊", "🦁"];
+
+function applyToolbar() {
+  $("#view-mode").value = VIEW_PREFS.mode;
+  $("#sort-by").value = VIEW_PREFS.sort;
+  $("#group-by").value = VIEW_PREFS.group;
+}
+
+$("#view-mode").addEventListener("change", (e) => { VIEW_PREFS.mode = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+$("#sort-by").addEventListener("change", (e) => { VIEW_PREFS.sort = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+$("#group-by").addEventListener("change", (e) => { VIEW_PREFS.group = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+$("#fields-btn").addEventListener("click", openFieldPicker);
+$("#refresh-btn").addEventListener("click", loadContacts);
+$("#add-btn").addEventListener("click", () => openContactModal(null));
+
+/* ============ 联系人 ============ */
 async function loadContacts() {
   const box = $("#contacts-list");
   box.innerHTML = '<div class="empty">加载中…</div>';
   try {
-    const rows = await api("/api/birthdays");
-    if (!rows.length) {
-      box.innerHTML = '<div class="empty">还没有联系人，点击「+ 添加联系人」开始记录 🎂</div>';
-      return;
-    }
-    box.innerHTML = `
-      <table class="table">
-        <thead><tr>
-          <th>姓名</th><th>关系</th><th>生日</th><th>提前提醒</th><th>渠道</th><th>状态</th><th class="ta-r">操作</th>
-        </tr></thead>
-        <tbody>${rows.map(rowHtml).join("")}</tbody>
-      </table>`;
+    CONTACTS = await api("/api/birthdays");
+    applyToolbar();
+    renderContacts();
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 
-function rowHtml(r) {
-  const cal = r.calendar_type === "lunar"
-    ? `<span class="tag tag-lunar">农历</span>`
-    : `<span class="tag tag-solar">公历</span>`;
-  const date = `${r.year ? r.year + "." : ""}${r.month}.${r.day}${r.is_leap ? "（闰月）" : ""}`;
-  const days = (r.notify_days || []).length
-    ? r.notify_days.map((d) => `提前${d}天`).join("、")
-    : '<span class="muted">跟随全局</span>';
-  const chs = (r.channels || []).length
-    ? r.channels.map((c) => CH_NAMES[c] || c).join("、")
-    : '<span class="muted">跟随全局</span>';
-  return `<tr>
-    <td><b>${esc(r.name)}</b>${r.note ? `<div class="muted sm">${esc(r.note)}</div>` : ""}</td>
-    <td>${esc(r.relationship || "-")}</td>
-    <td>${cal} ${date}</td>
-    <td>${days}</td>
-    <td>${chs}</td>
-    <td>${r.enabled ? '<span class="tag tag-on">启用</span>' : '<span class="tag tag-off">停用</span>'}</td>
-    <td class="ta-r">
-      <button class="btn btn-ghost btn-sm" onclick="testNotify(${r.id})">测试</button>
-      <button class="btn btn-ghost btn-sm" onclick='editContact(${JSON.stringify(r).replace(/'/g, "&#39;")})'>编辑</button>
-      <button class="btn btn-danger-ghost btn-sm" onclick="delContact(${r.id}, '${esc(r.name)}')">删除</button>
-    </td>
-  </tr>`;
+function sortContacts(rows) {
+  const s = VIEW_PREFS.sort;
+  const a = [...rows];
+  const direction = s.endsWith("_desc") ? -1 : 1;
+  const key = s.replace(/_(asc|desc)$/, "");
+
+  const getVal = (r) => {
+    if (key === "name") return r.name || "";
+    if (key === "days_until") return r.days_until == null ? 9999 : r.days_until;
+    if (key === "age") return r.age == null ? -1 : r.age;
+    if (key === "month_day") return (r.month || 0) * 100 + (r.day || 0);
+    if (key === "created_at") return r.created_at || "";
+    return r.name || "";
+  };
+  a.sort((x, y) => {
+    const vx = getVal(x), vy = getVal(y);
+    if (vx < vy) return -1 * direction;
+    if (vx > vy) return 1 * direction;
+    return 0;
+  });
+  return a;
+}
+
+function groupValue(r) {
+  const g = VIEW_PREFS.group;
+  if (g === "none") return null;
+  if (g === "birth_month") return r.month ? `${r.month} 月` : "未填写";
+  if (g === "calendar_type") return r.calendar_type === "lunar" ? "农历生日" : "公历生日";
+  if (g === "zodiac") return r.zodiac || "未填写";
+  if (g === "chinese_zodiac") return r.chinese_zodiac || "未填写";
+  return r[g] || "未分组";
+}
+
+function groupContacts(rows) {
+  if (VIEW_PREFS.group === "none") return [{ title: "全部联系人", items: rows }];
+  const map = new Map();
+  rows.forEach((r) => {
+    const k = groupValue(r);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(r);
+  });
+  const titles = Array.from(map.keys());
+  // 常见分组排序：月份按数字，其他按字母/原样
+  if (VIEW_PREFS.group === "birth_month") {
+    titles.sort((a, b) => parseInt(a) - parseInt(b));
+  }
+  return titles.map((t) => ({ title: t, items: map.get(t) }));
+}
+
+function renderContacts() {
+  const box = $("#contacts-list");
+  if (!CONTACTS.length) {
+    box.innerHTML = '<div class="empty">还没有联系人，点击「+ 添加联系人」开始记录 🎂</div>';
+    return;
+  }
+  const sorted = sortContacts(CONTACTS);
+  const groups = groupContacts(sorted);
+  const html = groups.map((g) => renderGroup(g)).join("");
+  box.innerHTML = html;
+}
+
+function renderGroup(g) {
+  const mode = VIEW_PREFS.mode;
+  const items = g.items.map((r) => {
+    if (mode === "card") return cardHtml(r);
+    if (mode === "compact") return compactRowHtml(r);
+    return listRowHtml(r);
+  }).join("");
+
+  if (mode === "card") {
+    return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="card-grid">${items}</div></div>`;
+  }
+  if (mode === "compact") {
+    return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="compact-list">${items}</div></div>`;
+  }
+  return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><table class="table"><thead>${listHeader()}</thead><tbody>${items}</tbody></table></div>`;
+}
+
+function hasField(key) { return VIEW_PREFS.fields.includes(key); }
+
+function listHeader() {
+  const ths = [];
+  if (hasField("avatar")) ths.push("<th></th>");
+  if (hasField("name")) ths.push("<th>姓名</th>");
+  if (hasField("relationship")) ths.push("<th>关系</th>");
+  if (hasField("gender")) ths.push("<th>性别</th>");
+  if (hasField("birth_time")) ths.push("<th>时辰</th>");
+  if (hasField("calendar_badge")) ths.push("<th>历法</th>");
+  if (hasField("birth_date")) ths.push("<th>出生日期</th>");
+  if (hasField("next_date")) ths.push("<th>下次生日</th>");
+  if (hasField("days_until")) ths.push("<th>倒计时</th>");
+  if (hasField("age")) ths.push("<th>年龄</th>");
+  if (hasField("age_on_next")) ths.push("<th>届时</th>");
+  if (hasField("days_lived")) ths.push("<th>已活天数</th>");
+  if (hasField("zodiac")) ths.push("<th>星座</th>");
+  if (hasField("chinese_zodiac")) ths.push("<th>生肖</th>");
+  if (hasField("hobbies")) ths.push("<th>爱好</th>");
+  if (hasField("note")) ths.push("<th>备注</th>");
+  if (hasField("enabled_actions")) ths.push('<th class="ta-r">状态 / 操作</th>');
+  return `<tr>${ths.join("")}</tr>`;
+}
+
+function listRowHtml(r) {
+  const cells = [];
+  if (hasField("avatar")) cells.push(`<td>${avatarHtml(r)}</td>`);
+  if (hasField("name")) cells.push(`<td><b>${esc(r.name)}</b>${subLine(r)}</td>`);
+  if (hasField("relationship")) cells.push(`<td>${esc(r.relationship || "-")}</td>`);
+  if (hasField("gender")) cells.push(`<td>${genderBadge(r.gender)}</td>`);
+  if (hasField("birth_time")) cells.push(`<td>${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
+  if (hasField("calendar_badge")) cells.push(`<td>${calendarBadge(r)}</td>`);
+  if (hasField("birth_date")) cells.push(`<td>${birthDateLabel(r)}</td>`);
+  if (hasField("next_date")) cells.push(`<td>${nextDateLabel(r)}</td>`);
+  if (hasField("days_until")) cells.push(`<td>${daysBadge(r)}</td>`);
+  if (hasField("age")) cells.push(`<td>${ageLabel(r.age)}</td>`);
+  if (hasField("age_on_next")) cells.push(`<td>${ageLabel(r.age_on_next)}</td>`);
+  if (hasField("days_lived")) cells.push(`<td>${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</td>`);
+  if (hasField("zodiac")) cells.push(`<td>${zodiacBadge(r.zodiac)}</td>`);
+  if (hasField("chinese_zodiac")) cells.push(`<td>${r.chinese_zodiac || "-"}</td>`);
+  if (hasField("hobbies")) cells.push(`<td class="ellipsis">${esc(r.hobbies || "-")}</td>`);
+  if (hasField("note")) cells.push(`<td class="ellipsis">${esc(r.note || "-")}</td>`);
+  if (hasField("enabled_actions")) cells.push(`<td class="ta-r">${actionsHtml(r)}</td>`);
+  return `<tr>${cells.join("")}</tr>`;
+}
+
+function cardHtml(r) {
+  const name = esc(r.name);
+  return `
+  <div class="contact-card">
+    <div class="cc-head">
+      <div class="cc-avatar">${avatarHtml(r, true)}</div>
+      <div class="cc-head-info">
+        <div class="cc-name">${name}${calendarBadge(r)}</div>
+        <div class="cc-sub">${metaLine(r)}</div>
+      </div>
+    </div>
+    <div class="cc-stats">
+      ${hasField("next_date") || hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">下次生日</span><span class="cc-stat-val">${nextDateLabel(r)}</span></div>` : ""}
+      ${hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">倒计时</span><span class="cc-stat-val">${daysBadge(r)}</span></div>` : ""}
+      ${hasField("age") || hasField("age_on_next") ? `<div class="cc-stat"><span class="cc-stat-label">届时年龄</span><span class="cc-stat-val">${ageLabel(r.age_on_next)}</span></div>` : ""}
+      ${hasField("days_lived") ? `<div class="cc-stat"><span class="cc-stat-label">已活天数</span><span class="cc-stat-val">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</span></div>` : ""}
+    </div>
+    ${hasField("hobbies") && r.hobbies ? `<div class="cc-tags"><span class="muted">爱好：</span>${esc(r.hobbies)}</div>` : ""}
+    ${hasField("note") && r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
+    <div class="cc-actions">${actionsHtml(r)}</div>
+  </div>`;
+}
+
+function compactRowHtml(r) {
+  return `
+  <div class="compact-item">
+    <div class="compact-left">
+      ${avatarHtml(r)}<b>${esc(r.name)}</b>
+      <span class="muted sm">${esc(r.relationship || "")}${r.relationship ? " · " : ""}${calendarBadge(r)}</span>
+    </div>
+    <div class="compact-right">
+      ${hasField("days_until") ? daysBadge(r) : ""}
+      ${hasField("next_date") ? `<span class="muted sm">${nextDateLabel(r)}</span>` : ""}
+      ${hasField("age") ? `<span class="muted sm">${ageLabel(r.age_on_next)}</span>` : ""}
+      ${actionsHtml(r)}
+    </div>
+  </div>`;
+}
+
+/* 小部件 */
+function avatarHtml(r, big = false) {
+  const av = r.avatar || (r.gender === "男" ? "👨" : r.gender === "女" ? "👩" : "🧑");
+  return `<span class="avatar ${big ? "avatar-lg" : ""}">${av}</span>`;
+}
+function calendarBadge(r) {
+  if (r.calendar_type === "lunar") return '<span class="tag tag-lunar">农历</span>';
+  return '<span class="tag tag-solar">公历</span>';
+}
+function genderBadge(g) {
+  if (!g) return "-";
+  const cls = g === "男" ? "male" : g === "女" ? "female" : "";
+  return `<span class="tag ${cls}">${g}</span>`;
+}
+function zodiacBadge(z) { return z ? `<span class="tag zodiac">${esc(z)}</span>` : "-"; }
+function ageLabel(age) { return age != null ? `<span class="num">${age}</span> 岁` : "-"; }
+function subLine(r) { return (r.relationship && !hasField("relationship")) ? `<div class="muted sm">${esc(r.relationship)}</div>` : ""; }
+function metaLine(r) {
+  const parts = [];
+  if (r.relationship && hasField("relationship")) parts.push(esc(r.relationship));
+  if (r.gender && hasField("gender")) parts.push(genderBadge(r.gender));
+  if (r.birth_time && hasField("birth_time")) parts.push(esc((r.birth_time || "").split(" ")[0]));
+  if (r.zodiac && hasField("zodiac")) parts.push(zodiacBadge(r.zodiac));
+  if (r.chinese_zodiac && hasField("chinese_zodiac")) parts.push(r.chinese_zodiac);
+  return parts.join(" ") || "&nbsp;";
+}
+function birthDateLabel(r) {
+  const cal = r.calendar_type === "lunar" ? "农历" : "公历";
+  const y = r.year ? r.year + " 年 " : "";
+  return `${cal} ${y}${r.month} 月 ${r.day} 日${r.is_leap ? "（闰月）" : ""}`;
+}
+function nextDateLabel(r) {
+  if (!r.next_date) return "-";
+  return `<span class="mono">${r.next_date}</span>`;
+}
+function daysBadge(r) {
+  if (r.days_until == null) return "-";
+  if (r.is_today) return '<span class="tag today">🎉 今天</span>';
+  if (r.days_until === 0) return '<span class="tag today">🎉 今天</span>';
+  if (r.days_until <= 3) return `<span class="tag soon">${r.days_until} 天后</span>`;
+  if (r.days_until <= 14) return `<span class="tag near">${r.days_until} 天后</span>`;
+  return `<span class="tag">${r.days_until} 天后</span>`;
+}
+function actionsHtml(r) {
+  const en = r.enabled ? '<span class="tag tag-on">启用</span>' : '<span class="tag tag-off">停用</span>';
+  const btns = `
+    <button class="btn btn-ghost btn-sm" onclick="testNotify(${r.id})">测试</button>
+    <button class="btn btn-ghost btn-sm" onclick='editContact(${JSON.stringify(r).replace(/'/g, "&#39;")})'>编辑</button>
+    <button class="btn btn-danger-ghost btn-sm" onclick="delContact(${r.id}, '${esc(r.name)}')">删除</button>
+  `;
+  return `<div class="actions">${en}${btns}</div>`;
 }
 
 window.testNotify = async (id) => {
@@ -212,27 +459,76 @@ window.delContact = async (id, name) => {
 
 window.editContact = (r) => openContactModal(r);
 
-$("#add-btn").addEventListener("click", () => openContactModal(null));
-$("#refresh-btn").addEventListener("click", loadContacts);
+/* 字段选择器 */
+function openFieldPicker() {
+  const rows = FIELD_META.map((f) => `
+    <label class="field-check">
+      <input type="checkbox" value="${f.key}" ${VIEW_PREFS.fields.includes(f.key) ? "checked" : ""} />
+      <span>${f.label}</span>
+    </label>
+  `).join("");
+  openModal(`
+    <h2>选择显示字段</h2>
+    <p class="muted sm" style="margin-bottom:12px">勾选希望在联系人列表/卡片中显示的字段。</p>
+    <form id="fields-form" class="field-picker">${rows}</form>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button type="button" class="btn btn-primary" id="save-fields-btn">保存</button>
+    </div>
+  `);
+  $("#save-fields-btn").addEventListener("click", () => {
+    const chosen = $$("#fields-form input:checked").map((i) => i.value);
+    if (!chosen.includes("name")) chosen.unshift("name"); // 至少保留姓名
+    if (!chosen.includes("enabled_actions")) chosen.push("enabled_actions"); // 保留操作
+    VIEW_PREFS.fields = chosen;
+    saveViewPrefs(VIEW_PREFS);
+    closeModal();
+    renderContacts();
+    toast("显示字段已更新");
+  });
+}
 
+/* 添加/编辑联系人弹窗 */
 function openContactModal(r) {
   const isEdit = !!r;
   r = r || {};
   const nd = (r.notify_days || []).join(",");
   const chs = r.channels || [];
+  const zodiac = r.zodiac || "";
+  const gender = r.gender || "";
+  const birthTime = r.birth_time || "";
+  const avatar = r.avatar || "";
+  const hobbies = r.hobbies || "";
+
   openModal(`
     <h2>${isEdit ? "编辑联系人" : "添加联系人"}</h2>
     <form id="contact-form" class="modal-form">
       <div class="grid2">
         <div class="field">
           <label>姓名 *</label>
-          <input id="c-name" required value="${esc(r.name || "")}" placeholder="如：老爸" />
+          <input id="c-name" type="text" required value="${esc(r.name || "")}" placeholder="如：老爸" />
         </div>
         <div class="field">
           <label>关系</label>
-          <input id="c-rel" value="${esc(r.relationship || "")}" placeholder="如：家人 / 朋友" />
+          <input id="c-rel" type="text" value="${esc(r.relationship || "")}" placeholder="如：家人 / 朋友" />
         </div>
       </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label>性别</label>
+          <select id="c-gender">${["", "男", "女", "其他"].map((v) => `<option value="${v}" ${gender === v ? "selected" : ""}>${v || "-"}</option>`).join("")}</select>
+        </div>
+        <div class="field">
+          <label>头像</label>
+          <select id="c-avatar">${AVATARS.map((v) => `<option value="${v}" ${avatar === v ? "selected" : ""}>${v || "默认"}</option>`).join("")}</select>
+        </div>
+        <div class="field">
+          <label>出生时辰</label>
+          <select id="c-birth-time">${BIRTH_TIMES.map((v) => `<option value="${esc(v)}" ${birthTime === v ? "selected" : ""}>${v ? v.split(" ")[0] + " " + v.split(" ")[1] : "-"}</option>`).join("")}</select>
+        </div>
+      </div>
+
       <div class="grid2">
         <div class="field">
           <label>历法类型</label>
@@ -242,11 +538,16 @@ function openContactModal(r) {
           </select>
         </div>
         <div class="field">
+          <label>星座（留空则自动根据生日计算）</label>
+          <select id="c-zodiac">${ZODIACS.map((v) => `<option value="${v}" ${zodiac === v ? "selected" : ""}>${v || "自动计算"}</option>`).join("")}</select>
+        </div>
+      </div>
+
+      <div class="grid3">
+        <div class="field">
           <label>出生年份（可选，用于计算年龄）</label>
           <input id="c-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="如 1960" />
         </div>
-      </div>
-      <div class="grid3">
         <div class="field">
           <label>月 *</label>
           <input id="c-month" type="number" min="1" max="12" required value="${r.month || ""}" />
@@ -255,13 +556,20 @@ function openContactModal(r) {
           <label>日 *</label>
           <input id="c-day" type="number" min="1" max="31" required value="${r.day || ""}" />
         </div>
-        <div class="field">
-          <label class="chk"><input id="c-leap" type="checkbox" ${r.is_leap ? "checked" : ""}/> 闰月（仅农历）</label>
-        </div>
       </div>
+
+      <div class="field">
+        <label class="chk"><input id="c-leap" type="checkbox" ${r.is_leap ? "checked" : ""}/> 闰月（仅农历）</label>
+      </div>
+
+      <div class="field">
+        <label>爱好（用逗号分隔）</label>
+        <input id="c-hobbies" type="text" value="${esc(hobbies)}" placeholder="如：读书、旅游、羽毛球" />
+      </div>
+
       <div class="field">
         <label>提前提醒天数（逗号分隔，留空则跟随全局默认）</label>
-        <input id="c-days" value="${nd}" placeholder="如 1,3,7 表示提前1/3/7天各提醒一次" />
+        <input id="c-days" type="text" value="${nd}" placeholder="如 1,3,7 表示提前1/3/7天各提醒一次" />
       </div>
       <div class="field">
         <label>提醒渠道（留空则跟随全局默认）</label>
@@ -273,7 +581,7 @@ function openContactModal(r) {
       </div>
       <div class="field">
         <label>备注</label>
-        <input id="c-note" value="${esc(r.note || "")}" placeholder="如：喜欢的礼物、忌口等" />
+        <input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="如：喜欢的礼物、忌口等" />
       </div>
       <div class="field">
         <label class="chk"><input id="c-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> 启用提醒</label>
@@ -289,6 +597,11 @@ function openContactModal(r) {
     const body = {
       name: $("#c-name").value.trim(),
       relationship: $("#c-rel").value.trim() || null,
+      gender: $("#c-gender").value || null,
+      birth_time: $("#c-birth-time").value || null,
+      zodiac: $("#c-zodiac").value || null,
+      hobbies: $("#c-hobbies").value.trim() || null,
+      avatar: $("#c-avatar").value || null,
       calendar_type: $("#c-cal").value,
       year: $("#c-year").value ? parseInt($("#c-year").value) : null,
       month: parseInt($("#c-month").value),
@@ -325,28 +638,22 @@ async function loadUpcoming() {
       return;
     }
     box.innerHTML = rows.map((r) => {
-      const badge = r.days_until === 0
-        ? '<span class="days today">🎉 今天</span>'
-        : `<span class="days">${r.days_until} 天后</span>`;
       const cal = r.calendar_type === "lunar" ? "农历" : "公历";
-      const age = r.age != null ? ` · ${r.age} 岁` : "";
+      const age = r.age_on_next != null ? ` · ${r.age_on_next} 岁` : "";
+      const lived = r.days_lived != null ? `<div class="up-meta">已活 <span class="num">${r.days_lived.toLocaleString()}</span> 天</div>` : "";
       return `<div class="up-item">
         <div class="up-left">
-          <div class="up-name">${esc(r.name)} <span class="muted sm">${esc(r.relationship || "")}</span></div>
+          <div class="up-name">${avatarHtml(r)} ${esc(r.name)} <span class="muted sm">${esc(r.relationship || "")}</span></div>
           <div class="muted sm">${cal} ${r.month}.${r.day} · ${r.next_date}${age}</div>
+          ${lived}
         </div>
-        ${badge}
+        ${daysBadge(r)}
       </div>`;
     }).join("");
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 
 /* ============ 设置（每个参数带说明） ============ */
-/*
- * SETTINGS_SCHEMA：设置页的渲染蓝本。
- * 每个字段都有 label（名称）和 help（该参数的作用说明），
- * 管理员在前台即可看懂每一项配置的含义并直接修改。
- */
 const SETTINGS_SCHEMA = [
   {
     key: "notify",
@@ -531,7 +838,6 @@ function collectSettings() {
 $("#save-settings-btn").addEventListener("click", async () => {
   try {
     const cfg = collectSettings();
-    // 简单校验
     const h = cfg.notify.check_hour, m = cfg.notify.check_minute;
     if (h < 0 || h > 23 || m < 0 || m > 59) return toast("检查时间不合法（小时0-23，分钟0-59）", false);
     if (!cfg.notify.default_notify_days.length) return toast("默认提前提醒天数至少填一个值", false);
@@ -578,7 +884,7 @@ $("#add-user-btn").addEventListener("click", () => {
     <form id="user-form" class="modal-form">
       <div class="field">
         <label>用户名 *</label>
-        <input id="u-name" required placeholder="登录用户名" />
+        <input id="u-name" type="text" required placeholder="登录用户名" />
       </div>
       <div class="field">
         <label>密码 *</label>
