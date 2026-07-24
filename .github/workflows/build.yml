@@ -11,6 +11,10 @@ permissions:
   contents: read
   packages: write   # 允许 GITHUB_TOKEN 推送/修改 GHCR 包
 
+env:
+  # GHCR/Docker 标签必须全小写
+  IMAGE: ghcr.io/marcusyean/birthday-keeper:latest
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,7 +38,8 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ${{ env.IMAGE }}
+          provenance: false
 
       # 把镜像设为公开，这样 NAS 拉取时无需 docker login
       - name: Make package public
