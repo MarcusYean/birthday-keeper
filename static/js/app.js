@@ -353,33 +353,28 @@ function listHeader() {
   if (hasField("enabled_actions")) ths.push('<th class="ta-r">状态 / 操作</th>');
   return `<tr>${ths.join("")}</tr>`;
 }
-function mbtiBloodCells(r) {
-  let out = "";
-  if (hasField("mbti")) out += `<td>${r.mbti ? `${esc(r.mbti)} <span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}">ℹ️</span>` : "-"}</td>`;
-  if (hasField("blood_type")) out += `<td>${r.blood_type ? `${esc(r.blood_type)} <span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span>` : "-"}</td>`;
-  return out;
-}
 function listRowHtml(r) {
   const cells = [];
-  cells.push(`<td class="select-col"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
-  if (hasField("avatar")) cells.push(`<td>${avatarHtml(r)}</td>`);
-  if (hasField("name")) cells.push(`<td><b>${esc(r.name)}</b>${subLine(r)}</td>`);
-  if (hasField("relationship")) cells.push(`<td>${esc(r.relationship || "-")}</td>`);
-  if (hasField("gender")) cells.push(`<td>${genderBadge(r.gender)}</td>`);
-  if (hasField("birth_time")) cells.push(`<td>${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
-  if (hasField("calendar_badge")) cells.push(`<td>${calendarBadge(r)}</td>`);
-  if (hasField("birth_date")) cells.push(`<td>${birthDateLabel(r)}</td>`);
-  if (hasField("next_date")) cells.push(`<td>${nextDateLabel(r)}</td>`);
-  if (hasField("days_until")) cells.push(`<td>${daysBadge(r)}</td>`);
-  if (hasField("age")) cells.push(`<td>${ageLabel(r.age)}</td>`);
-  if (hasField("age_on_next")) cells.push(`<td>${ageLabel(r.age_on_next)}</td>`);
-  if (hasField("days_lived")) cells.push(`<td>${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</td>`);
-  if (hasField("zodiac")) cells.push(`<td>${zodiacBadge(r.zodiac)}</td>`);
-  if (hasField("chinese_zodiac")) cells.push(`<td>${r.chinese_zodiac || "-"}</td>`);
-  cells.push(mbtiBloodCells(r));
-  if (hasField("hobbies")) cells.push(`<td class="ellipsis">${esc(r.hobbies || "-")}</td>`);
-  if (hasField("note")) cells.push(`<td class="ellipsis">${esc(r.note || "-")}</td>`);
-  if (hasField("enabled_actions")) cells.push(`<td class="ta-r">${actionsHtml(r, "contact")}</td>`);
+  cells.push(`<td class="select-col" data-label="选择"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
+  if (hasField("avatar")) cells.push(`<td data-label="头像">${avatarHtml(r)}</td>`);
+  if (hasField("name")) cells.push(`<td data-label="姓名"><b>${esc(r.name)}</b>${subLine(r)}</td>`);
+  if (hasField("relationship")) cells.push(`<td data-label="关系">${esc(r.relationship || "-")}</td>`);
+  if (hasField("gender")) cells.push(`<td data-label="性别">${genderBadge(r.gender)}</td>`);
+  if (hasField("birth_time")) cells.push(`<td data-label="时辰">${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
+  if (hasField("calendar_badge")) cells.push(`<td data-label="历法">${calendarBadge(r)}</td>`);
+  if (hasField("birth_date")) cells.push(`<td data-label="出生日期">${birthDateLabel(r)}</td>`);
+  if (hasField("next_date")) cells.push(`<td data-label="下次生日">${nextDateLabel(r)}</td>`);
+  if (hasField("days_until")) cells.push(`<td data-label="倒计时">${daysBadge(r)}</td>`);
+  if (hasField("age")) cells.push(`<td data-label="年龄">${ageLabel(r.age)}</td>`);
+  if (hasField("age_on_next")) cells.push(`<td data-label="届时年龄">${ageLabel(r.age_on_next)}</td>`);
+  if (hasField("days_lived")) cells.push(`<td data-label="已活天数">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</td>`);
+  if (hasField("zodiac")) cells.push(`<td data-label="星座">${zodiacBadge(r.zodiac)}</td>`);
+  if (hasField("chinese_zodiac")) cells.push(`<td data-label="生肖">${esc(r.chinese_zodiac || "-")}</td>`);
+  if (hasField("mbti")) cells.push(`<td data-label="MBTI">${r.mbti ? `${esc(r.mbti)} <span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}">ℹ️</span>` : "-"}</td>`);
+  if (hasField("blood_type")) cells.push(`<td data-label="血型">${r.blood_type ? `${esc(r.blood_type)} <span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span>` : "-"}</td>`);
+  if (hasField("hobbies")) cells.push(`<td class="ellipsis" data-label="爱好">${esc(r.hobbies || "-")}</td>`);
+  if (hasField("note")) cells.push(`<td class="ellipsis" data-label="备注">${esc(r.note || "-")}</td>`);
+  if (hasField("enabled_actions")) cells.push(`<td class="ta-r" data-label="操作">${actionsHtml(r, "contact")}</td>`);
   return `<tr>${cells.join("")}</tr>`;
 }
 function cardHtml(r) {
@@ -632,15 +627,15 @@ function renderAnniversaries() {
   if (!ANNIS.length) { box.innerHTML = '<div class="empty">还没有纪念日，点击「+ 添加纪念日」开始记录 📌</div>'; return; }
   const rows = ANNIS.map((r) => `
     <tr>
-      <td><b>${esc(r.name)}</b></td>
-      <td>${esc(r.relationship || "-")}</td>
-      <td>${esc(r.kind || "纪念日")}</td>
-      <td>${calendarBadge(r)}</td>
-      <td>${r.year ? r.year + " 年 " : ""}${r.month} 月 ${r.day} 日${r.is_leap ? "（闰）" : ""}</td>
-      <td>${nextDateLabel(r)}</td>
-      <td>${daysBadge(r)}</td>
-      <td>${r.years_passed != null ? `<span class="num">${r.years_passed}</span> 周年` : "-"}</td>
-      <td class="ta-r">${actionsHtml(r, "anni")}</td>
+      <td data-label="名称"><b>${esc(r.name)}</b></td>
+      <td data-label="关系">${esc(r.relationship || "-")}</td>
+      <td data-label="类型">${esc(r.kind || "纪念日")}</td>
+      <td data-label="历法">${calendarBadge(r)}</td>
+      <td data-label="日期">${r.year ? r.year + " 年 " : ""}${r.month} 月 ${r.day} 日${r.is_leap ? "（闰）" : ""}</td>
+      <td data-label="下次">${nextDateLabel(r)}</td>
+      <td data-label="倒计时">${daysBadge(r)}</td>
+      <td data-label="已历">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> 周年` : "-"}</td>
+      <td class="ta-r" data-label="操作">${actionsHtml(r, "anni")}</td>
     </tr>`).join("");
   box.innerHTML = `<table class="table"><thead><tr><th>名称</th><th>关系</th><th>类型</th><th>历法</th><th>日期</th><th>下次</th><th>倒计时</th><th>已历</th><th class="ta-r">操作</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -832,10 +827,10 @@ async function loadUsers() {
   try {
     const rows = await api("/api/users");
     box.innerHTML = `<table class="table"><thead><tr><th>用户名</th><th>角色</th><th>创建时间</th><th class="ta-r">操作</th></tr></thead><tbody>${rows.map((u) => `<tr>
-      <td><b>${esc(u.username)}</b>${ME && u.username === ME.username ? ' <span class="tag tag-solar">当前</span>' : ""}</td>
-      <td>${u.role === "admin" ? '<span class="tag tag-on">管理员</span>' : '<span class="tag tag-off">普通用户</span>'}</td>
-      <td class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", " "))}</td>
-      <td class="ta-r"><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">删除</button></td>
+      <td data-label="用户名"><b>${esc(u.username)}</b>${ME && u.username === ME.username ? ' <span class="tag tag-solar">当前</span>' : ""}</td>
+      <td data-label="角色">${u.role === "admin" ? '<span class="tag tag-on">管理员</span>' : '<span class="tag tag-off">普通用户</span>'}</td>
+      <td data-label="创建时间" class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", " "))}</td>
+      <td data-label="操作" class="ta-r"><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">删除</button></td>
     </tr>`).join("")}</tbody></table><p class="muted sm" style="padding:12px 16px">说明：管理员可管理联系人、修改系统设置、管理用户；普通用户只能管理联系人和查看即将到来的生日。</p>`;
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }

@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.2.0")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.4.0")
 
 
 # ---------- 鉴权依赖 ----------
