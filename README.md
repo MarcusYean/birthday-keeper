@@ -53,37 +53,68 @@ birthday-keeper/
 
 ## 🚀 在群晖 (Synology) 上部署
 
-### 方式一：Container Manager（推荐，图形化）
+镜像由 GitHub Actions **自动构建并发布到 GitHub 容器仓库（GHCR）**，已设为**公开、可免登录拉取**。因此你可以直接拉取运行 —— **不用克隆仓库、不用本地构建**。
 
-1. 把整个 `birthday-keeper` 文件夹上传到群晖，例如 `/volume1/docker/birthday-keeper`。
-2. 在该目录下建一个空的 `data` 文件夹（v2 无需手动复制配置文件，全部在网页设置）。
-3. 打开 **Container Manager → 项目 → 新增**，选择该文件夹里的 `docker-compose.yml`，点击「下一步 / 部署」。
-4. 部署完成后，浏览器访问 `http://群晖IP:8000`，按引导**创建管理员账号**即可。
+> 镜像架构为 `linux/amd64`，适用于 x86_64 群晖（Intel / AMD 机型）。若你的 NAS 是 ARM 架构（部分 DSxxxplay 机型），请告诉我，我改成多架构镜像。
 
-### 方式二：SSH 命令行（从 GitHub 克隆，推荐）
+### 方式一：一行命令部署（最省事，推荐）
 
-```bash
-# 1. SSH 登录群晖后克隆仓库（把 <你的用户名> 换成实际 GitHub 用户名）
-cd /volume1/docker
-git clone https://github.com/<你的用户名>/birthday-keeper.git
-cd birthday-keeper
-
-# 2. 构建并启动
-mkdir -p data
-sudo docker compose up -d --build
-```
-
-以后升级只需：
+SSH 登录群晖后直接执行，镜像会自动从 GHCR 在线下载，**无需任何文件**：
 
 ```bash
-cd /volume1/docker/birthday-keeper
-git pull
-sudo docker compose up -d --build   # 数据在 ./data 卷中，不会丢失
+docker run -d \
+  --name birthday-keeper \
+  --restart unless-stopped \
+  -p 8000:8000 \
+  -v /volume1/docker/birthday-keeper/data:/app/data \
+  -e TZ=Asia/Shanghai \
+  ghcr.io/marcusyean/birthday-keeper:latest
 ```
 
-> 群晖若未安装 git，可用 Container Manager 方式（上传文件夹），或在「套件中心」搜索安装 Git Server / 通过 Entware 安装 git。
+完成后浏览器访问 `http://群晖IP:8000` 创建管理员即可。
 
-> 群晖系统若使用 `docker-compose`（旧版），把上面 `docker compose` 换成 `docker-compose`。
+### 方式二：Container Manager 图形界面（粘贴 compose）
+
+1. 打开 **Container Manager → 项目 → 新增**。
+2. 在 compose 编辑框**粘贴**以下内容（无需克隆仓库）：
+
+```yaml
+services:
+  birthday-keeper:
+    image: ghcr.io/marcusyean/birthday-keeper:latest
+    container_name: birthday-keeper
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data:/app/data
+```
+
+3. 项目路径选 `/volume1/docker/birthday-keeper`（`./data` 卷会自动创建），点击部署。
+4. 浏览器访问 `http://群晖IP:8000` 创建管理员。
+
+### 方式三：docker compose 文件（如需）
+
+若你想用 compose 文件管理，只需新建一个 `docker-compose.yml`（内容同上），然后：
+
+```bash
+mkdir -p /volume1/docker/birthday-keeper && cd /volume1/docker/birthday-keeper
+# 把上面的 compose 内容保存为 docker-compose.yml
+docker compose up -d
+```
+
+### 升级
+
+镜像在每次推送 `main` 时由 GitHub Actions 自动重建。升级只需拉取新镜像：
+
+```bash
+docker pull ghcr.io/marcusyean/birthday-keeper:latest
+docker compose up -d          # 若用方式一(docker run)，先 docker rm -f birthday-keeper 再重跑该命令
+```
+
+数据始终在 `./data` 卷，升级不丢失。
 
 ### 端口与反代
 
