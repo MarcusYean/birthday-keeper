@@ -2,9 +2,11 @@ name: Build and Push Image
 
 # 每次推送到 main 时自动构建镜像并推送到 GitHub 容器仓库(GHCR)
 # 也支持在 Actions 页面手动触发 (workflow_dispatch)
+# 推送 tag（形如 v2.2）时，额外构建并推送版本固定标签 :<版本>，方便锁定版本
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -13,7 +15,7 @@ permissions:
 
 env:
   # GHCR/Docker 标签必须全小写
-  IMAGE: ghcr.io/marcusyean/birthday-keeper:latest
+  IMAGE: ghcr.io/marcusyean/birthday-keeper
 
 jobs:
   build:
@@ -26,12 +28,28 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # 取得版本标签：push tag 时用 tag 名，否则用 latest
+      - name: Compute tags
+        id: tags
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${{ github.ref_name }}"
+            echo "tags=${{ env.IMAGE }}:latest,${{ env.IMAGE }}:${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${{ env.IMAGE }}:latest" >> "$GITHUB_OUTPUT"
+          fi
+
       # 经典 docker build + push（不走 buildx，避免 GHCR manifest 悬空问题）
       - name: Build image
-        run: docker build -t ${{ env.IMAGE }} .
+        run: |
+          IFS=',' read -ra TAGS <<< "${{ steps.tags.outputs.tags }}"
+          docker build -t "${TAGS[0]}" .
+          for t in "${TAGS[@]:1}"; do docker tag "${TAGS[0]}" "$t"; done
 
       - name: Push image
-        run: docker push ${{ env.IMAGE }}
+        run: |
+          IFS=',' read -ra TAGS <<< "${{ steps.tags.outputs.tags }}"
+          for t in "${TAGS[@]}"; do docker push "$t"; done
 
       # 把镜像设为公开，这样 NAS 拉取时无需 docker login
       - name: Make package public

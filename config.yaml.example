@@ -39,3 +39,9 @@ feishu:
   enabled: true
   webhook: ""                    # 飞书群机器人 webhook 地址
   secret: ""                     # 可选：若机器人开启了「签名校验」则填写
+
+# 界面与外观（也可在网页「设置 → 界面与外观」中调整，保存即生效）
+ui:
+  menu_position: left           # left（左侧栏）| top（顶部栏）
+  contact_edit_mode: modal      # modal（居中弹窗）| drawer（右侧抽屉）
+  anniversary_enabled: true     # 是否显示「纪念日」功能入口

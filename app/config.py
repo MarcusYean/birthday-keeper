@@ -40,6 +40,11 @@ DEFAULT_CONFIG = {
         "webhook": "",
         "secret": "",  # 可选：签名校验密钥
     },
+    "ui": {
+        "menu_position": "left",   # 'left'（左侧栏）| 'top'（顶部栏）
+        "contact_edit_mode": "modal",  # 'modal'（居中弹窗）| 'drawer'（右侧抽屉）
+        "anniversary_enabled": True,
+    },
 }
 
 # 依次查找可写配置路径（容器里挂载在 /app/data）

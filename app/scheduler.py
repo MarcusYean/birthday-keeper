@@ -26,11 +26,25 @@ def build_reminder(record: dict, days_until: int):
     return title, content
 
 
-def check_once(cfg=None) -> int:
-    cfg = cfg or config.CONFIG
-    today = date.today()
-    sent = 0
-    for r in db.get_all_birthdays():
+def build_anniversary_reminder(record: dict, days_until: int):
+    name = record["name"]
+    rel = record.get("relationship") or ""
+    kind = record.get("kind") or "纪念日"
+    cal = "农历" if record["calendar_type"] == "lunar" else "公历"
+    when = "今天是" if days_until == 0 else f"还有 {days_until} 天是"
+    yrs = ""
+    if record.get("year"):
+        yrs = f"（第 {date.today().year - record['year']} 周年）"
+    title = f"📌 {kind}提醒：{name}"
+    content = (
+        f"{when}{name}的{kind}（{cal}{record['month']}月{record['day']}日）{yrs}\n"
+        f"关系：{rel or '—'}\n备注：{record.get('note') or '—'}"
+    )
+    return title, content
+
+
+def _process_records(records, kind, cfg, today, sent):
+    for r in records:
         if not r.get("enabled", True):
             continue
         target = lunar.next_occurrence(
@@ -46,14 +60,24 @@ def check_once(cfg=None) -> int:
         if db.has_notified(*key):
             continue
         channels = r.get("channels") or cfg["notify"]["default_channels"]
-        title, content = build_reminder(r, days_until)
+        builder = build_reminder if kind == "birthday" else build_anniversary_reminder
+        title, content = builder(r, days_until)
         results = notifiers.send_all(channels, title, content, cfg)
         summary = "; ".join(
             f"{c}:{'ok' if res.ok else 'fail'}({res.message})" for c, res in results
         )
         db.mark_notified(*key, summary)
         sent += 1
-        log.info("已通知 %s 通过 %s", r["name"], channels)
+        log.info("已通知 %s(%s) 通过 %s", r["name"], kind, channels)
+    return sent
+
+
+def check_once(cfg=None) -> int:
+    cfg = cfg or config.CONFIG
+    today = date.today()
+    sent = 0
+    sent = _process_records(db.get_all_birthdays(), "birthday", cfg, today, sent)
+    sent = _process_records(db.get_all_anniversaries(), "anniversary", cfg, today, sent)
     return sent
 
 

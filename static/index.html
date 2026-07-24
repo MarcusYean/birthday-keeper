@@ -6,7 +6,7 @@
 <title>🎂 生日管家</title>
 <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
-<body>
+<body class="menu-left">
 <!-- 登录 / 初始化 -->
 <div id="auth-view" class="auth-wrap">
   <div class="auth-card">
@@ -39,11 +39,12 @@
     <div class="side-brand">🎂 生日管家</div>
     <nav class="nav">
       <a class="nav-item" data-view="contacts"><span>👥</span> 联系人</a>
+      <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span>📌</span> 纪念日</a>
       <a class="nav-item" data-view="upcoming"><span>⏰</span> 即将到来</a>
       <a class="nav-item admin-only" data-view="settings"><span>⚙️</span> 设置</a>
       <a class="nav-item admin-only" data-view="users"><span>🧑‍💼</span> 用户管理</a>
     </nav>
-    <div class="side-foot">v2.0 · 自托管</div>
+    <div class="side-foot">v2.2 · 自托管</div>
   </aside>
 
   <div class="main">
@@ -62,6 +63,7 @@
           <div class="toolbar-left">
             <button class="btn btn-primary" id="add-btn">+ 添加联系人</button>
             <button class="btn btn-ghost" id="refresh-btn">刷新</button>
+            <button class="btn btn-ghost" id="batch-test-btn">🔔 批量测试</button>
           </div>
           <div class="toolbar-right">
             <div class="tool-group">
@@ -99,6 +101,16 @@
         <div id="contacts-list" class="card"></div>
       </section>
 
+      <!-- 纪念日 -->
+      <section id="view-anniversaries" class="view hidden">
+        <div class="toolbar">
+          <button class="btn btn-primary" id="add-anni-btn">+ 添加纪念日</button>
+          <button class="btn btn-ghost" id="refresh-anni-btn">刷新</button>
+          <button class="btn btn-ghost" id="batch-test-anni-btn">🔔 批量测试</button>
+        </div>
+        <div id="anniversaries-list" class="card"></div>
+      </section>
+
       <!-- 即将到来 -->
       <section id="view-upcoming" class="view hidden">
         <div class="card" id="upcoming-list"></div>
@@ -106,11 +118,16 @@
 
       <!-- 设置 -->
       <section id="view-settings" class="view hidden">
-        <div class="toolbar">
-          <button class="btn btn-primary" id="save-settings-btn">保存设置</button>
-          <span class="muted" id="settings-hint">修改后立即生效，无需重启。</span>
+        <div class="settings-layout">
+          <nav class="settings-nav" id="settings-nav"></nav>
+          <div class="settings-main">
+            <div class="toolbar">
+              <button class="btn btn-primary" id="save-settings-btn">保存设置</button>
+              <span class="muted" id="settings-hint">修改后立即生效，无需重启。</span>
+            </div>
+            <div id="settings-form"></div>
+          </div>
         </div>
-        <div id="settings-form"></div>
       </section>
 
       <!-- 用户管理 -->
@@ -122,6 +139,11 @@
       </section>
     </main>
   </div>
+</div>
+
+<!-- 右侧抽屉（联系人/纪念日编辑） -->
+<div class="drawer-overlay" id="drawer-overlay">
+  <div class="drawer" id="drawer"></div>
 </div>
 
 <!-- 通用弹窗 -->

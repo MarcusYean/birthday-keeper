@@ -140,9 +140,9 @@ tbody tr:hover { background: #fafbff; }
 /* ---------- 弹窗 ---------- */
 .overlay { position: fixed; inset: 0; background: rgba(20,28,40,.4); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
 .overlay.show { display: flex; }
-.modal { background: #fff; border-radius: 16px; width: 100%; max-width: 460px; padding: 24px; max-height: 92vh; overflow: auto; }
-.modal h3 { margin: 0 0 18px; font-size: 16px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.modal { background: #fff; border-radius: 16px; width: 100%; max-width: 760px; padding: 28px; max-height: 92vh; overflow: auto; }
+.modal h2 { margin: 0 0 18px; font-size: 17px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 
 /* ---------- Toast ---------- */
 #toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #1b2330; color: #fff; padding: 11px 18px; border-radius: 10px; font-size: 13.5px; opacity: 0; transition: .25s; pointer-events: none; z-index: 99; max-width: 84vw; }
@@ -279,6 +279,22 @@ tbody tr:hover { background: #fafbff; }
 
 /* 修正弹窗 select 被表格样式覆盖 */
 .modal-form select { appearance: auto; }
+
+/* ---------- 顶部菜单（设置：菜单位置=top） ---------- */
+body.menu-top .app { flex-direction: column; }
+body.menu-top .sidebar {
+  position: sticky; top: 0; width: 100%; height: auto; flex-direction: row; align-items: center;
+  padding: 10px 16px; gap: 8px; z-index: 6; border-right: none; border-bottom: 1px solid var(--line);
+}
+body.menu-top .side-brand { display: block; font-size: 15px; padding: 4px 16px 4px 4px; }
+body.menu-top .nav { flex-direction: row; flex-wrap: wrap; flex: 1; }
+body.menu-top .nav-item { padding: 8px 12px; }
+body.menu-top .side-foot { display: none; }
+body.menu-top .content { padding: 22px 28px; }
+body.menu-top .topbar { padding: 14px 28px; }
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 720px) {
   .sidebar { position: static; width: 100%; height: auto; flex-direction: row; align-items: center; padding: 12px; gap: 8px; }
   .side-brand { display: none; }
   .nav { flex-direction: row; flex-wrap: wrap; flex: 1; }
@@ -287,4 +303,66 @@ tbody tr:hover { background: #fafbff; }
   .app { flex-direction: column; }
   .content { padding: 18px; }
   .topbar { padding: 14px 18px; }
+  .grid3 { grid-template-columns: 1fr 1fr; }
+  .settings-layout { flex-direction: column; }
+  .settings-nav { position: static; width: 100%; flex-direction: row; flex-wrap: wrap; }
 }
+
+/* ---------- 信息提示 ℹ️（MBTI/血型分析悬停） ---------- */
+.info-ic {
+  cursor: help; font-size: 12px; opacity: .6; margin-left: 3px; position: relative; white-space: nowrap;
+  vertical-align: middle;
+}
+.info-ic:hover { opacity: 1; }
+.info-ic:hover::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+  background: #1b2330; color: #fff; font-size: 12px; font-weight: 400; line-height: 1.55;
+  padding: 8px 11px; border-radius: 8px; width: max-content; max-width: 260px; white-space: normal;
+  z-index: 999; box-shadow: 0 6px 20px rgba(16,24,40,.22); pointer-events: none; text-align: left;
+}
+.info-ic:hover::before {
+  content: ""; position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: #1b2330; z-index: 999; pointer-events: none;
+}
+
+/* ---------- 设置二级菜单 ---------- */
+.settings-layout { display: flex; gap: 22px; align-items: flex-start; }
+.settings-nav {
+  position: sticky; top: 84px; flex-shrink: 0; width: 190px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px; box-shadow: var(--shadow);
+}
+.settings-nav-item {
+  padding: 10px 12px; border-radius: 9px; color: var(--muted); font-size: 13.5px; font-weight: 500;
+  text-decoration: none; cursor: pointer; user-select: none; white-space: nowrap;
+}
+.settings-nav-item:hover { background: #f3f5fa; color: var(--text); }
+.settings-nav-item.active { background: var(--primary-soft); color: var(--primary-d); }
+.settings-main { flex: 1; min-width: 0; }
+
+/* ---------- 右侧抽屉编辑 ---------- */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(20,28,40,.4); display: none; z-index: 60;
+}
+.drawer-overlay.show { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100vh; width: 470px; max-width: 94vw;
+  background: #fff; box-shadow: -8px 0 32px rgba(16,24,40,.14);
+  transform: translateX(100%); transition: transform .25s ease; overflow: auto; padding: 26px;
+}
+.drawer-overlay.show .drawer { transform: translateX(0); }
+.drawer h2 { margin: 0 0 18px; font-size: 17px; }
+
+/* ---------- 头像图片 ---------- */
+.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.cc-avatar { flex-shrink: 0; }
+
+/* 头像上传区 */
+.avatar-upload { display: flex; align-items: center; gap: 14px; }
+.avatar-upload .avatar { width: 64px; height: 64px; font-size: 34px; }
+.avatar-preview { flex-shrink: 0; }
+
+/* 等宽数字（日期） */
+.mono { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }

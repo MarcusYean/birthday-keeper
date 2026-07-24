@@ -25,6 +25,27 @@ _SCHEMA = [
         zodiac        TEXT,
         hobbies       TEXT,
         avatar        TEXT,
+        mbti          TEXT,
+        blood_type    TEXT,
+        avatar_path   TEXT,
+        calendar_type TEXT NOT NULL DEFAULT 'solar',
+        month         INTEGER NOT NULL,
+        day           INTEGER NOT NULL,
+        year          INTEGER,
+        is_leap       INTEGER DEFAULT 0,
+        notify_days   TEXT,
+        channels      TEXT,
+        note          TEXT,
+        enabled       INTEGER DEFAULT 1,
+        created_at    TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS anniversaries (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        name          TEXT NOT NULL,
+        relationship  TEXT,
+        kind          TEXT DEFAULT '纪念日',
         calendar_type TEXT NOT NULL DEFAULT 'solar',
         month         INTEGER NOT NULL,
         day           INTEGER NOT NULL,
@@ -72,6 +93,9 @@ _MIGRATIONS = [
     "ALTER TABLE birthdays ADD COLUMN zodiac TEXT",
     "ALTER TABLE birthdays ADD COLUMN hobbies TEXT",
     "ALTER TABLE birthdays ADD COLUMN avatar TEXT",
+    "ALTER TABLE birthdays ADD COLUMN mbti TEXT",
+    "ALTER TABLE birthdays ADD COLUMN blood_type TEXT",
+    "ALTER TABLE birthdays ADD COLUMN avatar_path TEXT",
 ]
 
 
@@ -219,9 +243,10 @@ def create_birthday(data: dict) -> dict:
             """
             INSERT INTO birthdays
               (name, relationship, gender, birth_time, zodiac, hobbies, avatar,
+               mbti, blood_type, avatar_path,
                calendar_type, month, day, year, is_leap,
                notify_days, channels, note, enabled, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 data.get("name"),
@@ -231,6 +256,9 @@ def create_birthday(data: dict) -> dict:
                 data.get("zodiac"),
                 data.get("hobbies"),
                 data.get("avatar"),
+                data.get("mbti"),
+                data.get("blood_type"),
+                data.get("avatar_path"),
                 data.get("calendar_type", "solar"),
                 data.get("month"),
                 data.get("day"),
@@ -258,6 +286,7 @@ def update_birthday(bid: int, data: dict) -> dict | None:
             """
             UPDATE birthdays SET
               name=?, relationship=?, gender=?, birth_time=?, zodiac=?, hobbies=?, avatar=?,
+              mbti=?, blood_type=?, avatar_path=?,
               calendar_type=?, month=?, day=?, year=?,
               is_leap=?, notify_days=?, channels=?, note=?, enabled=?
             WHERE id=?
@@ -270,6 +299,9 @@ def update_birthday(bid: int, data: dict) -> dict | None:
                 data.get("zodiac"),
                 data.get("hobbies"),
                 data.get("avatar"),
+                data.get("mbti"),
+                data.get("blood_type"),
+                data.get("avatar_path"),
                 data.get("calendar_type", "solar"),
                 data.get("month"),
                 data.get("day"),
@@ -344,6 +376,163 @@ def upcoming(days: int = 30) -> list:
             item["is_today"] = delta == 0
             out.append(item)
     out.sort(key=lambda x: x["days_until"])
+    return out
+
+
+# ---------- 纪念日 ----------
+
+def _anniversary_stats(r: dict, today: date | None = None) -> dict:
+    """为纪念日计算 next_date / days_until / years_passed / is_today 等。"""
+    from . import lunar  # 延迟导入避免循环
+
+    if today is None:
+        today = date.today()
+    item = dict(r)
+    target = lunar.next_occurrence(
+        item["calendar_type"], item["month"], item["day"], bool(item.get("is_leap"))
+    )
+    item["next_date"] = target.isoformat() if target else None
+    item["days_until"] = (target - today).days if target else None
+    item["is_today"] = item["days_until"] == 0 if target else False
+    item["is_passed"] = item["days_until"] is None or item["days_until"] < 0
+
+    year = item.get("year")
+    if year:
+        item["years_passed"] = today.year - year - (1 if (target and today > target) else 0)
+        item["years_on_next"] = item["years_passed"] + (1 if item["days_until"] is not None and item["days_until"] > 0 else 0)
+    else:
+        item["years_passed"] = None
+        item["years_on_next"] = None
+    return item
+
+
+def get_all_anniversaries() -> list:
+    conn = _get_conn()
+    try:
+        cur = conn.execute("SELECT * FROM anniversaries ORDER BY month, day")
+        return [_anniversary_stats(_row_to_dict(r)) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_anniversary(aid: int) -> dict | None:
+    conn = _get_conn()
+    try:
+        cur = conn.execute("SELECT * FROM anniversaries WHERE id=?", (aid,))
+        r = cur.fetchone()
+        return _anniversary_stats(_row_to_dict(r)) if r else None
+    finally:
+        conn.close()
+
+
+def create_anniversary(data: dict) -> dict:
+    data.setdefault("created_at", datetime.now().isoformat())
+    data.setdefault("enabled", True)
+    data.setdefault("kind", "纪念日")
+    conn = _get_conn()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO anniversaries
+              (name, relationship, kind, calendar_type, month, day, year, is_leap,
+               notify_days, channels, note, enabled, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                data.get("name"),
+                data.get("relationship"),
+                data.get("kind"),
+                data.get("calendar_type", "solar"),
+                data.get("month"),
+                data.get("day"),
+                data.get("year"),
+                int(bool(data.get("is_leap", False))),
+                json.dumps(data.get("notify_days") or [], ensure_ascii=False),
+                json.dumps(data.get("channels") or [], ensure_ascii=False),
+                data.get("note"),
+                int(bool(data.get("enabled", True))),
+                data.get("created_at"),
+            ),
+        )
+        conn.commit()
+        return get_anniversary(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def update_anniversary(aid: int, data: dict) -> dict | None:
+    if not get_anniversary(aid):
+        return None
+    conn = _get_conn()
+    try:
+        conn.execute(
+            """
+            UPDATE anniversaries SET
+              name=?, relationship=?, kind=?, calendar_type=?, month=?, day=?, year=?,
+              is_leap=?, notify_days=?, channels=?, note=?, enabled=?
+            WHERE id=?
+            """,
+            (
+                data.get("name"),
+                data.get("relationship"),
+                data.get("kind"),
+                data.get("calendar_type", "solar"),
+                data.get("month"),
+                data.get("day"),
+                data.get("year"),
+                int(bool(data.get("is_leap", False))),
+                json.dumps(data.get("notify_days") or [], ensure_ascii=False),
+                json.dumps(data.get("channels") or [], ensure_ascii=False),
+                data.get("note"),
+                int(bool(data.get("enabled", True))),
+                aid,
+            ),
+        )
+        conn.commit()
+        return get_anniversary(aid)
+    finally:
+        conn.close()
+
+
+def delete_anniversary(aid: int) -> None:
+    conn = _get_conn()
+    try:
+        conn.execute("DELETE FROM anniversaries WHERE id=?", (aid,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def upcoming_anniversaries(days: int = 60) -> list:
+    from . import lunar  # 延迟导入避免循环
+
+    today = date.today()
+    out = []
+    for r in get_all_anniversaries():
+        if not r.get("enabled", True):
+            continue
+        target = lunar.next_occurrence(
+            r["calendar_type"], r["month"], r["day"], bool(r.get("is_leap"))
+        )
+        if not target:
+            continue
+        delta = (target - today).days
+        if 0 <= delta <= days:
+            item = dict(r)
+            item["next_date"] = target.isoformat()
+            item["days_until"] = delta
+            item["is_today"] = delta == 0
+            out.append(item)
+    out.sort(key=lambda x: x["days_until"])
+    return out
+
+
+def upcoming_combined(days: int = 60) -> list:
+    """即将到来：合并生日 + 纪念日，并标注 kind。"""
+    b = [dict(x, kind="birthday") for x in upcoming(days)]
+    a = [dict(x, kind="anniversary") for x in upcoming_anniversaries(days)]
+    out = b + a
+    out.sort(key=lambda x: (x["days_until"] if x["days_until"] is not None else 9999))
     return out
 
 

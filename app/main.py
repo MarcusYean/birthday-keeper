@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Header
+from fastapi import Depends, FastAPI, HTTPException, Header, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -17,8 +17,9 @@ logger = logging.getLogger("birthday")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
+AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.0.0")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.2.0")
 
 
 # ---------- 鉴权依赖 ----------
@@ -65,6 +66,9 @@ class BirthdayIn(BaseModel):
     zodiac: str | None = None
     hobbies: str | None = None
     avatar: str | None = None
+    mbti: str | None = None
+    blood_type: str | None = None
+    avatar_path: str | None = None
     calendar_type: str = "solar"  # 'solar' | 'lunar'
     month: int
     day: int
@@ -74,6 +78,25 @@ class BirthdayIn(BaseModel):
     channels: list[str] | None = None
     note: str | None = None
     enabled: bool = True
+
+
+class AnniversaryIn(BaseModel):
+    name: str
+    relationship: str | None = None
+    kind: str = "纪念日"
+    calendar_type: str = "solar"
+    month: int
+    day: int
+    year: int | None = None
+    is_leap: bool = False
+    notify_days: list[int] | None = None
+    channels: list[str] | None = None
+    note: str | None = None
+    enabled: bool = True
+
+
+class BatchTestIn(BaseModel):
+    ids: list[int] | None = None  # 为空则测试全部
 
 
 # ---------- 系统 ----------
@@ -91,6 +114,12 @@ def health():
 @app.get("/api/setup/status")
 def setup_status():
     return {"initialized": db.count_users() > 0}
+
+
+@app.get("/api/ui")
+def ui_prefs(user: dict = Depends(get_current_user)):
+    """返回与界面布局相关的偏好（不含任何密钥）。"""
+    return config.CONFIG.get("ui", {})
 
 
 # ---------- 认证 ----------
@@ -131,19 +160,36 @@ def me(user: dict = Depends(get_current_user)):
 
 # ---------- 生日（需登录） ----------
 
+def _enrich(r: dict | None) -> dict | None:
+    if not r:
+        return None
+    if r.get("avatar_path"):
+        r = dict(r)
+        r["avatar_url"] = "/avatars/" + r["avatar_path"].split("/")[-1]
+    return r
+
+
 @app.get("/api/birthdays")
 def list_birthdays(user: dict = Depends(get_current_user)):
-    return db.get_all_birthdays()
+    return [_enrich(r) for r in db.get_all_birthdays()]
 
 
 @app.post("/api/birthdays")
 def create_birthday(b: BirthdayIn, user: dict = Depends(get_current_user)):
-    return db.create_birthday(b.model_dump())
+    return _enrich(db.create_birthday(b.model_dump()))
 
 
 @app.put("/api/birthdays/{bid}")
 def update_birthday(bid: int, b: BirthdayIn, user: dict = Depends(get_current_user)):
     row = db.update_birthday(bid, b.model_dump())
+    if not row:
+        raise HTTPException(status_code=404, detail="未找到该联系人")
+    return _enrich(row)
+
+
+@app.get("/api/birthdays/{bid}")
+def get_birthday(bid: int, user: dict = Depends(get_current_user)):
+    row = _enrich(db.get_birthday(bid))
     if not row:
         raise HTTPException(status_code=404, detail="未找到该联系人")
     return row
@@ -155,31 +201,118 @@ def delete_birthday(bid: int, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
-@app.post("/api/birthdays/{bid}/test")
-def test_birthday(bid: int, user: dict = Depends(get_current_user)):
+@app.post("/api/birthdays/{bid}/avatar")
+async def upload_avatar(bid: int, file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     r = db.get_birthday(bid)
     if not r:
         raise HTTPException(status_code=404, detail="未找到该联系人")
+    # 校验类型与大小（<= 2MB）
+    allowed = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
+    ctype = (file.content_type or "").lower()
+    if ctype not in allowed:
+        raise HTTPException(status_code=400, detail="仅支持 PNG/JPG/WEBP/GIF 图片")
+    data = await file.read()
+    if len(data) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="图片过大（上限 2MB）")
+    ext = {"image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
+           "image/webp": "webp", "image/gif": "gif"}[ctype]
+    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+    # 删除旧头像
+    if r.get("avatar_path"):
+        try:
+            (AVATAR_DIR / r["avatar_path"].split("/")[-1]).unlink(missing_ok=True)
+        except OSError:
+            pass
+    fn = f"{bid}_{abs(hash(bid))}{int(__import__('time').time())}.{ext}"
+    (AVATAR_DIR / fn).write_bytes(data)
+    db.update_birthday(bid, {**{k: r.get(k) for k in (
+        "name", "relationship", "gender", "birth_time", "zodiac", "hobbies",
+        "avatar", "mbti", "blood_type", "calendar_type", "month", "day", "year",
+        "is_leap", "notify_days", "channels", "note", "enabled")}, "avatar_path": fn})
+    return _enrich(db.get_birthday(bid))
+
+
+@app.post("/api/birthdays/test")
+def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
+    """批量测试：传 ids 测试指定联系人，不传则测试全部。"""
+    ids = body.ids
+    rows = db.get_all_birthdays()
+    if ids:
+        rows = [r for r in rows if r["id"] in ids]
+    if not rows:
+        return {"tested": 0, "results": []}
     cfg = config.CONFIG
-    channels = r.get("channels") or cfg["notify"]["default_channels"]
-    title, content = messages.build_test(r)
-    results = notifiers.send_all(channels, title, content, cfg)
-    return {
-        "results": [
-            {"channel": c, "ok": res.ok, "message": res.message} for c, res in results
-        ]
-    }
+    out = []
+    for r in rows:
+        channels = r.get("channels") or cfg["notify"]["default_channels"]
+        title, content = messages.build_test(r)
+        results = notifiers.send_all(channels, title, content, cfg)
+        out.append({
+            "id": r["id"],
+            "name": r["name"],
+            "results": [{"channel": c, "ok": res.ok, "message": res.message} for c, res in results],
+        })
+    return {"tested": len(out), "results": out}
 
 
 @app.get("/api/upcoming")
 def upcoming(days: int = 30, user: dict = Depends(get_current_user)):
-    return db.upcoming(days)
+    return db.upcoming_combined(days)
+
+
+@app.post("/api/anniversaries/test")
+def test_anniversaries(body: BatchTestIn, user: dict = Depends(get_current_user)):
+    """纪念日批量测试：传 ids 测试指定项，不传则测试全部。"""
+    ids = body.ids
+    rows = db.get_all_anniversaries()
+    if ids:
+        rows = [r for r in rows if r["id"] in ids]
+    if not rows:
+        return {"tested": 0, "results": []}
+    cfg = config.CONFIG
+    out = []
+    for r in rows:
+        channels = r.get("channels") or cfg["notify"]["default_channels"]
+        title, content = messages.build_anniversary_test(r)
+        results = notifiers.send_all(channels, title, content, cfg)
+        out.append({
+            "id": r["id"],
+            "name": r["name"],
+            "results": [{"channel": c, "ok": res.ok, "message": res.message} for c, res in results],
+        })
+    return {"tested": len(out), "results": out}
 
 
 @app.post("/api/check")
 def manual_check(user: dict = Depends(require_admin)):
     n = scheduler.check_once()
     return {"notified": n}
+
+
+# ---------- 纪念日（需登录） ----------
+
+@app.get("/api/anniversaries")
+def list_anniversaries(user: dict = Depends(get_current_user)):
+    return db.get_all_anniversaries()
+
+
+@app.post("/api/anniversaries")
+def create_anniversary(a: AnniversaryIn, user: dict = Depends(get_current_user)):
+    return db.create_anniversary(a.model_dump())
+
+
+@app.put("/api/anniversaries/{aid}")
+def update_anniversary(aid: int, a: AnniversaryIn, user: dict = Depends(get_current_user)):
+    row = db.update_anniversary(aid, a.model_dump())
+    if not row:
+        raise HTTPException(status_code=404, detail="未找到该纪念日")
+    return row
+
+
+@app.delete("/api/anniversaries/{aid}")
+def delete_anniversary(aid: int, user: dict = Depends(get_current_user)):
+    db.delete_anniversary(aid)
+    return {"ok": True}
 
 
 # ---------- 管理员：设置（所有参数可前台调整） ----------
@@ -237,6 +370,18 @@ def delete_user(uid: int, user: dict = Depends(require_admin)):
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/avatars/{filename}")
+def avatar_file(filename: str):
+    from pathlib import Path as _P
+    # 防目录穿越
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="非法文件名")
+    p = AVATAR_DIR / filename
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="未找到头像")
+    return FileResponse(str(p))
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
