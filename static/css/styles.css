@@ -214,10 +214,17 @@ tbody tr:hover { background: #fafbff; }
 .toolbar-right { margin-left: auto; }
 .tool-group { display: flex; align-items: center; gap: 6px; }
 .tool-group label { color: var(--muted); font-size: 12.5px; font-weight: 500; }
-.tool-group select, #view-mode, #sort-by, #group-by {
+.tool-group select, #view-mode, #sort-by, #group-by, #per-page {
   padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: #fff; color: var(--text); font-size: 13px; min-width: 92px;
 }
-.tool-group select:focus, #view-mode:focus, #sort-by:focus, #group-by:focus { outline: none; border-color: var(--primary); }
+.tool-group select:focus, #view-mode:focus, #sort-by:focus, #group-by:focus, #per-page:focus { outline: none; border-color: var(--primary); }
+
+.select-group { display: flex; align-items: center; gap: 4px; }
+.select-group .btn { padding: 6px 10px; font-size: 12.5px; }
+
+#batch-count { display: none; background: var(--primary); color: #fff; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; margin-left: 5px; }
+#batch-count.show { display: inline-block; }
+
 
 /* ---------- 分组标题 ---------- */
 .group + .group { margin-top: 18px; }
@@ -272,7 +279,23 @@ tbody tr:hover { background: #fafbff; }
 .compact-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .compact-right .actions { display: inline-flex; gap: 6px; }
 
-/* ---------- 字段选择器 ---------- */
+/* ---------- 分页 ---------- */
+.pagination { display: flex; align-items: center; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+.pagination .btn-sm { padding: 5px 10px; font-size: 12.5px; }
+.pagination .muted { margin-left: auto; }
+
+/* ---------- 行选择复选框 ---------- */
+.select-col { width: 32px; text-align: center; padding-left: 4px !important; padding-right: 4px !important; }
+.select-col input[type="checkbox"], .row-select, .card-select input, .compact-select input {
+  accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer;
+}
+.card-select {
+  position: absolute; top: 10px; right: 10px; z-index: 2; cursor: pointer;
+  background: #fff; border-radius: 6px; padding: 4px; box-shadow: 0 1px 4px rgba(16,24,40,.08);
+}
+.contact-card { position: relative; }
+.compact-select { margin-right: 4px; }
+
 .field-picker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 50vh; overflow: auto; padding-right: 4px; }
 .field-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 .field-check input { accent-color: var(--primary); width: 15px; height: 15px; }
@@ -311,19 +334,23 @@ body.menu-top .topbar { padding: 14px 28px; }
 /* ---------- 信息提示 ℹ️（MBTI/血型分析悬停） ---------- */
 .info-ic {
   cursor: help; font-size: 12px; opacity: .6; margin-left: 3px; position: relative; white-space: nowrap;
-  vertical-align: middle;
+  vertical-align: middle; display: inline-block;
 }
 .info-ic:hover { opacity: 1; }
-.info-ic:hover::after {
-  content: attr(data-tip);
-  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+/* 由 JS 用全局 #tooltip 显示，避免被弹窗/抽屉的 overflow 截断 */
+.info-ic:hover::after, .info-ic:hover::before { display: none; }
+
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 10000;
   background: #1b2330; color: #fff; font-size: 12px; font-weight: 400; line-height: 1.55;
-  padding: 8px 11px; border-radius: 8px; width: max-content; max-width: 260px; white-space: normal;
-  z-index: 999; box-shadow: 0 6px 20px rgba(16,24,40,.22); pointer-events: none; text-align: left;
+  padding: 8px 11px; border-radius: 8px; width: max-content; max-width: 260px;
+  white-space: normal; text-align: left; box-shadow: 0 6px 20px rgba(16,24,40,.22);
+  opacity: 0; transform: translateY(3px); transition: opacity .15s, transform .15s;
 }
-.info-ic:hover::before {
-  content: ""; position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%);
-  border: 6px solid transparent; border-top-color: #1b2330; z-index: 999; pointer-events: none;
+#tooltip.show { opacity: 1; transform: translateY(0); }
+#tooltip::after {
+  content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: #1b2330;
 }
 
 /* ---------- 设置二级菜单 ---------- */

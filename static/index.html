@@ -63,9 +63,18 @@
           <div class="toolbar-left">
             <button class="btn btn-primary" id="add-btn">+ 添加联系人</button>
             <button class="btn btn-ghost" id="refresh-btn">刷新</button>
-            <button class="btn btn-ghost" id="batch-test-btn">🔔 批量测试</button>
+            <div class="select-group">
+              <button class="btn btn-ghost btn-sm" id="select-all-btn">全选</button>
+              <button class="btn btn-ghost btn-sm" id="select-inv-btn">反选</button>
+              <button class="btn btn-ghost btn-sm" id="select-none-btn">取消</button>
+            </div>
+            <button class="btn btn-ghost" id="batch-test-btn">🔔 批量测试 <span id="batch-count" class="badge"></span></button>
           </div>
           <div class="toolbar-right">
+            <div class="tool-group">
+              <label for="per-page">每页</label>
+              <select id="per-page"><option value="10">10</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="0">全部</option></select>
+            </div>
             <div class="tool-group">
               <label for="view-mode">视图</label>
               <select id="view-mode"><option value="list">列表</option><option value="card">卡片</option><option value="compact">紧凑</option></select>
@@ -99,6 +108,7 @@
           </div>
         </div>
         <div id="contacts-list" class="card"></div>
+        <div class="pagination" id="contacts-paging"></div>
       </section>
 
       <!-- 纪念日 -->
@@ -152,6 +162,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="tooltip" class="tooltip" role="tooltip"></div>
 
 <script src="/static/js/app.js"></script>
 </body>

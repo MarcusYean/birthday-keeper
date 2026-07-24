@@ -60,7 +60,46 @@ function logoutLocal() {
   $("#app-view").classList.add("hidden"); $("#auth-view").classList.remove("hidden");
 }
 
+function initTooltip() {
+  const tip = $("#tooltip");
+  let current = null;
+  const position = (el) => {
+    const rect = el.getBoundingClientRect();
+    const tRect = tip.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - tRect.width / 2;
+    let top = rect.top - tRect.height - 8;
+    left = Math.max(8, Math.min(left, window.innerWidth - tRect.width - 8));
+    top = Math.max(8, top);
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  };
+  const show = (el) => {
+    const text = el.getAttribute("data-tip");
+    if (!text) return;
+    current = el;
+    tip.textContent = text;
+    tip.classList.add("show");
+    position(el);
+  };
+  const hide = () => { tip.classList.remove("show"); current = null; };
+  document.addEventListener("mouseover", (e) => {
+    const el = e.target.closest(".info-ic");
+    if (el) show(el);
+  });
+  document.addEventListener("mouseout", (e) => {
+    if (e.target.closest(".info-ic")) hide();
+  });
+  window.addEventListener("scroll", () => { if (current) position(current); }, true);
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest(".info-ic");
+    if (el && ("ontouchstart" in document.documentElement)) {
+      show(el); setTimeout(hide, 2500);
+    }
+  });
+}
+
 async function initAuth() {
+  initTooltip();
   const st = await api("/api/setup/status");
   if (!st.initialized) {
     $("#login-form").classList.add("hidden"); $("#setup-form").classList.remove("hidden");
@@ -125,7 +164,8 @@ const DEFAULT_FIELDS = ["avatar", "name", "relationship", "gender", "calendar_ba
 
 function loadViewPrefs() { try { return JSON.parse(localStorage.getItem(VIEW_PREFS_KEY) || "{}"); } catch { return {}; } }
 function saveViewPrefs(p) { localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(p)); }
-let VIEW_PREFS = { mode: "list", sort: "days_until_asc", group: "none", fields: [...DEFAULT_FIELDS], ...loadViewPrefs() };
+let VIEW_PREFS = { mode: "list", sort: "days_until_asc", group: "none", per_page: 50, page: 1, fields: [...DEFAULT_FIELDS], ...loadViewPrefs() };
+let SELECTED_IDS = new Set();
 
 const FIELD_META = [
   { key: "avatar", label: "头像" }, { key: "name", label: "姓名" }, { key: "relationship", label: "关系" },
@@ -167,18 +207,28 @@ function mbtiTip(t) { return t ? (MBTI_ANALYSIS[t] || "暂无该 MBTI 分析。"
 $("#view-mode").addEventListener("change", (e) => { VIEW_PREFS.mode = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
 $("#sort-by").addEventListener("change", (e) => { VIEW_PREFS.sort = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
 $("#group-by").addEventListener("change", (e) => { VIEW_PREFS.group = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+$("#per-page").addEventListener("change", (e) => { VIEW_PREFS.per_page = parseInt(e.target.value) || 0; VIEW_PREFS.page = 1; saveViewPrefs(VIEW_PREFS); renderContacts(); });
 $("#fields-btn").addEventListener("click", openFieldPicker);
 $("#refresh-btn").addEventListener("click", loadContacts);
 $("#add-btn").addEventListener("click", () => openContactEditor(null));
-$("#batch-test-btn").addEventListener("click", () => openBatchTest("birthday"));
-$("#batch-test-anni-btn").addEventListener("click", () => openBatchTest("anniversary"));
+$("#batch-test-btn").addEventListener("click", () => runBatchTestSelection("birthday"));
+$("#batch-test-anni-btn").addEventListener("click", () => runBatchTestSelection("anniversary"));
+$("#select-all-btn").addEventListener("click", () => { CONTACTS.forEach((r) => SELECTED_IDS.add(r.id)); updateBatchBadge(); renderContacts(); });
+$("#select-none-btn").addEventListener("click", () => { SELECTED_IDS.clear(); updateBatchBadge(); renderContacts(); });
+$("#select-inv-btn").addEventListener("click", () => { CONTACTS.forEach((r) => { if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id); else SELECTED_IDS.add(r.id); }); updateBatchBadge(); renderContacts(); });
 
 async function loadContacts() {
   const box = $("#contacts-list"); box.innerHTML = '<div class="empty">加载中…</div>';
-  try { CONTACTS = await api("/api/birthdays"); applyToolbar(); renderContacts(); }
+  try {
+    CONTACTS = await api("/api/birthdays");
+    // 移除已不存在的选中
+    const validIds = new Set(CONTACTS.map((r) => r.id));
+    SELECTED_IDS = new Set(Array.from(SELECTED_IDS).filter((id) => validIds.has(id)));
+    applyToolbar(); updateBatchBadge(); renderContacts();
+  }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
-function applyToolbar() { $("#view-mode").value = VIEW_PREFS.mode; $("#sort-by").value = VIEW_PREFS.sort; $("#group-by").value = VIEW_PREFS.group; }
+function applyToolbar() { $("#view-mode").value = VIEW_PREFS.mode; $("#sort-by").value = VIEW_PREFS.sort; $("#group-by").value = VIEW_PREFS.group; $("#per-page").value = VIEW_PREFS.per_page; }
 
 function sortContacts(rows) {
   const s = VIEW_PREFS.sort; const a = [...rows];
@@ -213,9 +263,21 @@ function groupContacts(rows) {
 }
 function renderContacts() {
   const box = $("#contacts-list");
-  if (!CONTACTS.length) { box.innerHTML = '<div class="empty">还没有联系人，点击「+ 添加联系人」开始记录 🎂</div>'; return; }
-  const groups = groupContacts(sortContacts(CONTACTS));
+  if (!CONTACTS.length) { box.innerHTML = '<div class="empty">还没有联系人，点击「+ 添加联系人」开始记录 🎂</div>'; $("#contacts-paging").innerHTML = ""; return; }
+  const sorted = sortContacts(CONTACTS);
+  const perPage = VIEW_PREFS.per_page;
+  let pageItems = sorted, totalPages = 1, page = VIEW_PREFS.page || 1;
+  if (perPage > 0) {
+    totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
+    page = Math.max(1, Math.min(page, totalPages));
+    VIEW_PREFS.page = page;
+    const start = (page - 1) * perPage;
+    pageItems = sorted.slice(start, start + perPage);
+  } else { VIEW_PREFS.page = 1; }
+  const groups = groupContacts(pageItems);
   box.innerHTML = groups.map((g) => renderGroup(g)).join("");
+  renderPagination(sorted.length, totalPages, page);
+  bindRowSelection();
 }
 function renderGroup(g) {
   const mode = VIEW_PREFS.mode;
@@ -225,8 +287,51 @@ function renderGroup(g) {
   return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><table class="table"><thead>${listHeader()}</thead><tbody>${items}</tbody></table></div>`;
 }
 function hasField(key) { return VIEW_PREFS.fields.includes(key); }
+function renderPagination(total, totalPages, page) {
+  const box = $("#contacts-paging");
+  if (totalPages <= 1) { box.innerHTML = `<span class="muted sm">共 ${total} 人</span>`; return; }
+  let html = `<button class="btn btn-ghost btn-sm" id="page-prev" ${page === 1 ? "disabled" : ""}>上一页</button>`;
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<button class="btn btn-sm page-num ${i === page ? "btn-primary" : "btn-ghost"}" data-page="${i}">${i}</button>`;
+  }
+  html += `<button class="btn btn-ghost btn-sm" id="page-next" ${page === totalPages ? "disabled" : ""}>下一页</button>`;
+  html += `<span class="muted sm">共 ${total} 人 · 第 ${page}/${totalPages} 页</span>`;
+  box.innerHTML = html;
+  $("#page-prev") && $("#page-prev").addEventListener("click", () => { VIEW_PREFS.page--; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+  $("#page-next") && $("#page-next").addEventListener("click", () => { VIEW_PREFS.page++; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+  $$(".page-num").forEach((b) => b.addEventListener("click", () => { VIEW_PREFS.page = parseInt(b.dataset.page); saveViewPrefs(VIEW_PREFS); renderContacts(); }));
+}
+function bindRowSelection() {
+  $$(".row-select").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const id = parseInt(cb.value);
+      if (cb.checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id);
+      updateBatchBadge();
+    });
+  });
+  const allPage = $("#select-all-page");
+  if (allPage) {
+    const visible = $$(".row-select");
+    allPage.checked = visible.length > 0 && visible.every((cb) => SELECTED_IDS.has(parseInt(cb.value)));
+    allPage.addEventListener("change", () => {
+      const visibleIds = $$(".row-select").map((cb) => parseInt(cb.value));
+      if (allPage.checked) visibleIds.forEach((id) => SELECTED_IDS.add(id));
+      else visibleIds.forEach((id) => SELECTED_IDS.delete(id));
+      updateBatchBadge();
+      renderContacts();
+    });
+  }
+}
+function updateBatchBadge() {
+  const badge = $("#batch-count");
+  if (!badge) return;
+  badge.textContent = SELECTED_IDS.size || "";
+  badge.classList.toggle("show", SELECTED_IDS.size > 0);
+}
+
 function listHeader() {
   const ths = [];
+  ths.push('<th class="select-col"><input type="checkbox" id="select-all-page" title="全选当前页"></th>');
   if (hasField("avatar")) ths.push("<th></th>");
   if (hasField("name")) ths.push("<th>姓名</th>");
   if (hasField("relationship")) ths.push("<th>关系</th>");
@@ -256,6 +361,7 @@ function mbtiBloodCells(r) {
 }
 function listRowHtml(r) {
   const cells = [];
+  cells.push(`<td class="select-col"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
   if (hasField("avatar")) cells.push(`<td>${avatarHtml(r)}</td>`);
   if (hasField("name")) cells.push(`<td><b>${esc(r.name)}</b>${subLine(r)}</td>`);
   if (hasField("relationship")) cells.push(`<td>${esc(r.relationship || "-")}</td>`);
@@ -279,7 +385,8 @@ function listRowHtml(r) {
 function cardHtml(r) {
   const name = esc(r.name);
   return `
-  <div class="contact-card">
+  <div class="contact-card" data-id="${r.id}">
+    <label class="card-select" title="选择"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
     <div class="cc-head">
       <div class="cc-avatar">${avatarHtml(r, true)}</div>
       <div class="cc-head-info">
@@ -304,7 +411,8 @@ function cardHtml(r) {
 }
 function compactRowHtml(r) {
   return `
-  <div class="compact-item">
+  <div class="compact-item" data-id="${r.id}">
+    <label class="compact-select" title="选择"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
     <div class="compact-left">
       ${avatarHtml(r)}<b>${esc(r.name)}</b>
       <span class="muted sm">${esc(r.relationship || "")}${r.relationship ? " · " : ""}${calendarBadge(r)}</span>
@@ -465,13 +573,35 @@ window.editContact = (id) => { const r = CONTACTS.find((x) => x.id === id); open
 window.closeEditor = closeEditor;
 window.closeModal = closeModal;
 
-/* 批量测试弹窗 */
+/* 批量测试 */
+async function runBatchTestApi(kind, ids) {
+  const resultBox = $("#bt-result");
+  if (resultBox) resultBox.textContent = "发送中…";
+  try {
+    const data = await api(`/api/${kind === "birthday" ? "birthdays" : "anniversaries"}/test`, { method: "POST", body: JSON.stringify({ ids }) });
+    const lines = data.results.map((x) => {
+      const rs = x.results.map((r) => `${CH_NAMES[r.channel] || r.channel}：${r.ok ? "✅" : "❌ " + r.message}`).join("；");
+      return `· ${x.name}：${rs}`;
+    });
+    if (resultBox) resultBox.textContent = `已测试 ${data.tested} 条：\n` + (lines.join("\n") || "无渠道，请先在设置中启用");
+  } catch (err) { if (resultBox) resultBox.textContent = err.message; }
+}
+function runBatchTestSelection(kind) {
+  if (kind !== "birthday") { openBatchTest(kind); return; }
+  const ids = Array.from(SELECTED_IDS);
+  if (!ids.length) { toast("请先在列表中勾选联系人", false); return; }
+  openModal(`<h2>批量测试通知 · 联系人</h2>
+    <p class="muted sm">已选择 ${ids.length} 位联系人，将发送测试消息到其配置渠道。渠道未配置时会显示失败原因。</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="button" class="btn btn-primary" id="bt-run">开始测试</button></div>
+    <div id="bt-result" class="muted sm" style="margin-top:10px;white-space:pre-wrap"></div>`);
+  $("#bt-run").addEventListener("click", () => runBatchTestApi("birthday", ids));
+}
 function openBatchTest(kind) {
   const rows = kind === "birthday" ? CONTACTS : ANNIS;
   if (!rows.length) { toast("暂无可测试的记录", false); return; }
   const items = rows.map((r) => `<label class="field-check"><input type="checkbox" class="bt-ch" value="${r.id}" /><span>${esc(r.name)} <span class="muted sm">${r.next_date || ""}</span></span></label>`).join("");
   openModal(`<h2>批量测试通知 · ${kind === "birthday" ? "联系人" : "纪念日"}</h2>
-    <p class="muted sm" style="margin-bottom:10px">勾选要测试的联系人（不勾选则测试全部）。渠道未配置时会显示失败原因。</p>
+    <p class="muted sm" style="margin-bottom:10px">勾选要测试的记录（不勾选则测试全部）。渠道未配置时会显示失败原因。</p>
     <div class="field-picker" style="max-height:46vh">${items}</div>
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button>
@@ -479,25 +609,14 @@ function openBatchTest(kind) {
       <button type="button" class="btn btn-primary" id="bt-sel">测试选中</button>
     </div>
     <div id="bt-result" class="muted sm" style="margin-top:10px;white-space:pre-wrap"></div>`);
-  const run = async (ids) => {
-    $("#bt-result").textContent = "发送中…";
-    try {
-      const data = await api(`/api/${kind === "birthday" ? "birthdays" : "anniversaries"}/test`, { method: "POST", body: JSON.stringify({ ids }) });
-      const lines = data.results.map((x) => {
-        const rs = x.results.map((r) => `${CH_NAMES[r.channel] || r.channel}：${r.ok ? "✅" : "❌" + r.message}`).join("；");
-        return `· ${x.name}：${rs}`;
-      });
-      $("#bt-result").textContent = `已测试 ${data.tested} 条：\n` + (lines.join("\n") || "无渠道，请先在设置中启用");
-    } catch (err) { $("#bt-result").textContent = err.message; }
-  };
-  $("#bt-all").addEventListener("click", () => run(null));
+  $("#bt-all").addEventListener("click", () => runBatchTestApi(kind, null));
   $("#bt-sel").addEventListener("click", () => {
     const ids = $$(".bt-ch:checked").map((i) => parseInt(i.value));
-    if (!ids.length) return toast("请先勾选联系人", false);
-    run(ids);
+    if (!ids.length) return toast("请先勾选要测试的记录", false);
+    runBatchTestApi(kind, ids);
   });
 }
-window.runBatchTest = openBatchTest;
+window.runBatchTest = runBatchTestSelection;
 
 /* ============ 纪念日 ============ */
 $("#add-anni-btn").addEventListener("click", () => openAnniEditor(null));
