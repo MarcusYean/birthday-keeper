@@ -45,3 +45,8 @@ ui:
   menu_position: left           # left（左侧栏）| top（顶部栏）
   contact_edit_mode: modal      # modal（居中弹窗）| drawer（右侧抽屉）
   anniversary_enabled: true     # 是否显示「纪念日」功能入口
+
+# 隐私与注册（也可在网页「设置 → 隐私与注册」中调整，保存即生效）
+privacy:
+  default_visibility: private   # 新数据的默认可见范围：private（仅自己）| family（家庭）| public（所有人）
+  allow_register: false         # 是否开放用户自助注册（开启后登录页出现「注册」入口）

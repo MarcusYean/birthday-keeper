@@ -45,6 +45,10 @@ DEFAULT_CONFIG = {
         "contact_edit_mode": "modal",  # 'modal'（居中弹窗）| 'drawer'（右侧抽屉）
         "anniversary_enabled": True,
     },
+    "privacy": {
+        "default_visibility": "private",  # 'private'（仅自己）| 'family'（家庭）| 'public'（所有人）
+        "allow_register": False,          # 是否开放用户自助注册
+    },
 }
 
 # 依次查找可写配置路径（容器里挂载在 /app/data）

@@ -15,13 +15,19 @@
       <h1>生日管家</h1>
       <p class="brand-sub" id="auth-sub">记录亲友生日 · 农历/公历 · 微信 & 飞书提醒</p>
     </div>
+
     <form id="login-form" class="auth-form">
       <label>用户名</label>
       <input id="login-user" type="text" autocomplete="username" placeholder="请输入用户名" required />
       <label>密码</label>
       <input id="login-pass" type="password" autocomplete="current-password" placeholder="请输入密码" required />
       <button type="submit" class="btn btn-primary btn-block">登录</button>
+      <div class="auth-links">
+        <a href="#" id="to-register">注册账号</a>
+        <a href="#" id="to-forgot">忘记密码</a>
+      </div>
     </form>
+
     <form id="setup-form" class="auth-form hidden">
       <div class="callout">首次使用，请创建管理员账号（用于配置提醒参数）。</div>
       <label>管理员用户名</label>
@@ -29,6 +35,34 @@
       <label>管理员密码</label>
       <input id="setup-pass" type="password" placeholder="设置登录密码" required />
       <button type="submit" class="btn btn-primary btn-block">创建并进入</button>
+    </form>
+
+    <form id="register-form" class="auth-form hidden">
+      <div class="callout" id="register-callout">注册新账号（需管理员在设置中开启注册）。</div>
+      <label>用户名</label>
+      <input id="reg-user" type="text" placeholder="设置用户名" required />
+      <label>密码</label>
+      <input id="reg-pass" type="password" placeholder="至少 6 位" required />
+      <button type="submit" class="btn btn-primary btn-block">注册并登录</button>
+      <a href="#" class="auth-back" id="reg-back">返回登录</a>
+    </form>
+
+    <form id="forgot-form" class="auth-form hidden">
+      <div class="callout">输入用户名，若系统已配置邮件，我们将发送重置链接。</div>
+      <label>用户名</label>
+      <input id="forgot-user" type="text" placeholder="请输入用户名" required />
+      <button type="submit" class="btn btn-primary btn-block">发送重置邮件</button>
+      <div class="auth-msg" id="forgot-msg"></div>
+      <a href="#" class="auth-back" id="forgot-back">返回登录</a>
+    </form>
+
+    <form id="reset-form" class="auth-form hidden">
+      <div class="callout">设置你的新密码。</div>
+      <label>新密码</label>
+      <input id="reset-pass" type="password" placeholder="至少 6 位" required />
+      <button type="submit" class="btn btn-primary btn-block">重置密码</button>
+      <div class="auth-msg" id="reset-msg"></div>
+      <a href="#" class="auth-back" id="reset-back">返回登录</a>
     </form>
   </div>
 </div>
@@ -41,10 +75,11 @@
       <a class="nav-item" data-view="contacts"><span>👥</span> 联系人</a>
       <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span>📌</span> 纪念日</a>
       <a class="nav-item" data-view="upcoming"><span>⏰</span> 即将到来</a>
+      <a class="nav-item" data-view="family"><span>🏠</span> 家庭 <span id="invite-badge" class="badge hidden"></span></a>
       <a class="nav-item admin-only" data-view="settings"><span>⚙️</span> 设置</a>
       <a class="nav-item admin-only" data-view="users"><span>🧑‍💼</span> 用户管理</a>
     </nav>
-    <div class="side-foot">v2.4 · 自托管</div>
+    <div class="side-foot">v2.5 · 自托管</div>
   </aside>
 
   <div class="main">
@@ -124,6 +159,16 @@
       <!-- 即将到来 -->
       <section id="view-upcoming" class="view hidden">
         <div class="card" id="upcoming-list"></div>
+      </section>
+
+      <!-- 家庭 -->
+      <section id="view-family" class="view hidden">
+        <div class="toolbar">
+          <button class="btn btn-primary" id="create-family-btn">+ 创建家庭</button>
+          <span class="muted">家庭成员之间可共享「家庭」权限的数据。</span>
+        </div>
+        <div id="family-invites"></div>
+        <div id="family-list"></div>
       </section>
 
       <!-- 设置 -->

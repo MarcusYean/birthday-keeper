@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Header, UploadFile, File
+from fastapi import Depends, FastAPI, HTTPException, Header, UploadFile, File, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.4.0")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.5.0")
 
 
 # ---------- 鉴权依赖 ----------
@@ -78,6 +78,7 @@ class BirthdayIn(BaseModel):
     channels: list[str] | None = None
     note: str | None = None
     enabled: bool = True
+    visibility: str | None = None  # 'private' | 'family' | 'public'
 
 
 class AnniversaryIn(BaseModel):
@@ -93,6 +94,21 @@ class AnniversaryIn(BaseModel):
     channels: list[str] | None = None
     note: str | None = None
     enabled: bool = True
+    visibility: str | None = None  # 'private' | 'family' | 'public'
+
+
+class RegisterIn(BaseModel):
+    username: str
+    password: str
+
+
+class ForgotIn(BaseModel):
+    username: str
+
+
+class ResetIn(BaseModel):
+    token: str
+    password: str
 
 
 class BatchTestIn(BaseModel):
@@ -113,13 +129,19 @@ def health():
 
 @app.get("/api/setup/status")
 def setup_status():
-    return {"initialized": db.count_users() > 0}
+    return {
+        "initialized": db.count_users() > 0,
+        "allow_register": bool(config.CONFIG.get("privacy", {}).get("allow_register", False)),
+    }
 
 
 @app.get("/api/ui")
 def ui_prefs(user: dict = Depends(get_current_user)):
     """返回与界面布局相关的偏好（不含任何密钥）。"""
-    return config.CONFIG.get("ui", {})
+    ui = dict(config.CONFIG.get("ui", {}))
+    ui["default_visibility"] = config.CONFIG.get("privacy", {}).get("default_visibility", "private")
+    ui["allow_register"] = config.CONFIG.get("privacy", {}).get("allow_register", False)
+    return ui
 
 
 # ---------- 认证 ----------
@@ -153,6 +175,63 @@ def logout(authorization: str | None = Header(None), user: dict = Depends(get_cu
     return {"ok": True}
 
 
+def _can_view(r: dict, user: dict) -> bool:
+    fam_idx = db._family_index()
+    return db._is_visible(r, user["id"], fam_idx)
+
+
+def _default_visibility() -> str:
+    return config.CONFIG.get("privacy", {}).get("default_visibility", "private")
+
+
+@app.post("/api/register")
+def register(body: RegisterIn):
+    if not config.CONFIG.get("privacy", {}).get("allow_register", False):
+        raise HTTPException(status_code=403, detail="当前未开放注册，请联系管理员")
+    if not body.username or not body.password:
+        raise HTTPException(status_code=400, detail="用户名和密码不能为空")
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="密码至少 6 位")
+    if db.get_user_by_username(body.username):
+        raise HTTPException(status_code=400, detail="该用户名已被占用")
+    role = "admin" if db.count_users() == 0 else "user"
+    uid = db.create_user(body.username, body.password, role=role)
+    token = auth_mod.create_token()
+    db.create_session(token, uid, auth_mod.session_expiry())
+    return {"token": token, "username": body.username, "role": role}
+
+
+@app.post("/api/forgot-password")
+def forgot_password(body: ForgotIn, request: Request):
+    token = db.create_reset_token(body.username)
+    if not token:
+        # 不暴露用户名是否存在
+        return {"ok": True, "email_configured": None,
+                "message": "若该用户存在，重置邮件已发送"}
+    e = config.CONFIG.get("email", {})
+    if not (e.get("enabled") and e.get("smtp_host") and e.get("to_addr")):
+        return {"ok": False, "email_configured": False,
+                "message": "未配置邮件渠道，无法发送重置邮件，请联系管理员重置密码"}
+    base = str(request.base_url).rstrip("/")
+    link = f"{base}/reset-password?token={token}"
+    res = notifiers.email.send(
+        "生日管家 · 密码重置",
+        f"你请求重置密码。请点击以下链接（1 小时内有效）进行重置：\n{link}\n\n如非本人操作，请忽略此邮件。",
+        config.CONFIG,
+    )
+    if not res.ok:
+        return {"ok": False, "email_configured": True, "message": f"邮件发送失败：{res.message}"}
+    return {"ok": True, "email_configured": True, "message": "重置邮件已发送，请查收"}
+
+
+@app.post("/api/reset-password")
+def reset_password(body: ResetIn):
+    ok, err = db.consume_reset_token(body.token, body.password)
+    if not ok:
+        raise HTTPException(status_code=400, detail=err or "重置失败")
+    return {"ok": True}
+
+
 @app.get("/api/me")
 def me(user: dict = Depends(get_current_user)):
     return {"username": user["username"], "role": user["role"]}
@@ -171,32 +250,47 @@ def _enrich(r: dict | None) -> dict | None:
 
 @app.get("/api/birthdays")
 def list_birthdays(user: dict = Depends(get_current_user)):
-    return [_enrich(r) for r in db.get_all_birthdays()]
+    return [_enrich(r) for r in db.visible_birthdays(user["id"])]
 
 
 @app.post("/api/birthdays")
 def create_birthday(b: BirthdayIn, user: dict = Depends(get_current_user)):
-    return _enrich(db.create_birthday(b.model_dump()))
+    data = b.model_dump()
+    data["owner_id"] = user["id"]
+    if not data.get("visibility"):
+        data["visibility"] = _default_visibility()
+    return _enrich(db.create_birthday(data))
 
 
 @app.put("/api/birthdays/{bid}")
 def update_birthday(bid: int, b: BirthdayIn, user: dict = Depends(get_current_user)):
-    row = db.update_birthday(bid, b.model_dump())
-    if not row:
+    existing = db.get_birthday(bid)
+    if not existing:
         raise HTTPException(status_code=404, detail="未找到该联系人")
-    return _enrich(row)
+    if existing.get("owner_id") not in (None, user["id"]) and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只能修改自己创建的记录")
+    data = b.model_dump()
+    data["owner_id"] = existing.get("owner_id")  # 不改变归属
+    return _enrich(db.update_birthday(bid, data))
 
 
 @app.get("/api/birthdays/{bid}")
 def get_birthday(bid: int, user: dict = Depends(get_current_user)):
-    row = _enrich(db.get_birthday(bid))
+    row = db.get_birthday(bid)
     if not row:
         raise HTTPException(status_code=404, detail="未找到该联系人")
-    return row
+    if not _can_view(row, user):
+        raise HTTPException(status_code=403, detail="无权查看该记录")
+    return _enrich(row)
 
 
 @app.delete("/api/birthdays/{bid}")
 def delete_birthday(bid: int, user: dict = Depends(get_current_user)):
+    existing = db.get_birthday(bid)
+    if not existing:
+        raise HTTPException(status_code=404, detail="未找到该联系人")
+    if existing.get("owner_id") not in (None, user["id"]) and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只能删除自己创建的记录")
     db.delete_birthday(bid)
     return {"ok": True}
 
@@ -206,6 +300,8 @@ async def upload_avatar(bid: int, file: UploadFile = File(...), user: dict = Dep
     r = db.get_birthday(bid)
     if not r:
         raise HTTPException(status_code=404, detail="未找到该联系人")
+    if r.get("owner_id") not in (None, user["id"]) and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只能为自己创建的记录上传头像")
     # 校验类型与大小（<= 2MB）
     allowed = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
     ctype = (file.content_type or "").lower()
@@ -228,15 +324,15 @@ async def upload_avatar(bid: int, file: UploadFile = File(...), user: dict = Dep
     db.update_birthday(bid, {**{k: r.get(k) for k in (
         "name", "relationship", "gender", "birth_time", "zodiac", "hobbies",
         "avatar", "mbti", "blood_type", "calendar_type", "month", "day", "year",
-        "is_leap", "notify_days", "channels", "note", "enabled")}, "avatar_path": fn})
+        "is_leap", "notify_days", "channels", "note", "enabled", "visibility")}, "avatar_path": fn})
     return _enrich(db.get_birthday(bid))
 
 
 @app.post("/api/birthdays/test")
 def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
-    """批量测试：传 ids 测试指定联系人，不传则测试全部。"""
+    """批量测试：传 ids 测试指定联系人，不传则测试全部可见联系人。"""
     ids = body.ids
-    rows = db.get_all_birthdays()
+    rows = db.visible_birthdays(user["id"])
     if ids:
         rows = [r for r in rows if r["id"] in ids]
     if not rows:
@@ -257,14 +353,14 @@ def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
 
 @app.get("/api/upcoming")
 def upcoming(days: int = 30, user: dict = Depends(get_current_user)):
-    return db.upcoming_combined(days)
+    return db.upcoming_combined(days, user["id"])
 
 
 @app.post("/api/anniversaries/test")
 def test_anniversaries(body: BatchTestIn, user: dict = Depends(get_current_user)):
-    """纪念日批量测试：传 ids 测试指定项，不传则测试全部。"""
+    """纪念日批量测试：传 ids 测试指定项，不传则测试全部可见项。"""
     ids = body.ids
-    rows = db.get_all_anniversaries()
+    rows = db.visible_anniversaries(user["id"])
     if ids:
         rows = [r for r in rows if r["id"] in ids]
     if not rows:
@@ -293,17 +389,28 @@ def manual_check(user: dict = Depends(require_admin)):
 
 @app.get("/api/anniversaries")
 def list_anniversaries(user: dict = Depends(get_current_user)):
-    return db.get_all_anniversaries()
+    return db.visible_anniversaries(user["id"])
 
 
 @app.post("/api/anniversaries")
 def create_anniversary(a: AnniversaryIn, user: dict = Depends(get_current_user)):
-    return db.create_anniversary(a.model_dump())
+    data = a.model_dump()
+    data["owner_id"] = user["id"]
+    if not data.get("visibility"):
+        data["visibility"] = _default_visibility()
+    return db.create_anniversary(data)
 
 
 @app.put("/api/anniversaries/{aid}")
 def update_anniversary(aid: int, a: AnniversaryIn, user: dict = Depends(get_current_user)):
-    row = db.update_anniversary(aid, a.model_dump())
+    existing = db.get_anniversary(aid)
+    if not existing:
+        raise HTTPException(status_code=404, detail="未找到该纪念日")
+    if existing.get("owner_id") not in (None, user["id"]) and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只能修改自己创建的记录")
+    data = a.model_dump()
+    data["owner_id"] = existing.get("owner_id")
+    row = db.update_anniversary(aid, data)
     if not row:
         raise HTTPException(status_code=404, detail="未找到该纪念日")
     return row
@@ -311,6 +418,11 @@ def update_anniversary(aid: int, a: AnniversaryIn, user: dict = Depends(get_curr
 
 @app.delete("/api/anniversaries/{aid}")
 def delete_anniversary(aid: int, user: dict = Depends(get_current_user)):
+    existing = db.get_anniversary(aid)
+    if not existing:
+        raise HTTPException(status_code=404, detail="未找到该纪念日")
+    if existing.get("owner_id") not in (None, user["id"]) and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只能删除自己创建的记录")
     db.delete_anniversary(aid)
     return {"ok": True}
 
@@ -365,10 +477,76 @@ def delete_user(uid: int, user: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+# ---------- 家庭（共享） ----------
+
+@app.post("/api/families")
+def create_family_api(body: dict, user: dict = Depends(get_current_user)):
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="家庭名称不能为空")
+    fid = db.create_family(name, user["id"])
+    return {"id": fid, "name": name}
+
+
+@app.get("/api/families")
+def my_families(user: dict = Depends(get_current_user)):
+    return db.list_user_families(user["id"])
+
+
+@app.post("/api/families/{fid}/invite")
+def invite_api(fid: int, body: dict, user: dict = Depends(get_current_user)):
+    fam = db.get_family(fid)
+    if not fam:
+        raise HTTPException(status_code=404, detail="家庭不存在")
+    if fam["owner_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="只有家庭创建者可邀请成员")
+    uname = (body.get("username") or "").strip()
+    if not uname:
+        raise HTTPException(status_code=400, detail="请输入要邀请的用户名")
+    iid, err = db.invite_to_family(fid, user["id"], uname)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    return {"ok": True, "invite_id": iid}
+
+
+@app.get("/api/families/invites")
+def my_invites(user: dict = Depends(get_current_user)):
+    return db.list_invites_for_user(user["username"])
+
+
+@app.post("/api/families/invites/{iid}/respond")
+def respond_invite_api(iid: int, body: dict, user: dict = Depends(get_current_user)):
+    accept = bool(body.get("accept", False))
+    ok = db.respond_invite(iid, user["username"], accept)
+    if not ok:
+        raise HTTPException(status_code=404, detail="邀请不存在或已处理")
+    return {"ok": True}
+
+
+# ---------- 管理员：重置用户密码 ----------
+
+@app.post("/api/users/{uid}/reset-password")
+def admin_reset(uid: int, body: dict, user: dict = Depends(require_admin)):
+    target = db.get_user_by_id(uid)
+    if not target:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    pw = (body.get("password") or "")
+    if len(pw) < 6:
+        raise HTTPException(status_code=400, detail="密码至少 6 位")
+    db.admin_set_password(uid, pw)
+    return {"ok": True}
+
+
 # ---------- 静态前台 ----------
 
 @app.get("/")
 def index():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/reset-password")
+def reset_password_page():
+    """邮件中的重置链接落地页，由前端 SPA 读取 ?token= 参数。"""
     return FileResponse(STATIC_DIR / "index.html")
 
 

@@ -1,4 +1,4 @@
-/* 生日管家 v2.2 前端 SPA */
+/* 生日管家 v2.5 前端 SPA */
 "use strict";
 
 /* ============ 工具 ============ */
@@ -9,7 +9,17 @@ let TOKEN = localStorage.getItem("bk_token") || "";
 let ME = null;
 let CONTACTS = [];
 let ANNIS = [];
-let UI_PREFS = { menu_position: "left", contact_edit_mode: "modal", anniversary_enabled: true };
+let UI_PREFS = { menu_position: "left", contact_edit_mode: "modal", anniversary_enabled: true, default_visibility: "private", allow_register: false };
+
+const VIS_META = {
+  private: { label: "私人", icon: "🔒", cls: "vis-private", tip: "私人：仅你本人可见" },
+  family: { label: "家庭", icon: "🏠", cls: "vis-family", tip: "家庭：你与家庭成员可见" },
+  public: { label: "公开", icon: "🌍", cls: "vis-public", tip: "公开：所有用户可见" },
+};
+function visBadge(v) {
+  const m = VIS_META[v || "private"] || VIS_META.private;
+  return `<span class="tag vis ${m.cls}" title="${m.tip}">${m.icon} ${m.label}</span>`;
+}
 
 function toast(msg, ok = true) {
   const t = $("#toast");
@@ -98,16 +108,74 @@ function initTooltip() {
   });
 }
 
+function showAuthForm(name) {
+  ["login", "setup", "register", "forgot", "reset"].forEach((f) => {
+    const el = $(`#${f}-form`); if (el) el.classList.toggle("hidden", f !== name);
+  });
+  const subs = {
+    login: "记录亲友生日 · 农历/公历 · 微信 & 飞书提醒",
+    setup: "首次部署 · 创建管理员账号",
+    register: "创建你的账号",
+    forgot: "找回密码",
+    reset: "设置新密码",
+  };
+  $("#auth-sub").textContent = subs[name] || subs.login;
+}
+
+let RESET_TOKEN = "";
+
 async function initAuth() {
   initTooltip();
-  const st = await api("/api/setup/status");
-  if (!st.initialized) {
-    $("#login-form").classList.add("hidden"); $("#setup-form").classList.remove("hidden");
-    $("#auth-sub").textContent = "首次部署 · 创建管理员账号"; return;
+  // 邮件重置链接落地：/reset-password?token=xxx
+  const params = new URLSearchParams(location.search);
+  if (location.pathname === "/reset-password" && params.get("token")) {
+    RESET_TOKEN = params.get("token");
+    showAuthForm("reset");
+    return;
   }
-  $("#setup-form").classList.add("hidden"); $("#login-form").classList.remove("hidden");
+  const st = await api("/api/setup/status");
+  if (!st.initialized) { showAuthForm("setup"); return; }
+  showAuthForm("login");
+  $("#to-register").classList.toggle("hidden", !st.allow_register);
   if (TOKEN) { try { ME = await api("/api/me"); enterApp(); } catch (_) {} }
 }
+
+/* 登录页链接切换 */
+$("#to-register").addEventListener("click", (e) => { e.preventDefault(); showAuthForm("register"); });
+$("#to-forgot").addEventListener("click", (e) => { e.preventDefault(); showAuthForm("forgot"); });
+$("#reg-back").addEventListener("click", (e) => { e.preventDefault(); showAuthForm("login"); });
+$("#forgot-back").addEventListener("click", (e) => { e.preventDefault(); showAuthForm("login"); });
+$("#reset-back").addEventListener("click", (e) => { e.preventDefault(); history.replaceState(null, "", "/"); showAuthForm("login"); });
+
+$("#register-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const data = await api("/api/register", { method: "POST", body: JSON.stringify({ username: $("#reg-user").value.trim(), password: $("#reg-pass").value }) });
+    TOKEN = data.token; localStorage.setItem("bk_token", TOKEN);
+    ME = { username: data.username, role: data.role };
+    toast("注册成功，欢迎使用 🎉"); enterApp();
+  } catch (err) { toast(err.message, false); }
+});
+
+$("#forgot-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("#forgot-msg"); msg.textContent = "提交中…";
+  try {
+    const data = await api("/api/forgot-password", { method: "POST", body: JSON.stringify({ username: $("#forgot-user").value.trim() }) });
+    msg.textContent = data.message || "已提交";
+    msg.className = "auth-msg " + (data.ok ? "ok" : "err");
+  } catch (err) { msg.textContent = err.message; msg.className = "auth-msg err"; }
+});
+
+$("#reset-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("#reset-msg");
+  try {
+    await api("/api/reset-password", { method: "POST", body: JSON.stringify({ token: RESET_TOKEN, password: $("#reset-pass").value }) });
+    msg.textContent = "密码已重置，请用新密码登录 ✅"; msg.className = "auth-msg ok";
+    setTimeout(() => { history.replaceState(null, "", "/"); showAuthForm("login"); }, 1200);
+  } catch (err) { msg.textContent = err.message; msg.className = "auth-msg err"; }
+});
 
 $("#login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -139,11 +207,20 @@ async function enterApp() {
   document.body.classList.toggle("menu-top", UI_PREFS.menu_position === "top");
   document.body.classList.toggle("menu-left", UI_PREFS.menu_position !== "top");
   $("#nav-anniversaries") && $("#nav-anniversaries").classList.toggle("hidden", UI_PREFS.anniversary_enabled === false);
+  refreshInviteBadge();
   switchView("contacts");
 }
 
+async function refreshInviteBadge() {
+  try {
+    const invites = await api("/api/families/invites");
+    const badge = $("#invite-badge");
+    if (badge) { badge.textContent = invites.length || ""; badge.classList.toggle("hidden", !invites.length); }
+  } catch (_) {}
+}
+
 /* ============ 视图路由 ============ */
-const VIEW_TITLES = { contacts: "联系人", anniversaries: "纪念日", upcoming: "即将到来", settings: "系统设置", users: "用户管理" };
+const VIEW_TITLES = { contacts: "联系人", anniversaries: "纪念日", upcoming: "即将到来", family: "家庭共享", settings: "系统设置", users: "用户管理" };
 
 function switchView(name) {
   $$(".view").forEach((v) => v.classList.add("hidden"));
@@ -153,6 +230,7 @@ function switchView(name) {
   if (name === "contacts") loadContacts();
   if (name === "anniversaries") loadAnniversaries();
   if (name === "upcoming") loadUpcoming();
+  if (name === "family") loadFamily();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
 }
@@ -457,7 +535,7 @@ function daysBadge(r) {
   return `<span class="tag">${r.days_until} 天后</span>`;
 }
 function actionsHtml(r, kind) {
-  const en = r.enabled ? '<span class="tag tag-on">启用</span>' : '<span class="tag tag-off">停用</span>';
+  const en = visBadge(r.visibility) + (r.enabled ? '<span class="tag tag-on">启用</span>' : '<span class="tag tag-off">停用</span>');
   const btns = `
     <button class="btn btn-ghost btn-sm" onclick="edit${kind === "anni" ? "Anni" : "Contact"}(${r.id})">编辑</button>
     <button class="btn btn-danger-ghost btn-sm" onclick="delRecord('${kind}', ${r.id}, '${esc(r.name)}')">删除</button>`;
@@ -520,6 +598,9 @@ function openContactEditor(r) {
       <div class="field"><label>提前提醒天数（逗号分隔，留空跟随全局）</label><input id="c-days" type="text" value="${nd}" placeholder="如 1,3,7" /></div>
       <div class="field"><label>提醒渠道（留空跟随全局）</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="c-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${CH_NAMES[c]}</label>`).join("")}</div></div>
       <div class="field"><label>备注</label><input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="如：喜欢的礼物、忌口等" /></div>
+      <div class="field"><label>可见范围 <span class="info-ic" data-tip="私人：仅自己可见；家庭：家庭成员可见；公开：所有用户可见">ℹ️</span></label>
+        <div class="vis-picker" id="c-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="c-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_META[v].icon} ${VIS_META[v].label}</label>`).join("")}</div>
+      </div>
       <div class="field"><label class="chk"><input id="c-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> 启用提醒</label></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeEditor()">取消</button>
@@ -527,6 +608,10 @@ function openContactEditor(r) {
       </div>
     </form>`;
   showEditor(html);
+  // 可见范围选中态
+  $$("#c-vis input").forEach((i) => i.addEventListener("change", () => {
+    $$("#c-vis .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
+  }));
   // 动态更新 MBTI/血型分析提示
   const msel = $("#c-mbti"), bsel = $("#c-blood");
   msel.addEventListener("change", () => $("#c-mbti-info").setAttribute("data-tip", mbtiTip(msel.value)));
@@ -556,6 +641,7 @@ function openContactEditor(r) {
       notify_days: $("#c-days").value.trim() ? $("#c-days").value.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => n >= 0) : null,
       channels: $$(".c-ch:checked").length ? $$(".c-ch:checked").map((i) => i.value) : null,
       note: $("#c-note").value.trim() || null, enabled: $("#c-enabled").checked,
+      visibility: (document.querySelector('#c-vis input:checked') || {}).value || null,
     };
     try {
       if (isEdit) await api(`/api/birthdays/${r.id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -655,10 +741,16 @@ function openAnniEditor(r) {
       <div class="field"><label>提前提醒天数（逗号分隔）</label><input id="a-days" type="text" value="${nd}" placeholder="如 1,7" /></div>
       <div class="field"><label>提醒渠道（留空跟随全局）</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${CH_NAMES[c]}</label>`).join("")}</div></div>
       <div class="field"><label>备注</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="如：订餐厅" /></div>
+      <div class="field"><label>可见范围 <span class="info-ic" data-tip="私人：仅自己可见；家庭：家庭成员可见；公开：所有用户可见">ℹ️</span></label>
+        <div class="vis-picker" id="a-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_META[v].icon} ${VIS_META[v].label}</label>`).join("")}</div>
+      </div>
       <div class="field"><label class="chk"><input id="a-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> 启用提醒</label></div>
       <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeEditor()">取消</button><button type="submit" class="btn btn-primary">${isEdit ? "保存" : "添加"}</button></div>
     </form>`;
   showEditor(html);
+  $$("#a-vis input").forEach((i) => i.addEventListener("change", () => {
+    $$("#a-vis .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
+  }));
   $("#anni-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const body = {
@@ -668,6 +760,7 @@ function openAnniEditor(r) {
       notify_days: $("#a-days").value.trim() ? $("#a-days").value.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => n >= 0) : null,
       channels: $$(".a-ch:checked").length ? $$(".a-ch:checked").map((i) => i.value) : null,
       note: $("#a-note").value.trim() || null, enabled: $("#a-enabled").checked,
+      visibility: (document.querySelector('#a-vis input:checked') || {}).value || null,
     };
     try {
       if (isEdit) await api(`/api/anniversaries/${r.id}`, { method: "PUT", body: JSON.stringify(body) });
@@ -711,12 +804,95 @@ async function loadUpcoming() {
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 
+/* ============ 家庭共享 ============ */
+$("#create-family-btn").addEventListener("click", () => {
+  openModal(`<h2>创建家庭</h2><form id="family-form" class="modal-form">
+    <div class="field"><label>家庭名称 *</label><input id="f-name" type="text" required placeholder="如：我们的小家" /></div>
+    <p class="muted sm">创建后你将成为家庭管理者，可以邀请其他用户加入。家庭成员之间可以互相看到「家庭」权限的生日与纪念日。</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">创建</button></div>
+  </form>`);
+  $("#family-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/families", { method: "POST", body: JSON.stringify({ name: $("#f-name").value.trim() }) });
+      closeModal(); toast("家庭已创建 🏠"); loadFamily();
+    } catch (err) { toast(err.message, false); }
+  });
+});
+
+async function loadFamily() {
+  const invBox = $("#family-invites"), listBox = $("#family-list");
+  invBox.innerHTML = ""; listBox.innerHTML = '<div class="empty">加载中…</div>';
+  try {
+    const [invites, families] = await Promise.all([api("/api/families/invites"), api("/api/families")]);
+    // 待处理邀请
+    if (invites.length) {
+      invBox.innerHTML = `<div class="card invite-card">
+        <div class="group-title">📩 待处理邀请</div>
+        ${invites.map((iv) => `<div class="invite-item">
+          <div><b>${esc(iv.inviter_name || "用户")}</b> 邀请你加入家庭「<b>${esc(iv.family_name || "")}</b>」</div>
+          <div class="invite-actions">
+            <button class="btn btn-primary btn-sm" onclick="respondInvite(${iv.id}, true)">接受</button>
+            <button class="btn btn-ghost btn-sm" onclick="respondInvite(${iv.id}, false)">拒绝</button>
+          </div>
+        </div>`).join("")}
+      </div>`;
+    }
+    // 我的家庭
+    if (!families.length) {
+      listBox.innerHTML = '<div class="card"><div class="empty">你还没有加入任何家庭。点击「+ 创建家庭」，或等待他人邀请你 🏠</div></div>';
+    } else {
+      listBox.innerHTML = families.map((f) => {
+        const isOwner = ME && f.owner_name === ME.username;
+        return `<div class="card family-card">
+          <div class="family-head">
+            <div class="family-name">🏠 ${esc(f.name)} ${isOwner ? '<span class="tag tag-on">我创建的</span>' : ""}</div>
+            ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="openInvite(${f.id}, '${esc(f.name)}')">+ 邀请成员</button>` : ""}
+          </div>
+          <div class="family-members">
+            ${(f.members || []).map((m) => `<span class="member-chip">${m.username === f.owner_name ? "👑" : "👤"} ${esc(m.username)}${ME && m.username === ME.username ? "（我）" : ""}</span>`).join("")}
+          </div>
+          ${(f.pending_invites || []).length ? `<div class="muted sm" style="margin-top:8px">待接受：${f.pending_invites.map((p) => esc(p)).join("、")}</div>` : ""}
+        </div>`;
+      }).join("");
+    }
+    refreshInviteBadge();
+  } catch (err) { listBox.innerHTML = ""; toast(err.message, false); }
+}
+
+window.respondInvite = async (iid, accept) => {
+  try {
+    await api(`/api/families/invites/${iid}/respond`, { method: "POST", body: JSON.stringify({ accept }) });
+    toast(accept ? "已加入家庭 🎉" : "已拒绝邀请");
+    loadFamily();
+  } catch (err) { toast(err.message, false); }
+};
+
+window.openInvite = (fid, fname) => {
+  openModal(`<h2>邀请成员加入「${esc(fname)}」</h2><form id="invite-form" class="modal-form">
+    <div class="field"><label>对方用户名 *</label><input id="iv-user" type="text" required placeholder="输入要邀请的用户名" /></div>
+    <p class="muted sm">对方登录后会在「家庭」页面看到邀请，接受后即成为家庭成员。</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">发送邀请</button></div>
+  </form>`);
+  $("#invite-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/api/families/${fid}/invite`, { method: "POST", body: JSON.stringify({ username: $("#iv-user").value.trim() }) });
+      closeModal(); toast("邀请已发送 📩"); loadFamily();
+    } catch (err) { toast(err.message, false); }
+  });
+};
+
 /* ============ 设置（每个参数带说明 + 二级菜单） ============ */
 const SETTINGS_SCHEMA = [
   { key: "ui", icon: "🎨", title: "界面与外观", desc: "控制导航菜单位置、联系人编辑方式、是否启用纪念日等界面偏好。", fields: [
     { path: "ui.menu_position", label: "菜单位置", type: "select", options: [["left", "左侧栏"], ["top", "顶部栏"]], help: "导航菜单显示在页面左侧还是顶部。选择后保存立即生效（刷新一次即可看到布局变化）。" },
     { path: "ui.contact_edit_mode", label: "联系人编辑方式", type: "select", options: [["modal", "居中弹窗"], ["drawer", "右侧抽屉"]], help: "编辑或新建联系人时，表单以「居中的弹窗」还是「从右侧滑出的抽屉」呈现。抽屉方式在宽屏下更便于一边查看列表一边编辑。" },
     { path: "ui.anniversary_enabled", label: "启用纪念日功能", type: "bool", help: "关闭后左侧导航与页面中的「纪念日」入口将隐藏。若你只用生日提醒，可关闭以保持界面简洁。" },
+  ] },
+  { key: "privacy", icon: "🔐", title: "隐私与注册", desc: "控制新数据的默认可见范围，以及是否开放用户自助注册。", fields: [
+    { path: "privacy.default_visibility", label: "新数据默认可见范围", type: "select", options: [["private", "🔒 私人（仅自己可见）"], ["family", "🏠 家庭（家庭成员可见）"], ["public", "🌍 公开（所有用户可见）"]], help: "新建生日/纪念日时默认选中的可见范围。私人=仅本人；家庭=与你同属一个家庭的成员可见；公开=系统内所有用户可见。每条数据也可在编辑时单独调整。" },
+    { path: "privacy.allow_register", label: "开放用户注册", type: "bool", help: "开启后，登录页会显示「注册账号」入口，任何人都可以自助注册普通用户。关闭后仅管理员可在「用户管理」中创建账号。" },
   ] },
   { key: "notify", icon: "⏰", title: "提醒策略", desc: "控制系统每天什么时候检查生日、默认提前几天提醒、默认用什么渠道发送。", fields: [
     { path: "notify.check_hour", label: "每日检查时间 - 小时", type: "number", min: 0, max: 23, help: "系统每天在这个小时执行一次生日/纪念日检查（24小时制，0-23）。保存后立即生效，无需重启。" },
@@ -830,10 +1006,25 @@ async function loadUsers() {
       <td data-label="用户名"><b>${esc(u.username)}</b>${ME && u.username === ME.username ? ' <span class="tag tag-solar">当前</span>' : ""}</td>
       <td data-label="角色">${u.role === "admin" ? '<span class="tag tag-on">管理员</span>' : '<span class="tag tag-off">普通用户</span>'}</td>
       <td data-label="创建时间" class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", " "))}</td>
-      <td data-label="操作" class="ta-r"><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">删除</button></td>
+      <td data-label="操作" class="ta-r"><button class="btn btn-ghost btn-sm" onclick="resetUserPwd(${u.id}, '${esc(u.username)}')">重置密码</button><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">删除</button></td>
     </tr>`).join("")}</tbody></table><p class="muted sm" style="padding:12px 16px">说明：管理员可管理联系人、修改系统设置、管理用户；普通用户只能管理联系人和查看即将到来的生日。</p>`;
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
+window.resetUserPwd = (id, name) => {
+  openModal(`<h2>重置「${esc(name)}」的密码</h2><form id="rp-form" class="modal-form">
+    <div class="field"><label>新密码 *</label><input id="rp-pass" type="password" required placeholder="至少 6 位" /></div>
+    <p class="muted sm">重置后该用户的所有登录状态将失效，需用新密码重新登录。</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">重置</button></div>
+  </form>`);
+  $("#rp-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/api/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password: $("#rp-pass").value }) });
+      closeModal(); toast("密码已重置 ✅");
+    } catch (err) { toast(err.message, false); }
+  });
+};
+
 window.delUser = async (id, name) => {
   if (!confirm(`确定删除用户「${name}」吗？其登录状态将立即失效。`)) return;
   try { await api(`/api/users/${id}`, { method: "DELETE" }); toast("已删除"); loadUsers(); } catch (err) { toast(err.message, false); }

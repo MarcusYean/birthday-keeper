@@ -5,9 +5,10 @@
 
 import json
 import os
+import secrets
 import sqlite3
 import threading
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from . import auth
 
@@ -84,7 +85,58 @@ _SCHEMA = [
         expires_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS families (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        owner_id   INTEGER NOT NULL,
+        created_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS family_members (
+        family_id  INTEGER NOT NULL,
+        user_id    INTEGER NOT NULL,
+        joined_at  TEXT,
+        PRIMARY KEY (family_id, user_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS family_invites (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        family_id        INTEGER NOT NULL,
+        inviter_id       INTEGER NOT NULL,
+        invitee_username TEXT NOT NULL,
+        status           TEXT NOT NULL DEFAULT 'pending',
+        created_at       TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS password_resets (
+        token      TEXT PRIMARY KEY,
+        user_id    INTEGER NOT NULL,
+        expires_at TEXT NOT NULL,
+        used       INTEGER DEFAULT 0
+    )
+    """,
 ]
+
+# 通用列迁移：自动补齐各表可能缺失的列（兼容旧数据库，避免升级后 500）
+_COLUMN_MIGRATIONS = {
+    "birthdays": {
+        "gender": "TEXT", "birth_time": "TEXT", "zodiac": "TEXT", "hobbies": "TEXT",
+        "avatar": "TEXT", "mbti": "TEXT", "blood_type": "TEXT", "avatar_path": "TEXT",
+        "created_at": "TEXT", "owner_id": "INTEGER", "visibility": "TEXT DEFAULT 'private'",
+    },
+    "anniversaries": {
+        "kind": "TEXT DEFAULT '纪念日'", "calendar_type": "TEXT DEFAULT 'solar'",
+        "is_leap": "INTEGER DEFAULT 0", "created_at": "TEXT",
+        "owner_id": "INTEGER", "visibility": "TEXT DEFAULT 'private'",
+    },
+    "users": {
+        "role": "TEXT DEFAULT 'user'", "created_at": "TEXT",
+    },
+}
 
 # v2.1 新增列（兼容旧数据库）
 _MIGRATIONS = [
@@ -106,22 +158,35 @@ def _get_conn() -> sqlite3.Connection:
     return conn
 
 
+def _migrate_columns():
+    """为已存在的表补齐缺失列（旧库升级时不会因缺列而 500）。"""
+    conn = _get_conn()
+    try:
+        for table, cols in _COLUMN_MIGRATIONS.items():
+            existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            for col, typ in cols.items():
+                if col in existing:
+                    continue
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column" in str(e).lower():
+                        continue
+                    raise
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _ensure_schema():
     conn = _get_conn()
     try:
         for stmt in _SCHEMA:
             conn.execute(stmt)
-        for stmt in _MIGRATIONS:
-            try:
-                conn.execute(stmt)
-            except sqlite3.OperationalError as e:
-                # 列已存在则忽略
-                if "duplicate column name" in str(e).lower():
-                    continue
-                raise
         conn.commit()
     finally:
         conn.close()
+    _migrate_columns()
 
 
 _ensure_schema()
@@ -237,6 +302,7 @@ def get_birthday(bid: int) -> dict | None:
 def create_birthday(data: dict) -> dict:
     data.setdefault("created_at", datetime.now().isoformat())
     data.setdefault("enabled", True)
+    data.setdefault("visibility", "private")
     conn = _get_conn()
     try:
         cur = conn.execute(
@@ -245,8 +311,8 @@ def create_birthday(data: dict) -> dict:
               (name, relationship, gender, birth_time, zodiac, hobbies, avatar,
                mbti, blood_type, avatar_path,
                calendar_type, month, day, year, is_leap,
-               notify_days, channels, note, enabled, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               notify_days, channels, note, enabled, created_at, owner_id, visibility)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 data.get("name"),
@@ -269,6 +335,8 @@ def create_birthday(data: dict) -> dict:
                 data.get("note"),
                 int(bool(data.get("enabled", True))),
                 data.get("created_at"),
+                data.get("owner_id"),
+                data.get("visibility"),
             ),
         )
         conn.commit()
@@ -288,7 +356,8 @@ def update_birthday(bid: int, data: dict) -> dict | None:
               name=?, relationship=?, gender=?, birth_time=?, zodiac=?, hobbies=?, avatar=?,
               mbti=?, blood_type=?, avatar_path=?,
               calendar_type=?, month=?, day=?, year=?,
-              is_leap=?, notify_days=?, channels=?, note=?, enabled=?
+              is_leap=?, notify_days=?, channels=?, note=?, enabled=?,
+              visibility=?
             WHERE id=?
             """,
             (
@@ -311,6 +380,7 @@ def update_birthday(bid: int, data: dict) -> dict | None:
                 json.dumps(data.get("channels") or [], ensure_ascii=False),
                 data.get("note"),
                 int(bool(data.get("enabled", True))),
+                data.get("visibility", "private"),
                 bid,
             ),
         )
@@ -429,14 +499,15 @@ def create_anniversary(data: dict) -> dict:
     data.setdefault("created_at", datetime.now().isoformat())
     data.setdefault("enabled", True)
     data.setdefault("kind", "纪念日")
+    data.setdefault("visibility", "private")
     conn = _get_conn()
     try:
         cur = conn.execute(
             """
             INSERT INTO anniversaries
               (name, relationship, kind, calendar_type, month, day, year, is_leap,
-               notify_days, channels, note, enabled, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+               notify_days, channels, note, enabled, created_at, owner_id, visibility)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 data.get("name"),
@@ -452,6 +523,8 @@ def create_anniversary(data: dict) -> dict:
                 data.get("note"),
                 int(bool(data.get("enabled", True))),
                 data.get("created_at"),
+                data.get("owner_id"),
+                data.get("visibility"),
             ),
         )
         conn.commit()
@@ -469,7 +542,8 @@ def update_anniversary(aid: int, data: dict) -> dict | None:
             """
             UPDATE anniversaries SET
               name=?, relationship=?, kind=?, calendar_type=?, month=?, day=?, year=?,
-              is_leap=?, notify_days=?, channels=?, note=?, enabled=?
+              is_leap=?, notify_days=?, channels=?, note=?, enabled=?,
+              visibility=?
             WHERE id=?
             """,
             (
@@ -485,6 +559,7 @@ def update_anniversary(aid: int, data: dict) -> dict | None:
                 json.dumps(data.get("channels") or [], ensure_ascii=False),
                 data.get("note"),
                 int(bool(data.get("enabled", True))),
+                data.get("visibility", "private"),
                 aid,
             ),
         )
@@ -527,11 +602,56 @@ def upcoming_anniversaries(days: int = 60) -> list:
     return out
 
 
-def upcoming_combined(days: int = 60) -> list:
-    """即将到来：合并生日 + 纪念日，并标注 kind。"""
+# ---------- 权限（私人 / 家庭 / 公开）----------
+
+def _family_index() -> dict:
+    """返回 {user_id: set(family_id)} 的成员关系索引。"""
+    conn = _get_conn()
+    try:
+        rows = conn.execute("SELECT family_id, user_id FROM family_members").fetchall()
+    finally:
+        conn.close()
+    idx: dict = {}
+    for r in rows:
+        idx.setdefault(r["user_id"], set()).add(r["family_id"])
+    return idx
+
+
+def _is_visible(r: dict, viewer_id: int, fam_idx: dict) -> bool:
+    """判断 viewer 是否可见某条记录。"""
+    vis = (r.get("visibility") or "private")
+    owner = r.get("owner_id")
+    if owner is None:  # 历史无主数据视为公开，避免丢失
+        return True
+    if owner == viewer_id:
+        return True
+    if vis == "public":
+        return True
+    if vis == "family":
+        vf = fam_idx.get(viewer_id, set())
+        of = fam_idx.get(owner, set())
+        return bool(vf & of)
+    return False
+
+
+def visible_birthdays(viewer_id: int) -> list:
+    fam_idx = _family_index()
+    return [r for r in get_all_birthdays() if _is_visible(r, viewer_id, fam_idx)]
+
+
+def visible_anniversaries(viewer_id: int) -> list:
+    fam_idx = _family_index()
+    return [r for r in get_all_anniversaries() if _is_visible(r, viewer_id, fam_idx)]
+
+
+def upcoming_combined(days: int = 60, viewer_id: int | None = None) -> list:
+    """即将到来：合并生日 + 纪念日，并标注 kind。viewer_id 给定时按权限过滤。"""
     b = [dict(x, kind="birthday") for x in upcoming(days)]
     a = [dict(x, kind="anniversary") for x in upcoming_anniversaries(days)]
     out = b + a
+    if viewer_id is not None:
+        fam_idx = _family_index()
+        out = [x for x in out if _is_visible(x, viewer_id, fam_idx)]
     out.sort(key=lambda x: (x["days_until"] if x["days_until"] is not None else 9999))
     return out
 
@@ -642,5 +762,209 @@ def get_user_from_token(token: str) -> dict | None:
         if exp < datetime.now(timezone.utc):
             return None
         return get_user_by_id(row["user_id"])
+    finally:
+        conn.close()
+
+
+# ---------- 家庭（共享）----------
+
+def create_family(name: str, owner_id: int) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_conn()
+    try:
+        cur = conn.execute(
+            "INSERT INTO families(name, owner_id, created_at) VALUES(?,?,?)",
+            (name, owner_id, now),
+        )
+        fid = cur.lastrowid
+        conn.execute(
+            "INSERT OR IGNORE INTO family_members(family_id, user_id, joined_at) VALUES(?,?,?)",
+            (fid, owner_id, now),
+        )
+        conn.commit()
+        return fid
+    finally:
+        conn.close()
+
+
+def get_family(fid: int) -> dict | None:
+    conn = _get_conn()
+    try:
+        r = conn.execute("SELECT * FROM families WHERE id=?", (fid,)).fetchone()
+        return dict(r) if r else None
+    finally:
+        conn.close()
+
+
+def invite_to_family(family_id: int, inviter_id: int, invitee_username: str):
+    """返回 (invite_id, error)。"""
+    u = get_user_by_username(invitee_username)
+    if not u:
+        return None, "用户不存在"
+    if u["id"] == inviter_id:
+        return None, "不能邀请自己"
+    conn = _get_conn()
+    try:
+        m = conn.execute(
+            "SELECT 1 FROM family_members WHERE family_id=? AND user_id=?",
+            (family_id, u["id"]),
+        ).fetchone()
+        if m:
+            return None, "该用户已是家庭成员"
+        p = conn.execute(
+            "SELECT 1 FROM family_invites WHERE family_id=? AND invitee_username=? AND status='pending'",
+            (family_id, invitee_username),
+        ).fetchone()
+        if p:
+            return None, "已向该用户发送过邀请"
+        cur = conn.execute(
+            "INSERT INTO family_invites(family_id, inviter_id, invitee_username, status, created_at) "
+            "VALUES(?,?,?,?,?)",
+            (family_id, inviter_id, invitee_username, "pending", datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid, None
+    finally:
+        conn.close()
+
+
+def list_invites_for_user(username: str) -> list:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT i.*, f.name AS family_name, u.username AS inviter_name "
+            "FROM family_invites i "
+            "JOIN families f ON f.id=i.family_id "
+            "LEFT JOIN users u ON u.id=i.inviter_id "
+            "WHERE i.invitee_username=? AND i.status='pending'",
+            (username,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def respond_invite(invite_id: int, username: str, accept: bool) -> bool:
+    conn = _get_conn()
+    try:
+        r = conn.execute(
+            "SELECT * FROM family_invites WHERE id=? AND invitee_username=?",
+            (invite_id, username),
+        ).fetchone()
+        if not r:
+            return False
+        if accept:
+            conn.execute("UPDATE family_invites SET status='accepted' WHERE id=?", (invite_id,))
+            uid = get_user_by_username(username)["id"]
+            conn.execute(
+                "INSERT OR IGNORE INTO family_members(family_id, user_id, joined_at) VALUES(?,?,?)",
+                (r["family_id"], uid, datetime.now(timezone.utc).isoformat()),
+            )
+        else:
+            conn.execute("UPDATE family_invites SET status='declined' WHERE id=?", (invite_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def list_user_families(user_id: int) -> list:
+    conn = _get_conn()
+    try:
+        fams = conn.execute(
+            "SELECT f.* FROM families f JOIN family_members fm ON fm.family_id=f.id "
+            "WHERE fm.user_id=? ORDER BY f.id", (user_id,)
+        ).fetchall()
+        out = []
+        for f in fams:
+            members = conn.execute(
+                "SELECT u.id, u.username, u.role FROM family_members fm "
+                "JOIN users u ON u.id=fm.user_id WHERE fm.family_id=? ORDER BY u.id",
+                (f["id"],),
+            ).fetchall()
+            d = dict(f)
+            d["members"] = [dict(m) for m in members]
+            owner = conn.execute(
+                "SELECT username FROM users WHERE id=?", (f["owner_id"],)
+            ).fetchone()
+            d["owner_name"] = owner["username"] if owner else None
+            pend = conn.execute(
+                "SELECT invitee_username FROM family_invites "
+                "WHERE family_id=? AND status='pending'", (f["id"],)
+            ).fetchall()
+            d["pending_invites"] = [p["invitee_username"] for p in pend]
+            out.append(d)
+        return out
+    finally:
+        conn.close()
+
+
+def get_user_family_ids(user_id: int) -> list:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT family_id FROM family_members WHERE user_id=?", (user_id,)
+        ).fetchall()
+        return [r["family_id"] for r in rows]
+    finally:
+        conn.close()
+
+
+# ---------- 密码重置 ----------
+
+def create_reset_token(username: str):
+    """返回 token 或 None（用户不存在）。"""
+    u = get_user_by_username(username)
+    if not u:
+        return None
+    token = secrets.token_urlsafe(32)
+    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO password_resets(token, user_id, expires_at, used) VALUES(?,?,?,0)",
+            (token, u["id"], expires),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return token
+
+
+def consume_reset_token(token: str, new_password: str):
+    """返回 (ok, error)。"""
+    conn = _get_conn()
+    try:
+        r = conn.execute(
+            "SELECT * FROM password_resets WHERE token=? AND used=0", (token,)
+        ).fetchone()
+        if not r:
+            return False, "无效或过期的重置链接"
+        exp = datetime.fromisoformat(r["expires_at"])
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < datetime.now(timezone.utc):
+            return False, "重置链接已过期"
+        conn.execute(
+            "UPDATE users SET password=? WHERE id=?",
+            (auth.hash_password(new_password), r["user_id"]),
+        )
+        conn.execute("UPDATE password_resets SET used=1 WHERE token=?", (token,))
+        conn.execute("DELETE FROM sessions WHERE user_id=?", (r["user_id"],))
+        conn.commit()
+        return True, None
+    finally:
+        conn.close()
+
+
+def admin_set_password(user_id: int, new_password: str) -> None:
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "UPDATE users SET password=? WHERE id=?",
+            (auth.hash_password(new_password), user_id),
+        )
+        conn.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+        conn.commit()
     finally:
         conn.close()
