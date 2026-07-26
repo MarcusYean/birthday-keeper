@@ -146,7 +146,7 @@ docker compose up -d
 
 ### 升级
 
-镜像在每次推送 `main` 时由 GitHub Actions 自动重建并发布到 `:latest`；每次发布 **GitHub Release（形如 `v2.6.2`）** 时会额外构建并推送**版本固定标签** `:v2.6.2`，方便你锁定版本。日常升级只需拉取新镜像：
+镜像在每次推送 `main` 时由 GitHub Actions 自动重建并发布到 `:latest`；每次发布 **GitHub Release（形如 `v2.6.3`）** 时会额外构建并推送**版本固定标签** `:v2.6.3`，方便你锁定版本。日常升级只需拉取新镜像：
 
 ```bash
 docker pull ghcr.io/marcusyean/birthday-keeper:latest
@@ -156,7 +156,7 @@ docker compose up -d          # 若用方式一(docker run)，先 docker rm -f b
 如需锁定某版本（更稳定、避免意外变更），改用版本标签：
 
 ```bash
-docker pull ghcr.io/marcusyean/birthday-keeper:v2.6.2
+docker pull ghcr.io/marcusyean/birthday-keeper:v2.6.3
 ```
 
 数据始终在 `./data` 卷，升级不丢失。各版本变更记录见仓库 **Releases** 页面。
