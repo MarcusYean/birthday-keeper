@@ -948,6 +948,16 @@ function buildSettingsSchema() {
     { path: "email.from_addr", label: t("settings.fromAddr"), type: "text", help: "一般与登录账号相同，留空自动使用。" },
     { path: "email.to_addr", label: t("settings.toAddr"), type: "text", help: "提醒邮件发送到哪个邮箱，多个用逗号分隔。" },
   ] },
+  { key: "templates", icon: "📝", title: t("settings.group.templates"), desc: t("settings.templatesDesc"), fields: [
+    { path: "templates.birthday_title", label: t("settings.birthdayTitle"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.birthday_body", label: t("settings.birthdayBody"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.anniversary_title", label: t("settings.anniversaryTitle"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.anniversary_body", label: t("settings.anniversaryBody"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.test_title", label: t("settings.testTitle"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.test_body", label: t("settings.testBody"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.anniversary_test_title", label: t("settings.anniTestTitle"), type: "textarea", help: t("settings.templateVars") },
+    { path: "templates.anniversary_test_body", label: t("settings.anniTestBody"), type: "textarea", help: t("settings.templateVars") },
+  ] },
   { key: "app", icon: "🛠️", title: t("settings.group.system"), desc: t("settings.systemDesc"), fields: [
     { path: "app.timezone", label: t("settings.timezone"), type: "text", help: "定时检查所使用的时区，默认 Asia/Shanghai。" },
     { path: "app.port", label: t("settings.port"), type: "number", min: 1, max: 65535, help: "容器内监听端口，默认 8000。修改后需重启容器并调整 docker-compose 端口映射。" },
@@ -990,6 +1000,7 @@ function fieldHtml(f) {
   else if (f.type === "channels") { const chosen = val || []; input = `<div class="chk-row" id="${id}">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" value="${c}" ${chosen.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div>`; }
   else if (f.type === "password") input = `<input id="${id}" type="password" value="${esc(val || "")}" autocomplete="new-password" placeholder="●●●●●●" />`;
   else if (f.type === "number") input = `<input id="${id}" type="number" value="${val ?? ""}" ${f.min != null ? `min="${f.min}"` : ""} ${f.max != null ? `max="${f.max}"` : ""} />`;
+  else if (f.type === "textarea") input = `<textarea id="${id}" rows="3">${esc(val ?? "")}</textarea>`;
   else input = `<input id="${id}" type="text" value="${esc(val ?? "")}" />`;
   return `<div class="field setting-field ${f.type === "bool" ? "field-inline" : ""}">
     <div class="field-main"><label class="field-label" for="${id}">${f.label}</label>${input}</div>

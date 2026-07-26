@@ -621,8 +621,9 @@ def _is_visible(r: dict, viewer_id: int, fam_idx: dict) -> bool:
     """判断 viewer 是否可见某条记录。"""
     vis = (r.get("visibility") or "private")
     owner = r.get("owner_id")
-    if owner is None:  # 历史无主数据视为公开，避免丢失
-        return True
+    if owner is None:
+        # 无主记录不再默认公开：只有显式 public 才公开，避免新用户看到他人数据
+        return vis == "public"
     if owner == viewer_id:
         return True
     if vis == "public":

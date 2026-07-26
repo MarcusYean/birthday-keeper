@@ -50,3 +50,17 @@ ui:
 privacy:
   default_visibility: private   # 新数据的默认可见范围：private（仅自己）| family（家庭）| public（所有人）
   allow_register: false         # 是否开放用户自助注册（开启后登录页出现「注册」入口）
+
+# 消息模板（也可在网页「设置 → 消息模板」中调整，保存即生效）
+# 可用变量：{name} {calendar_type} {month} {day} {year} {relationship} {note}
+#          {days_until} {age} {age_num} {years_together} {years_together_num} {when}
+#          {zodiac} {chinese_zodiac} {next_date} {kind}
+templates:
+  birthday_title: "🎂 生日提醒：{name}"
+  birthday_body: "{when}{name}的生日（{calendar_type}{month}月{day}日）{age}\n关系：{relationship}\n备注：{note}"
+  anniversary_title: "📌 {kind}提醒：{name}"
+  anniversary_body: "{when}{name}的{kind}（{calendar_type}{month}月{day}日）{years_together}\n关系：{relationship}\n备注：{note}"
+  test_title: "🔔 测试通知：{name}"
+  test_body: "这是来自「生日管家」的测试消息。\n联系人：{name}\n若你收到这条消息，说明该渠道配置正确 ✅"
+  anniversary_test_title: "🔔 测试通知：{name}"
+  anniversary_test_body: "这是来自「生日管家」的纪念日测试消息。\n名称：{name}（{kind}）\n若你收到这条消息，说明该渠道配置正确 ✅"

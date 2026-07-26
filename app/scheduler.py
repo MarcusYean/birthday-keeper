@@ -12,37 +12,6 @@ log = logging.getLogger("birthday")
 _sched = None
 
 
-def build_reminder(record: dict, days_until: int):
-    name = record["name"]
-    rel = record.get("relationship") or ""
-    cal = "农历" if record["calendar_type"] == "lunar" else "公历"
-    when = "今天是" if days_until == 0 else f"还有 {days_until} 天是"
-    age = f"（{date.today().year - record['year']} 岁）" if record.get("year") else ""
-    title = f"🎂 生日提醒：{name}"
-    content = (
-        f"{when}{name}的生日（{cal}{record['month']}月{record['day']}日）{age}\n"
-        f"关系：{rel or '—'}\n备注：{record.get('note') or '—'}"
-    )
-    return title, content
-
-
-def build_anniversary_reminder(record: dict, days_until: int):
-    name = record["name"]
-    rel = record.get("relationship") or ""
-    kind = record.get("kind") or "纪念日"
-    cal = "农历" if record["calendar_type"] == "lunar" else "公历"
-    when = "今天是" if days_until == 0 else f"还有 {days_until} 天是"
-    yrs = ""
-    if record.get("year"):
-        yrs = f"（第 {date.today().year - record['year']} 周年）"
-    title = f"📌 {kind}提醒：{name}"
-    content = (
-        f"{when}{name}的{kind}（{cal}{record['month']}月{record['day']}日）{yrs}\n"
-        f"关系：{rel or '—'}\n备注：{record.get('note') or '—'}"
-    )
-    return title, content
-
-
 def _process_records(records, kind, cfg, today, sent):
     for r in records:
         if not r.get("enabled", True):
@@ -60,7 +29,7 @@ def _process_records(records, kind, cfg, today, sent):
         if db.has_notified(*key):
             continue
         channels = r.get("channels") or cfg["notify"]["default_channels"]
-        builder = build_reminder if kind == "birthday" else build_anniversary_reminder
+        builder = messages.build_reminder if kind == "birthday" else messages.build_anniversary_reminder
         title, content = builder(r, days_until)
         results = notifiers.send_all(channels, title, content, cfg)
         summary = "; ".join(
