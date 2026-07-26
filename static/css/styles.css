@@ -1,5 +1,5 @@
 /* ============================================================
-   生日管家 v2.6.3 · 主流 UI 风格主题 + 多语言
+   生日管家 v2.6.4 · 主流 UI 风格主题 + 多语言
    5 套完全不同的界面风格：极简现代 / 玻璃拟态 / 新拟态 / 包豪斯 / Material You
    每套主题不仅换色，更在字体、布局、圆角、阴影、按钮、卡片、输入框、开关与复选框形态上独立设计。
    ============================================================ */
@@ -248,7 +248,7 @@ tbody tr:hover { background: #fafbfc; }
 .field-main { display: flex; align-items: center; gap: 28px; }
 .field-main > label.field-label { flex: 0 0 150px; max-width: 30%; margin: 0; }
 .field-main > *:not(.field-label) { flex: 1 1 auto; min-width: 0; max-width: 420px; }
-.field-inline .field-main > *:not(.field-label) { flex: 0 0 auto; margin-left: auto; }
+.field-inline .field-main > *:not(.field-label) { flex: 0 0 auto; }
 .field input[type=text], .field input[type=number], .field input[type=password], .field select, .field textarea {
   width: 100%; max-width: 420px; padding: 10px 12px; border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm); font: inherit; background: #fbfcfd; transition: all .18s;
@@ -269,7 +269,8 @@ tbody tr:hover { background: #fafbfc; }
 @media (max-width: 680px) {
   .field-main { flex-direction: column; align-items: flex-start; gap: 10px; }
   .field-main > label { flex: none; max-width: none; }
-  .field-main > *:not(label) { max-width: none; width: 100%; }
+  .field-main > *:not(label):not(.switch) { max-width: none; width: 100%; }
+  .field-main > .switch { width: 46px; max-width: 46px; flex: 0 0 auto; margin: 0; }
   .field .help { margin-left: 0; }
 }
 
@@ -537,7 +538,7 @@ body.menu-top .topbar { padding: 15px 36px; }
    mint  = 新拟态 (Neumorphism / Soft UI)
    morandi = 包豪斯 (Bauhaus / Brutalist)
    sakura = Material You
-   v2.6.3 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
+   v2.6.4 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
    按钮、卡片、表格、标签、输入框、侧边栏、导航、开关、复选框形态上的独立设计语言。
    ============================================================ */
 
@@ -749,4 +750,69 @@ html[data-theme="sakura"] tbody tr:hover { background: #fff0f5; }
 html[data-theme="sakura"] input, html[data-theme="sakura"] select, html[data-theme="sakura"] textarea { border-radius: 16px; background: var(--primary-soft); border-color: var(--line-strong); }
 html[data-theme="sakura"] .switch .slider { border-radius: 999px; background: var(--line); }
 html[data-theme="sakura"] .switch input:checked + .slider { background: var(--primary); }
+
+/* ============================================================
+   移动端底部导航：与主题协调
+   —— 关键：桌面主题里的 html[data-theme] .sidebar 与移动端 @media 里的
+      .sidebar 优先级相同，但主题写在后面，会“反向污染”底部条（例如包豪斯
+      底部条出现右侧黑色竖线、玻璃主题出现多余右边框）。此处放在文件末尾，
+      用同等/更高优先级把这些属性重新按主题定义，确保底部条真正跟随主题。
+   ============================================================ */
+@media (max-width: 720px) {
+  /* 通用：移动端导航项统一紧凑竖排，避免被桌面主题的内边距/外边距撑高 */
+  html[data-theme] .nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 6px 2px; margin: 0; font-size: 10.5px; flex: 1 1 0;
+  }
+
+  /* Clean：极简现代（默认半透明） */
+  body.menu-left .sidebar, body.menu-top .sidebar {
+    width: 100%; border-right: none; border-top: 1px solid var(--line);
+    background: rgba(255,255,255,.96); box-shadow: 0 -2px 16px rgba(23,26,33,.06);
+    backdrop-filter: blur(12px); padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  body.menu-left .nav-item, body.menu-top .nav-item { border-radius: 10px; }
+
+  /* Warm：玻璃拟态 (Glassmorphism) */
+  html[data-theme="warm"] .sidebar {
+    width: 100%; border-right: none; border-top: 1px solid rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.55); box-shadow: 0 -8px 32px rgba(31,38,135,0.12);
+    backdrop-filter: blur(20px); padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  html[data-theme="warm"] .nav-item { background: rgba(255,255,255,0.35); border-radius: 14px; }
+  html[data-theme="warm"] .nav-item.active { background: rgba(255,255,255,0.85); color: var(--primary-d); box-shadow: 0 4px 14px rgba(31,38,135,0.12); }
+
+  /* Mint：新拟态 (Neumorphism / Soft UI) */
+  html[data-theme="mint"] .sidebar {
+    width: 100%; border-right: none; border-top: none;
+    background: var(--card); box-shadow: var(--shadow); backdrop-filter: none;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  html[data-theme="mint"] .nav-item { background: var(--card); border-radius: 12px; box-shadow: 4px 4px 8px #c3cbc5, -4px -4px 8px #ffffff; }
+  html[data-theme="mint"] .nav-item.active { background: var(--primary-soft); color: var(--primary-d); box-shadow: inset 3px 3px 6px #b0b8b2, inset -3px -3px 6px #ffffff; }
+
+  /* Morandi：包豪斯 (Bauhaus / Brutalist) */
+  html[data-theme="morandi"] .sidebar {
+    width: 100%; border-right: none; border-top: 4px solid #000;
+    background: #fff; box-shadow: none; backdrop-filter: none;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  html[data-theme="morandi"] .nav-item { border-radius: 0; border: 2px solid transparent; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+  html[data-theme="morandi"] .nav-item.active { background: var(--primary); color: #fff; border-color: #000; }
+
+  /* Sakura：Material You */
+  html[data-theme="sakura"] .sidebar {
+    width: 100%; border-right: none; border-top: 1px solid var(--line);
+    background: rgba(255,245,247,0.96); box-shadow: 0 -8px 24px rgba(139,80,100,0.12);
+    backdrop-filter: blur(12px); padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  html[data-theme="sakura"] .nav-item { border-radius: 16px; }
+  html[data-theme="sakura"] .nav-item.active { background: linear-gradient(135deg, var(--primary-soft), #fff0f5); color: var(--primary-d); box-shadow: 0 2px 8px rgba(212,106,141,0.15); }
+
+  /* 弹窗 / 抽屉在移动端作为底部抽屉时，圆角跟随主题 */
+  html[data-theme="morandi"] .modal, html[data-theme="morandi"] .drawer { border-radius: 0; }
+  html[data-theme="warm"] .modal, html[data-theme="warm"] .drawer { border-radius: 22px 22px 0 0; }
+  html[data-theme="mint"] .modal, html[data-theme="mint"] .drawer { border-radius: 18px 18px 0 0; }
+  html[data-theme="sakura"] .modal, html[data-theme="sakura"] .drawer { border-radius: 28px 28px 0 0; }
+}
 
