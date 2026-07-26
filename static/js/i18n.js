@@ -16,13 +16,13 @@
     { code: "ja", label: "日本語" },
   ];
 
-  /* 5 种简约主题（均为浅色基调，不同底色与强调色） */
+  /* 5 种主流 UI 风格主题：变量、字体、圆角、阴影、按钮、卡片、开关、复选框形态全部独立 */
   var THEMES = [
-    { code: "clean", label: "极简白", icon: "" },
-    { code: "warm", label: "暖灰", icon: "" },
-    { code: "mint", label: "薄荷", icon: "" },
-    { code: "morandi", label: "莫兰迪", icon: "" },
-    { code: "sakura", label: "樱粉", icon: "" },
+    { code: "clean", label: "Clean Modern", icon: "✨" },
+    { code: "warm", label: "Glassmorphism", icon: "🧊" },
+    { code: "mint", label: "Soft UI", icon: "🥚" },
+    { code: "morandi", label: "Bauhaus", icon: "🎨" },
+    { code: "sakura", label: "Material You", icon: "🍬" },
   ];
 
   /* 已加载语言字典 */

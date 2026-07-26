@@ -884,7 +884,8 @@ function loadPrefs() {
   }
   const curTheme = (typeof getTheme === "function" ? getTheme() : "clean") || "clean";
   const curLang = (typeof getLang === "function" ? getLang() : "zh") || "zh";
-  const themeOpts = themes.map((th) => `<label class="vis-opt ${th.code === curTheme ? "active" : ""}"><input type="radio" name="pref-theme" value="${esc(th.code)}" ${th.code === curTheme ? "checked" : ""} hidden />${th.icon || ""} ${esc(th.label)}</label>`).join("");
+  function themeLabel(th) { const k = "theme." + th.code; const s = t(k); return (s !== k ? s : th.label); }
+  const themeOpts = themes.map((th) => `<label class="vis-opt ${th.code === curTheme ? "active" : ""}"><input type="radio" name="pref-theme" value="${esc(th.code)}" ${th.code === curTheme ? "checked" : ""} hidden />${th.icon || ""} ${esc(themeLabel(th))}</label>`).join("");
   const langOpts = langs.map((lg) => `<label class="vis-opt ${lg.code === curLang ? "active" : ""}"><input type="radio" name="pref-lang" value="${esc(lg.code)}" ${lg.code === curLang ? "checked" : ""} hidden />${esc(lg.label)}</label>`).join("");
   box.innerHTML = `
     <div class="field setting-field">
@@ -991,7 +992,7 @@ function fieldHtml(f) {
   else if (f.type === "number") input = `<input id="${id}" type="number" value="${val ?? ""}" ${f.min != null ? `min="${f.min}"` : ""} ${f.max != null ? `max="${f.max}"` : ""} />`;
   else input = `<input id="${id}" type="text" value="${esc(val ?? "")}" />`;
   return `<div class="field setting-field ${f.type === "bool" ? "field-inline" : ""}">
-    <div class="field-main"><label for="${id}">${f.label}</label>${input}</div>
+    <div class="field-main"><label class="field-label" for="${id}">${f.label}</label>${input}</div>
     <p class="help">${f.help}</p>
   </div>`;
 }

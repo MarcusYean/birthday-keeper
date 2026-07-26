@@ -1,8 +1,9 @@
 /* ============================================================
-   生日管家 v2.6.2 · 极简 UI + 5 套截然不同主题 + 多语言
-   设计语言：大量留白 / 灰白基调 / 低饱和点缀 / 细字体 / 柔和阴影
-   5 套浅色主题：clean(默认) / warm / mint / morandi / sakura
+   生日管家 v2.6.3 · 主流 UI 风格主题 + 多语言
+   5 套完全不同的界面风格：极简现代 / 玻璃拟态 / 新拟态 / 包豪斯 / Material You
+   每套主题不仅换色，更在字体、布局、圆角、阴影、按钮、卡片、输入框、开关与复选框形态上独立设计。
    ============================================================ */
+
 :root {
   --bg: #f7f8fa;                 /* 灰白底 */
   --card: #ffffff;
@@ -191,10 +192,29 @@ tbody tr:hover { background: #fafbfc; }
 .ta-r { text-align: right; }
 .sm { font-size: 12.5px; }
 
-/* 复选行 */
-.chk-row { display: flex; gap: 18px; margin-top: 9px; flex-wrap: wrap; }
-.chk { display: flex; align-items: center; gap: 7px; font-weight: 400 !important; font-size: 13.5px; cursor: pointer; }
-.chk input { accent-color: var(--primary); width: 15px; height: 15px; }
+/* 复选行：现代胶囊 / 标签式复选框 */
+.chk-row { display: flex; gap: 12px; margin-top: 9px; flex-wrap: wrap; }
+.chk {
+  position: relative; display: inline-flex; align-items: center;
+  padding: 7px 14px 7px 34px; border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--card); color: var(--text); font-size: 13px; font-weight: 400;
+  cursor: pointer; user-select: none; transition: all .15s ease;
+}
+.chk:hover { border-color: var(--primary); color: var(--text-strong); }
+.chk input { position: absolute; opacity: 0; width: 0; height: 0; }
+.chk::before {
+  content: ""; position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; border: 2px solid var(--muted); border-radius: 5px;
+  background: var(--card); transition: all .15s ease;
+}
+.chk:has(input:checked) { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-d); font-weight: 500; }
+.chk:has(input:checked)::before { background: var(--primary); border-color: var(--primary); }
+.chk::after {
+  content: ""; position: absolute; left: 14px; top: 50%;
+  width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translateY(-65%) rotate(45deg) scale(0); transition: transform .15s ease;
+}
+.chk:has(input:checked)::after { transform: translateY(-65%) rotate(45deg) scale(1); }
 
 /* 弹窗表单 */
 .modal-form .field { border-bottom: none; padding: 9px 0; }
@@ -226,9 +246,9 @@ tbody tr:hover { background: #fafbfc; }
 .field label { font-weight: 500; font-size: 13.5px; color: var(--text-strong); }
 .field .help, .setting-field .help { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; line-height: 1.65; max-width: 420px; font-weight: 300; }
 .field-main { display: flex; align-items: center; gap: 28px; }
-.field-main > label { flex: 0 0 150px; max-width: 30%; margin: 0; }
-.field-main > *:not(label) { flex: 1 1 auto; min-width: 0; max-width: 420px; }
-.field-inline .field-main > *:not(label) { flex: 0 0 auto; margin-left: auto; }
+.field-main > label.field-label { flex: 0 0 150px; max-width: 30%; margin: 0; }
+.field-main > *:not(.field-label) { flex: 1 1 auto; min-width: 0; max-width: 420px; }
+.field-inline .field-main > *:not(.field-label) { flex: 0 0 auto; margin-left: auto; }
 .field input[type=text], .field input[type=number], .field input[type=password], .field select, .field textarea {
   width: 100%; max-width: 420px; padding: 10px 12px; border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm); font: inherit; background: #fbfcfd; transition: all .18s;
@@ -511,189 +531,222 @@ body.menu-top .topbar { padding: 15px 36px; }
 }
 
 /* ============================================================
-   5 套完整主题（浅色基调，覆盖变量 + 组件级样式）
-   clean = 默认（见上方 :root）；以下为 warm / mint / morandi / sakura
-   v2.6.2 升级：每套主题在字体、圆角、阴影、按钮、卡片、表格、标签、
-   输入框、侧边栏、导航 active 样式上均有独立设计语言，绝非简单换色。
+   5 套主流 UI 风格主题（变量 + 组件级全面重构）
+   clean = 极简现代（默认，由 :root 提供变量）
+   warm  = 玻璃拟态 (Glassmorphism)
+   mint  = 新拟态 (Neumorphism / Soft UI)
+   morandi = 包豪斯 (Bauhaus / Brutalist)
+   sakura = Material You
+   v2.6.3 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
+   按钮、卡片、表格、标签、输入框、侧边栏、导航、开关、复选框形态上的独立设计语言。
    ============================================================ */
 
-/* ---- Warm：家庭相册 / 纸质感 ---- */
+/* ---- Clean：极简现代（默认） ---- */
+html[data-theme="clean"] { /* 变量继承自 :root */ }
+html[data-theme="clean"] body { background: var(--bg); }
+
+/* ---- Warm：玻璃拟态 (Glassmorphism) ---- */
 html[data-theme="warm"] {
-  --bg: #f6f4f2;
-  --card: #fffdfb;
-  --line: #efeae5;
-  --line-strong: #e6ddd5;
-  --text: #4a443f;
-  --text-strong: #2d2925;
-  --muted: #a89b8f;
-  --primary: #b08968;
-  --primary-d: #8f6b4d;
-  --primary-soft: #f3ece5;
-  --cool-1: #f1ece7;
-  --cool-2: #efeae4;
-  --warm-soft: #f6efe7;
-  --ok: #6f8f64;
-  --ok-soft: #eef3ec;
-  --bad: #c47a6b;
-  --bad-soft: #f7eeea;
-  --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Georgia, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 3px rgba(60,50,40,.04), 0 4px 12px rgba(60,50,40,.05);
-  --shadow-lift: 0 6px 18px rgba(60,50,40,.06), 0 14px 32px rgba(60,50,40,.08);
+  --bg: #f4f5f8;
+  --card: rgba(255,255,255,0.72);
+  --line: rgba(255,255,255,0.55);
+  --line-strong: rgba(255,255,255,0.75);
+  --text: #3b3850;
+  --text-strong: #1d1a33;
+  --muted: #6d6a86;
+  --primary: #6b5ce7;
+  --primary-d: #4f40c9;
+  --primary-soft: rgba(107,92,231,0.12);
+  --cool-1: rgba(255,255,255,0.5);
+  --cool-2: rgba(255,255,255,0.4);
+  --warm-soft: rgba(255,255,255,0.45);
+  --ok: #2cb58a;
+  --ok-soft: rgba(44,181,138,0.12);
+  --bad: #e06c75;
+  --bad-soft: rgba(224,108,117,0.12);
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --radius: 24px;
+  --radius-sm: 14px;
+  --shadow: 0 8px 32px rgba(31,38,135,0.15), 0 1px 3px rgba(31,38,135,0.08);
+  --shadow-lift: 0 16px 48px rgba(31,38,135,0.2), 0 4px 12px rgba(31,38,135,0.1);
 }
-html[data-theme="warm"] body { background: linear-gradient(180deg, #f6f4f2 0%, #efeae5 100%); background-attachment: fixed; }
-html[data-theme="warm"] .sidebar { width: 220px; background: #fffdfb; border-right: 1px solid var(--line); box-shadow: 4px 0 20px rgba(60,50,40,.03); padding: 26px 14px; }
-html[data-theme="warm"] .nav-item { border-radius: 8px; padding: 10px 12px; }
-html[data-theme="warm"] .nav-item.active { background: var(--warm-soft); color: var(--primary-d); box-shadow: inset 0 0 0 1px var(--line-strong); }
-html[data-theme="warm"] .topbar { background: rgba(255,253,251,.88); border-bottom: 1px solid var(--line); }
-html[data-theme="warm"] .btn { border-radius: 8px; font-weight: 500; letter-spacing: .01em; box-shadow: 0 2px 4px rgba(60,50,40,.06); }
-html[data-theme="warm"] .btn:hover { box-shadow: 0 4px 10px rgba(60,50,40,.1); }
-html[data-theme="warm"] .btn-ghost { background: #fffdfb; border-color: var(--line-strong); }
-html[data-theme="warm"] .btn-primary { background: linear-gradient(180deg, var(--primary), var(--primary-d)); }
-html[data-theme="warm"] .card { border-radius: 14px; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--card); }
-html[data-theme="warm"] .contact-card { border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(60,50,40,.04); }
-html[data-theme="warm"] .contact-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
-html[data-theme="warm"] .tag { border-radius: 6px; font-weight: 500; }
-html[data-theme="warm"] .vis-opt { border-radius: 8px; background: #fffdfb; }
-html[data-theme="warm"] .modal, html[data-theme="warm"] .drawer { border-radius: 16px; }
-html[data-theme="warm"] table thead th { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-strong); background: var(--warm-soft); }
-html[data-theme="warm"] tbody tr:hover { background: var(--warm-soft); }
-html[data-theme="warm"] input, html[data-theme="warm"] select, html[data-theme="warm"] textarea { background: #fffdfb; }
+html[data-theme="warm"] body { background: linear-gradient(135deg, #f6d365 0%, #fda085 40%, #a18cd1 100%); background-attachment: fixed; }
+html[data-theme="warm"] .sidebar { width: 236px; background: rgba(255,255,255,0.55); border-right: 1px solid rgba(255,255,255,0.65); box-shadow: 8px 0 32px rgba(31,38,135,0.12); backdrop-filter: blur(20px); padding: 28px 16px; }
+html[data-theme="warm"] .nav-item { border-radius: 14px; background: rgba(255,255,255,0.35); padding: 11px 14px; margin: 2px 0; }
+html[data-theme="warm"] .nav-item:hover { background: rgba(255,255,255,0.55); }
+html[data-theme="warm"] .nav-item.active { background: rgba(255,255,255,0.8); color: var(--primary-d); font-weight: 600; box-shadow: 0 4px 14px rgba(31,38,135,0.12); }
+html[data-theme="warm"] .topbar { background: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.65); backdrop-filter: blur(20px); }
+html[data-theme="warm"] .btn { background: rgba(255,255,255,0.78); border: 1px solid rgba(255,255,255,0.85); color: var(--primary-d); font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 4px 14px rgba(31,38,135,0.15); }
+html[data-theme="warm"] .btn:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(31,38,135,0.2); }
+html[data-theme="warm"] .btn-primary { background: linear-gradient(135deg, var(--primary), #a18cd1); color: #fff; border: none; }
+html[data-theme="warm"] .btn-primary:hover { background: linear-gradient(135deg, var(--primary-d), var(--primary)); }
+html[data-theme="warm"] .btn-ghost { background: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.7); color: var(--text); }
+html[data-theme="warm"] .card { background: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.7); border-radius: 24px; backdrop-filter: blur(16px); box-shadow: var(--shadow); }
+html[data-theme="warm"] .contact-card { background: rgba(255,255,255,0.72); border-color: rgba(255,255,255,0.75); box-shadow: 0 8px 28px rgba(31,38,135,0.12); }
+html[data-theme="warm"] .contact-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+html[data-theme="warm"] .tag { background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.65); color: var(--text); border-radius: 10px; }
+html[data-theme="warm"] .vis-opt { background: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.7); border-radius: 14px; }
+html[data-theme="warm"] .vis-opt.active { background: rgba(255,255,255,0.85); border-color: var(--primary); color: var(--primary-d); }
+html[data-theme="warm"] .modal, html[data-theme="warm"] .drawer { background: rgba(255,255,255,0.75); border: 1px solid rgba(255,255,255,0.8); border-radius: 26px; backdrop-filter: blur(24px); box-shadow: var(--shadow-lift); }
+html[data-theme="warm"] table thead th { background: rgba(255,255,255,0.45); color: var(--text-strong); font-weight: 600; }
+html[data-theme="warm"] tbody tr:hover { background: rgba(255,255,255,0.35); }
+html[data-theme="warm"] input, html[data-theme="warm"] select, html[data-theme="warm"] textarea { background: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.7); backdrop-filter: blur(8px); }
+html[data-theme="warm"] .chk { background: rgba(255,255,255,0.55); border-color: rgba(255,255,255,0.7); }
+html[data-theme="warm"] .switch .slider { background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.7); }
+html[data-theme="warm"] .switch input:checked + .slider { background: var(--primary); }
 
-/* ---- Mint：清新薄荷 / 胶囊风 ---- */
+/* ---- Mint：新拟态 (Neumorphism / Soft UI) ---- */
 html[data-theme="mint"] {
-  --bg: #f0f7f4;
-  --card: #ffffff;
-  --line: #e3f0ea;
-  --line-strong: #d2e8de;
-  --text: #2f4a42;
-  --text-strong: #1a302a;
-  --muted: #7e9d92;
-  --primary: #2ea583;
-  --primary-d: #247e64;
-  --primary-soft: #e3f5ee;
-  --cool-1: #e5f3ee;
-  --cool-2: #e2f1eb;
-  --warm-soft: #f1f6f0;
-  --ok: #2ea583;
-  --ok-soft: #e3f5ee;
-  --bad: #d97970;
-  --bad-soft: #f9eeec;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --radius: 20px;
-  --radius-sm: 999px;
-  --shadow: 0 2px 6px rgba(30,90,70,.05), 0 8px 24px rgba(30,90,70,.06);
-  --shadow-lift: 0 8px 22px rgba(30,90,70,.08), 0 18px 44px rgba(30,90,70,.1);
+  --bg: #e0e5e1;
+  --card: #e8ede9;
+  --line: #d4dad6;
+  --line-strong: #c9d0cb;
+  --text: #4a554d;
+  --text-strong: #2a332d;
+  --muted: #7a8a7f;
+  --primary: #4a9e7a;
+  --primary-d: #357a5d;
+  --primary-soft: #d8ece4;
+  --cool-1: #dce6e0;
+  --cool-2: #d6e2dc;
+  --warm-soft: #e6e8e0;
+  --ok: #4a9e7a;
+  --ok-soft: #d8ece4;
+  --bad: #c97b7b;
+  --bad-soft: #f0e0e0;
+  --font: "Nunito", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 8px 8px 16px #c3cbc5, -8px -8px 16px #ffffff;
+  --shadow-lift: 12px 12px 24px #c3cbc5, -12px -12px 24px #ffffff;
 }
-html[data-theme="mint"] body { background: radial-gradient(circle at 10% 0%, #f6fbf9 0%, var(--bg) 40%); }
-html[data-theme="mint"] .sidebar { background: #ffffff; border-right: none; box-shadow: 3px 0 18px rgba(30,90,70,.05); padding: 28px 16px; }
-html[data-theme="mint"] .nav-item { border-radius: 999px; padding: 10px 14px; }
-html[data-theme="mint"] .nav-item.active { background: var(--primary-soft); color: var(--primary-d); font-weight: 600; }
-html[data-theme="mint"] .topbar { background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line); }
-html[data-theme="mint"] .btn { border-radius: 999px; font-weight: 600; padding: 10px 22px; box-shadow: 0 3px 8px rgba(30,90,70,.12); }
-html[data-theme="mint"] .btn:hover { box-shadow: 0 6px 16px rgba(30,90,70,.18); transform: translateY(-1px); }
-html[data-theme="mint"] .btn-ghost { background: #f6fbf9; border-color: #d2e8de; }
-html[data-theme="mint"] .btn-primary { background: linear-gradient(135deg, #36c298, var(--primary)); }
-html[data-theme="mint"] .card { border-radius: 22px; border: none; box-shadow: var(--shadow); }
-html[data-theme="mint"] .contact-card { border: none; box-shadow: 0 3px 10px rgba(30,90,70,.06); }
-html[data-theme="mint"] .contact-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
-html[data-theme="mint"] .tag { border-radius: 999px; padding: 3px 12px; font-weight: 500; }
-html[data-theme="mint"] .vis-opt { border-radius: 999px; background: #f6fbf9; border-color: var(--line-strong); }
-html[data-theme="mint"] .modal, html[data-theme="mint"] .drawer { border-radius: 26px; }
-html[data-theme="mint"] table thead th { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--primary-d); background: transparent; border-bottom: 2px solid var(--line); }
-html[data-theme="mint"] tbody tr:hover { background: var(--primary-soft); }
-html[data-theme="mint"] input, html[data-theme="mint"] select, html[data-theme="mint"] textarea { border-radius: 999px; padding-left: 16px; padding-right: 16px; background: #f6fbf9; border-color: var(--line-strong); }
-html[data-theme="mint"] .switch .slider { border-radius: 999px; }
+html[data-theme="mint"] body { background: var(--bg); }
+html[data-theme="mint"] .sidebar { width: 232px; background: var(--card); border-right: none; box-shadow: var(--shadow); padding: 28px 16px; }
+html[data-theme="mint"] .nav-item { border-radius: 12px; background: var(--card); box-shadow: 4px 4px 8px #c3cbc5, -4px -4px 8px #ffffff; padding: 10px 13px; margin: 4px 0; }
+html[data-theme="mint"] .nav-item:hover { box-shadow: inset 2px 2px 4px #c3cbc5, inset -2px -2px 4px #ffffff; }
+html[data-theme="mint"] .nav-item.active { background: var(--primary-soft); color: var(--primary-d); font-weight: 700; box-shadow: inset 3px 3px 6px #b0b8b2, inset -3px -3px 6px #ffffff; }
+html[data-theme="mint"] .topbar { background: var(--card); border-bottom: none; box-shadow: var(--shadow); }
+html[data-theme="mint"] .btn { background: var(--card); border: none; color: var(--text); font-weight: 600; border-radius: 12px; box-shadow: 5px 5px 10px #c3cbc5, -5px -5px 10px #ffffff; }
+html[data-theme="mint"] .btn:hover { box-shadow: inset 2px 2px 5px #c3cbc5, inset -2px -2px 5px #ffffff; transform: none; }
+html[data-theme="mint"] .btn-primary { background: var(--primary); color: #fff; box-shadow: 5px 5px 12px rgba(74,158,122,0.35), -5px -5px 12px rgba(255,255,255,0.4); }
+html[data-theme="mint"] .btn-primary:hover { background: var(--primary-d); box-shadow: 6px 6px 14px rgba(74,158,122,0.4), -6px -6px 14px rgba(255,255,255,0.5); }
+html[data-theme="mint"] .btn-ghost { background: var(--card); color: var(--text); box-shadow: 4px 4px 8px #c3cbc5, -4px -4px 8px #ffffff; }
+html[data-theme="mint"] .card { background: var(--card); border: none; border-radius: 18px; box-shadow: var(--shadow); }
+html[data-theme="mint"] .contact-card { background: var(--card); border: none; box-shadow: 6px 6px 12px #c3cbc5, -6px -6px 12px #ffffff; }
+html[data-theme="mint"] .contact-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-2px); }
+html[data-theme="mint"] .tag { border-radius: 10px; box-shadow: 2px 2px 4px #c3cbc5, -2px -2px 4px #ffffff; }
+html[data-theme="mint"] .vis-opt { background: var(--card); border: none; border-radius: 12px; box-shadow: 4px 4px 8px #c3cbc5, -4px -4px 8px #ffffff; }
+html[data-theme="mint"] .vis-opt.active { background: var(--primary-soft); color: var(--primary-d); box-shadow: inset 2px 2px 4px #b0b8b2, inset -2px -2px 4px #ffffff; }
+html[data-theme="mint"] .modal, html[data-theme="mint"] .drawer { background: var(--card); border: none; border-radius: 22px; box-shadow: var(--shadow-lift); }
+html[data-theme="mint"] table thead th { background: var(--card); border-bottom: none; color: var(--text-strong); font-weight: 700; box-shadow: inset 2px 2px 4px #c3cbc5, inset -2px -2px 4px #ffffff; }
+html[data-theme="mint"] tbody tr:hover { background: var(--cool-1); }
+html[data-theme="mint"] input, html[data-theme="mint"] select, html[data-theme="mint"] textarea { background: var(--card); border: none; border-radius: 12px; box-shadow: inset 3px 3px 6px #c3cbc5, inset -3px -3px 6px #ffffff; }
+html[data-theme="mint"] input:focus, html[data-theme="mint"] select:focus, html[data-theme="mint"] textarea:focus { box-shadow: inset 4px 4px 8px #b0b8b2, inset -4px -4px 8px #ffffff, 0 0 0 2px var(--primary-soft); }
+html[data-theme="mint"] .chk { background: var(--card); border: none; box-shadow: 3px 3px 6px #c3cbc5, -3px -3px 6px #ffffff; padding-left: 32px; }
+html[data-theme="mint"] .chk:has(input:checked) { background: var(--primary-soft); box-shadow: inset 2px 2px 4px #b0b8b2, inset -2px -2px 4px #ffffff; }
+html[data-theme="mint"] .switch .slider { background: var(--card); border: none; box-shadow: inset 3px 3px 6px #c3cbc5, inset -3px -3px 6px #ffffff; }
+html[data-theme="mint"] .switch input:checked + .slider { background: var(--primary); box-shadow: 3px 3px 6px rgba(74,158,122,0.3), -3px -3px 6px rgba(255,255,255,0.5); }
 
-/* ---- Morandi：艺术画廊 / 包豪斯 ---- */
+/* ---- Morandi：包豪斯 (Bauhaus / Brutalist) ---- */
 html[data-theme="morandi"] {
-  --bg: #f2f1ef;
-  --card: #faf9f8;
-  --line: #e5e4e2;
-  --line-strong: #d8d6d3;
-  --text: #595551;
-  --text-strong: #3a3734;
-  --muted: #9e9994;
-  --primary: #8c827a;
-  --primary-d: #6e655e;
-  --primary-soft: #ebe7e4;
-  --cool-1: #e8e6e3;
-  --cool-2: #e6ebe8;
-  --warm-soft: #ede8e4;
-  --ok: #7a9172;
-  --ok-soft: #ecefe9;
-  --bad: #b38780;
-  --bad-soft: #f5edeb;
-  --font: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --bg: #f4f4f0;
+  --card: #ffffff;
+  --line: #111111;
+  --line-strong: #000000;
+  --text: #222222;
+  --text-strong: #000000;
+  --muted: #555555;
+  --primary: #e60012;
+  --primary-d: #b8000e;
+  --primary-soft: #ffe5e7;
+  --cool-1: #e8e8e8;
+  --cool-2: #e2e2e2;
+  --warm-soft: #f2e8dc;
+  --ok: #00a651;
+  --ok-soft: #e0f5e9;
+  --bad: #e60012;
+  --bad-soft: #ffe5e7;
+  --font: "Space Grotesk", "Helvetica Neue", "Arial Black", "PingFang SC", "Microsoft YaHei", sans-serif;
   --radius: 0px;
   --radius-sm: 0px;
-  --shadow: none;
-  --shadow-lift: 0 6px 20px rgba(80,75,70,.08);
+  --shadow: 6px 6px 0 #000;
+  --shadow-lift: 10px 10px 0 #000;
 }
 html[data-theme="morandi"] body { background: var(--bg); }
-html[data-theme="morandi"] .sidebar { width: 210px; background: var(--card); border-right: 3px solid var(--line); padding: 28px 14px; }
-html[data-theme="morandi"] .nav-item { border-radius: 0; padding: 11px 12px; border-left: 3px solid transparent; margin-left: -3px; }
-html[data-theme="morandi"] .nav-item.active { background: transparent; color: var(--primary-d); border-left-color: var(--primary-d); font-weight: 700; }
-html[data-theme="morandi"] .topbar { background: var(--card); border-bottom: 3px solid var(--line); }
-html[data-theme="morandi"] .btn { border-radius: 0; text-transform: uppercase; font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 10px 20px; border-width: 2px; }
-html[data-theme="morandi"] .btn:hover { box-shadow: none; background: var(--primary-d); }
-html[data-theme="morandi"] .btn-ghost { background: transparent; border: 2px solid var(--line-strong); color: var(--text); }
-html[data-theme="morandi"] .btn-ghost:hover { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-d); }
-html[data-theme="morandi"] .card { border-radius: 0; border: 2px solid var(--line); box-shadow: none; background: var(--card); }
-html[data-theme="morandi"] .contact-card { border: 2px solid var(--line); box-shadow: none; }
-html[data-theme="morandi"] .contact-card:hover { transform: none; box-shadow: var(--shadow-lift); border-color: var(--line-strong); }
-html[data-theme="morandi"] .tag { border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 10.5px; padding: 3px 10px; }
-html[data-theme="morandi"] .vis-opt { border-radius: 0; border-width: 2px; background: var(--card); }
-html[data-theme="morandi"] .vis-opt.active { border-color: var(--primary-d); background: var(--primary-soft); }
-html[data-theme="morandi"] .modal, html[data-theme="morandi"] .drawer { border-radius: 0; border: 2px solid var(--line); box-shadow: var(--shadow-lift); }
-html[data-theme="morandi"] table thead th { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--text-strong); background: var(--cool-1); border-bottom: 2px solid var(--line-strong); }
+html[data-theme="morandi"] .sidebar { width: 220px; background: #fff; border-right: 4px solid #000; padding: 28px 14px; }
+html[data-theme="morandi"] .nav-item { border-radius: 0; border: 2px solid transparent; padding: 10px 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+html[data-theme="morandi"] .nav-item:hover { background: #000; color: #fff; border-color: #000; }
+html[data-theme="morandi"] .nav-item.active { background: var(--primary); color: #fff; border-color: #000; }
+html[data-theme="morandi"] .topbar { background: #fff; border-bottom: 4px solid #000; }
+html[data-theme="morandi"] .btn { border-radius: 0; border: 2px solid #000; background: #fff; color: #000; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; box-shadow: var(--shadow); }
+html[data-theme="morandi"] .btn:hover { background: #000; color: #fff; transform: translate(2px,2px); box-shadow: 4px 4px 0 #000; }
+html[data-theme="morandi"] .btn-primary { background: var(--primary); color: #fff; border-color: #000; }
+html[data-theme="morandi"] .btn-primary:hover { background: var(--primary-d); color: #fff; }
+html[data-theme="morandi"] .btn-ghost { background: #fff; color: #000; }
+html[data-theme="morandi"] .card { border-radius: 0; border: 3px solid #000; box-shadow: var(--shadow); background: #fff; }
+html[data-theme="morandi"] .contact-card { border: 3px solid #000; box-shadow: 6px 6px 0 #000; }
+html[data-theme="morandi"] .contact-card:hover { transform: translate(2px,2px); box-shadow: 4px 4px 0 #000; }
+html[data-theme="morandi"] .tag { border-radius: 0; border: 2px solid #000; font-weight: 800; text-transform: uppercase; font-size: 10px; padding: 2px 8px; background: #fff; color: #000; }
+html[data-theme="morandi"] .vis-opt { border-radius: 0; border: 2px solid #000; background: #fff; }
+html[data-theme="morandi"] .vis-opt:hover { background: #000; color: #fff; }
+html[data-theme="morandi"] .vis-opt.active { background: #000; color: #fff; border-color: #000; }
+html[data-theme="morandi"] .modal, html[data-theme="morandi"] .drawer { border-radius: 0; border: 3px solid #000; box-shadow: var(--shadow-lift); background: #fff; }
+html[data-theme="morandi"] table thead th { background: #000; color: #fff; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; border-bottom: 3px solid #000; }
 html[data-theme="morandi"] tbody tr:hover { background: var(--cool-1); }
-html[data-theme="morandi"] input, html[data-theme="morandi"] select, html[data-theme="morandi"] textarea { border-width: 2px; border-radius: 0; background: var(--card); }
-html[data-theme="morandi"] .switch .slider { border-radius: 0; }
+html[data-theme="morandi"] input, html[data-theme="morandi"] select, html[data-theme="morandi"] textarea { border-radius: 0; border: 2px solid #000; background: #fff; }
+html[data-theme="morandi"] .chk { border-radius: 0; border: 2px solid #000; background: #fff; box-shadow: var(--shadow); padding-left: 32px; }
+html[data-theme="morandi"] .chk:has(input:checked) { background: #000; color: #fff; border-color: #000; }
+html[data-theme="morandi"] .chk:has(input:checked)::before { background: #fff; border-color: #fff; }
+html[data-theme="morandi"] .chk:has(input:checked)::after { border-color: #000; }
+html[data-theme="morandi"] .switch .slider { border-radius: 0; border: 2px solid #000; background: #fff; }
 html[data-theme="morandi"] .switch .slider::before { border-radius: 0; }
+html[data-theme="morandi"] .switch input:checked + .slider { background: var(--primary); }
 
-/* ---- Sakura：樱粉浪漫 / 棉花糖 ---- */
+/* ---- Sakura：Material You ---- */
 html[data-theme="sakura"] {
-  --bg: #fbf4f6;
-  --card: #fffdfe;
-  --line: #f2e6eb;
-  --line-strong: #ead6de;
-  --text: #5a4750;
-  --text-strong: #3d2f35;
-  --muted: #b597a3;
-  --primary: #d4829c;
-  --primary-d: #b5657f;
-  --primary-soft: #fcecf2;
-  --cool-1: #f7ecf1;
-  --cool-2: #f5ecf4;
-  --warm-soft: #fbeff3;
-  --ok: #5fa082;
-  --ok-soft: #eef6f2;
-  --bad: #d47a8a;
-  --bad-soft: #f9eef1;
-  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --radius: 24px;
+  --bg: #fff5f7;
+  --card: #ffffff;
+  --line: #f2d6e0;
+  --line-strong: #e8c0d0;
+  --text: #4a2f3a;
+  --text-strong: #2a1a22;
+  --muted: #9e7b8a;
+  --primary: #d46a8d;
+  --primary-d: #b54e72;
+  --primary-soft: #fce4ec;
+  --cool-1: #fce4ec;
+  --cool-2: #f8e8ed;
+  --warm-soft: #fceff3;
+  --ok: #2d8a66;
+  --ok-soft: #e8f6f0;
+  --bad: #d46a6a;
+  --bad-soft: #fbe8e8;
+  --font: "Google Sans", "Roboto", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --radius: 28px;
   --radius-sm: 16px;
-  --shadow: 0 3px 8px rgba(150,80,100,.05), 0 12px 36px rgba(150,80,100,.06);
-  --shadow-lift: 0 8px 24px rgba(150,80,100,.08), 0 24px 56px rgba(150,80,100,.1);
+  --shadow: 0 1px 2px rgba(139,80,100,0.04), 0 4px 12px rgba(139,80,100,0.08);
+  --shadow-lift: 0 8px 24px rgba(139,80,100,0.12), 0 16px 40px rgba(139,80,100,0.16);
 }
-html[data-theme="sakura"] body { background: linear-gradient(135deg, #fbf4f6 0%, #fff8fa 50%, #fbf4f6 100%); background-attachment: fixed; }
-html[data-theme="sakura"] .sidebar { width: 230px; background: linear-gradient(180deg, #fffdfe, #fdf5f8); border-right: 1px solid var(--line); box-shadow: 5px 0 24px rgba(150,80,100,.04); padding: 28px 18px; }
+html[data-theme="sakura"] body { background: linear-gradient(180deg, #fff5f7, #fffafc); }
+html[data-theme="sakura"] .sidebar { width: 240px; background: #fff; border-right: none; box-shadow: 4px 0 24px rgba(139,80,100,0.08); border-radius: 0 28px 28px 0; padding: 28px 18px; }
 html[data-theme="sakura"] .nav-item { border-radius: 16px; padding: 11px 14px; }
-html[data-theme="sakura"] .nav-item.active { background: linear-gradient(135deg, #fcecf2, #ffe6ef); color: var(--primary-d); box-shadow: 0 2px 8px rgba(150,80,100,.08); }
-html[data-theme="sakura"] .topbar { background: rgba(255,253,254,.88); border-bottom: 1px solid var(--line); }
-html[data-theme="sakura"] .btn { border-radius: 999px; font-weight: 600; padding: 10px 24px; box-shadow: 0 4px 12px rgba(150,80,100,.14); }
-html[data-theme="sakura"] .btn:hover { box-shadow: 0 8px 22px rgba(150,80,100,.2); transform: translateY(-2px); }
-html[data-theme="sakura"] .btn-ghost { background: #fff7fa; border-color: var(--line-strong); }
-html[data-theme="sakura"] .btn-primary { background: linear-gradient(135deg, #e69ab0, var(--primary)); }
-html[data-theme="sakura"] .card { border-radius: 26px; border: 1px solid var(--line); box-shadow: var(--shadow); }
-html[data-theme="sakura"] .contact-card { border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(150,80,100,.06); }
-html[data-theme="sakura"] .contact-card:hover { transform: translateY(-3px) rotate(.3deg); box-shadow: var(--shadow-lift); }
-html[data-theme="sakura"] .tag { border-radius: 999px; padding: 3px 12px; font-weight: 500; }
-html[data-theme="sakura"] .vis-opt { border-radius: 999px; background: #fff7fa; border-color: var(--line-strong); }
-html[data-theme="sakura"] .modal, html[data-theme="sakura"] .drawer { border-radius: 30px; }
-html[data-theme="sakura"] table thead th { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--primary-d); background: var(--primary-soft); border-bottom: 1px solid var(--line); }
-html[data-theme="sakura"] tbody tr:hover { background: var(--primary-soft); }
-html[data-theme="sakura"] input, html[data-theme="sakura"] select, html[data-theme="sakura"] textarea { border-radius: 16px; background: #fff7fa; border-color: var(--line-strong); }
-html[data-theme="sakura"] .switch .slider { border-radius: 999px; }
+html[data-theme="sakura"] .nav-item:hover { background: var(--primary-soft); }
+html[data-theme="sakura"] .nav-item.active { background: linear-gradient(135deg, var(--primary-soft), #fff0f5); color: var(--primary-d); font-weight: 700; box-shadow: 0 2px 8px rgba(212,106,141,0.15); }
+html[data-theme="sakura"] .topbar { background: rgba(255,245,247,0.95); border-bottom: 1px solid var(--line); }
+html[data-theme="sakura"] .btn { border-radius: 999px; padding: 10px 24px; font-weight: 600; box-shadow: 0 2px 6px rgba(139,80,100,0.12); }
+html[data-theme="sakura"] .btn:hover { box-shadow: 0 8px 22px rgba(139,80,100,0.2); transform: translateY(-2px); }
+html[data-theme="sakura"] .btn-primary { background: linear-gradient(135deg, var(--primary), #e58aa8); color: #fff; }
+html[data-theme="sakura"] .btn-ghost { background: var(--primary-soft); border-color: var(--line-strong); color: var(--primary-d); }
+html[data-theme="sakura"] .card { border-radius: 28px; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); }
+html[data-theme="sakura"] .contact-card { border-radius: 28px; box-shadow: 0 4px 16px rgba(139,80,100,0.1); }
+html[data-theme="sakura"] .contact-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+html[data-theme="sakura"] .tag { border-radius: 8px; font-weight: 600; padding: 3px 10px; }
+html[data-theme="sakura"] .vis-opt { border-radius: 999px; background: var(--primary-soft); border-color: var(--line); }
+html[data-theme="sakura"] .vis-opt.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+html[data-theme="sakura"] .modal, html[data-theme="sakura"] .drawer { border-radius: 32px; background: #fff; box-shadow: var(--shadow-lift); }
+html[data-theme="sakura"] table thead th { background: var(--primary-soft); color: var(--primary-d); font-weight: 700; border-bottom: 1px solid var(--line); }
+html[data-theme="sakura"] tbody tr:hover { background: #fff0f5; }
+html[data-theme="sakura"] input, html[data-theme="sakura"] select, html[data-theme="sakura"] textarea { border-radius: 16px; background: var(--primary-soft); border-color: var(--line-strong); }
+html[data-theme="sakura"] .switch .slider { border-radius: 999px; background: var(--line); }
+html[data-theme="sakura"] .switch input:checked + .slider { background: var(--primary); }
+
