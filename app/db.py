@@ -617,8 +617,10 @@ def _family_index() -> dict:
     return idx
 
 
-def _is_visible(r: dict, viewer_id: int, fam_idx: dict) -> bool:
-    """判断 viewer 是否可见某条记录。"""
+def _is_visible(r: dict, viewer_id: int, fam_idx: dict, is_admin: bool = False) -> bool:
+    """判断 viewer 是否可见某条记录。is_admin 时可见全部（管理员拥有完整权限）。"""
+    if is_admin:
+        return True
     vis = (r.get("visibility") or "private")
     owner = r.get("owner_id")
     if owner is None:
@@ -635,24 +637,24 @@ def _is_visible(r: dict, viewer_id: int, fam_idx: dict) -> bool:
     return False
 
 
-def visible_birthdays(viewer_id: int) -> list:
+def visible_birthdays(viewer_id: int, is_admin: bool = False) -> list:
     fam_idx = _family_index()
-    return [r for r in get_all_birthdays() if _is_visible(r, viewer_id, fam_idx)]
+    return [r for r in get_all_birthdays() if _is_visible(r, viewer_id, fam_idx, is_admin)]
 
 
-def visible_anniversaries(viewer_id: int) -> list:
+def visible_anniversaries(viewer_id: int, is_admin: bool = False) -> list:
     fam_idx = _family_index()
-    return [r for r in get_all_anniversaries() if _is_visible(r, viewer_id, fam_idx)]
+    return [r for r in get_all_anniversaries() if _is_visible(r, viewer_id, fam_idx, is_admin)]
 
 
-def upcoming_combined(days: int = 60, viewer_id: int | None = None) -> list:
+def upcoming_combined(days: int = 60, viewer_id: int | None = None, is_admin: bool = False) -> list:
     """即将到来：合并生日 + 纪念日，并标注 kind。viewer_id 给定时按权限过滤。"""
     b = [dict(x, kind="birthday") for x in upcoming(days)]
     a = [dict(x, kind="anniversary") for x in upcoming_anniversaries(days)]
     out = b + a
     if viewer_id is not None:
         fam_idx = _family_index()
-        out = [x for x in out if _is_visible(x, viewer_id, fam_idx)]
+        out = [x for x in out if _is_visible(x, viewer_id, fam_idx, is_admin)]
     out.sort(key=lambda x: (x["days_until"] if x["days_until"] is not None else 9999))
     return out
 
@@ -907,6 +909,44 @@ def get_user_family_ids(user_id: int) -> list:
             "SELECT family_id FROM family_members WHERE user_id=?", (user_id,)
         ).fetchall()
         return [r["family_id"] for r in rows]
+    finally:
+        conn.close()
+
+
+def rename_family(fid: int, name: str) -> bool:
+    conn = _get_conn()
+    try:
+        cur = conn.execute("UPDATE families SET name=? WHERE id=?", (name, fid))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_family(fid: int) -> bool:
+    conn = _get_conn()
+    try:
+        conn.execute("DELETE FROM family_invites WHERE family_id=?", (fid,))
+        conn.execute("DELETE FROM family_members WHERE family_id=?", (fid,))
+        cur = conn.execute("DELETE FROM families WHERE id=?", (fid,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def remove_family_member(fid: int, user_id: int) -> bool:
+    """移出成员。创建者不可被移出（应走删除家庭）。返回是否成功移除。"""
+    conn = _get_conn()
+    try:
+        cur = conn.execute(
+            "DELETE FROM family_members "
+            "WHERE family_id=? AND user_id=? "
+            "AND user_id NOT IN (SELECT owner_id FROM families WHERE id=?)",
+            (fid, user_id, fid),
+        )
+        conn.commit()
+        return cur.rowcount > 0
     finally:
         conn.close()
 

@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.6")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.7")
 
 
 # ---------- 鉴权依赖 ----------
@@ -176,6 +176,8 @@ def logout(authorization: str | None = Header(None), user: dict = Depends(get_cu
 
 
 def _can_view(r: dict, user: dict) -> bool:
+    if user.get("role") == "admin":
+        return True
     fam_idx = db._family_index()
     return db._is_visible(r, user["id"], fam_idx)
 
@@ -250,7 +252,7 @@ def _enrich(r: dict | None) -> dict | None:
 
 @app.get("/api/birthdays")
 def list_birthdays(user: dict = Depends(get_current_user)):
-    return [_enrich(r) for r in db.visible_birthdays(user["id"])]
+    return [_enrich(r) for r in db.visible_birthdays(user["id"], user["role"] == "admin")]
 
 
 @app.post("/api/birthdays")
@@ -332,7 +334,7 @@ async def upload_avatar(bid: int, file: UploadFile = File(...), user: dict = Dep
 def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
     """批量测试：传 ids 测试指定联系人，不传则测试全部可见联系人。"""
     ids = body.ids
-    rows = db.visible_birthdays(user["id"])
+    rows = db.visible_birthdays(user["id"], user["role"] == "admin")
     if ids:
         rows = [r for r in rows if r["id"] in ids]
     if not rows:
@@ -353,14 +355,14 @@ def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
 
 @app.get("/api/upcoming")
 def upcoming(days: int = 30, user: dict = Depends(get_current_user)):
-    return db.upcoming_combined(days, user["id"])
+    return db.upcoming_combined(days, user["id"], user["role"] == "admin")
 
 
 @app.post("/api/anniversaries/test")
 def test_anniversaries(body: BatchTestIn, user: dict = Depends(get_current_user)):
     """纪念日批量测试：传 ids 测试指定项，不传则测试全部可见项。"""
     ids = body.ids
-    rows = db.visible_anniversaries(user["id"])
+    rows = db.visible_anniversaries(user["id"], user["role"] == "admin")
     if ids:
         rows = [r for r in rows if r["id"] in ids]
     if not rows:
@@ -389,7 +391,7 @@ def manual_check(user: dict = Depends(require_admin)):
 
 @app.get("/api/anniversaries")
 def list_anniversaries(user: dict = Depends(get_current_user)):
-    return db.visible_anniversaries(user["id"])
+    return db.visible_anniversaries(user["id"], user["role"] == "admin")
 
 
 @app.post("/api/anniversaries")
@@ -520,6 +522,54 @@ def respond_invite_api(iid: int, body: dict, user: dict = Depends(get_current_us
     ok = db.respond_invite(iid, user["username"], accept)
     if not ok:
         raise HTTPException(status_code=404, detail="邀请不存在或已处理")
+    return {"ok": True}
+
+
+def _family_manage_guard(fid: int, user: dict):
+    """家庭管理（重命名/删除/移除成员）权限校验：创建者或管理员。返回家庭记录。"""
+    fam = db.get_family(fid)
+    if not fam:
+        raise HTTPException(status_code=404, detail="家庭不存在")
+    if fam["owner_id"] != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="只有家庭创建者或管理员可管理该家庭")
+    return fam
+
+
+@app.put("/api/families/{fid}")
+def rename_family_api(fid: int, body: dict, user: dict = Depends(get_current_user)):
+    _family_manage_guard(fid, user)
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="家庭名称不能为空")
+    if not db.rename_family(fid, name):
+        raise HTTPException(status_code=404, detail="家庭不存在")
+    return {"ok": True}
+
+
+@app.delete("/api/families/{fid}")
+def delete_family_api(fid: int, user: dict = Depends(get_current_user)):
+    _family_manage_guard(fid, user)
+    db.delete_family(fid)
+    return {"ok": True}
+
+
+@app.delete("/api/families/{fid}/members/{uid}")
+def remove_member_api(fid: int, uid: int, user: dict = Depends(get_current_user)):
+    _family_manage_guard(fid, user)
+    if not db.remove_family_member(fid, uid):
+        raise HTTPException(status_code=400, detail="无法移除该成员（可能是家庭创建者）")
+    return {"ok": True}
+
+
+@app.post("/api/families/{fid}/leave")
+def leave_family_api(fid: int, user: dict = Depends(get_current_user)):
+    fam = db.get_family(fid)
+    if not fam:
+        raise HTTPException(status_code=404, detail="家庭不存在")
+    if fam["owner_id"] == user["id"]:
+        raise HTTPException(status_code=400, detail="家庭创建者不能退出，请先删除家庭")
+    if not db.remove_family_member(fid, user["id"]):
+        raise HTTPException(status_code=400, detail="你不是该家庭成员")
     return {"ok": True}
 
 

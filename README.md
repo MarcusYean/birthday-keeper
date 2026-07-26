@@ -1,4 +1,4 @@
-# 🎂 生日管家 (Birthday Keeper) v2.6.6
+# 🎂 生日管家 (Birthday Keeper) v2.6.7
 
 在 NAS（Docker）上自托管的亲友生日提醒工具。支持**农历 / 公历**双历法，可在生日前指定天数，通过**微信推送（Server酱 / PushPlus / Bark）**与**飞书机器人**主动通知你。数据全部存在你自己的 NAS 上，不依赖任何第三方生日 App。
 

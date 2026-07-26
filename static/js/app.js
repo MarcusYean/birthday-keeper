@@ -16,6 +16,10 @@ function visBadge(v) {
   const k = (v === "family" || v === "public") ? v : "private";
   return `<span class="tag vis vis-${k}" title="${t("vis." + k + "Tip")}">${VIS_ICONS[k]} ${t("vis." + k)}</span>`;
 }
+/* 可见范围选项：普通用户只能选「私人 / 家庭」；管理员额外拥有「公开」（系统内所有用户可见） */
+function visOptions() {
+  return ME && ME.role === "admin" ? ["private", "family", "public"] : ["private", "family"];
+}
 
 function toast(msg, ok = true) {
   const t = $("#toast");
@@ -588,7 +592,7 @@ function openContactEditor(r) {
       <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="c-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
       <div class="field"><label>${t("form.note")}</label><input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
-        <div class="vis-picker" id="c-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="c-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
+        <div class="vis-picker" id="c-vis">${visOptions().map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="c-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
       <div class="field"><label class="chk"><input id="c-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> ${t("form.enabled")}</label></div>
       <div class="modal-actions">
@@ -732,7 +736,7 @@ function openAnniEditor(r) {
       <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
       <div class="field"><label>${t("form.note")}</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
-        <div class="vis-picker" id="a-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
+        <div class="vis-picker" id="a-vis">${visOptions().map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
       <div class="field"><label class="chk"><input id="a-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> ${t("form.enabled")}</label></div>
       <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeEditor()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${isEdit ? t("form.save") : t("form.add")}</button></div>
@@ -834,13 +838,22 @@ async function loadFamily() {
     } else {
       listBox.innerHTML = families.map((f) => {
         const isOwner = ME && f.owner_name === ME.username;
+        const isAdmin = ME && ME.role === "admin";
+        const canManage = isOwner || isAdmin;
+        const isMember = (f.members || []).some((m) => m.username === ME.username);
+        const canLeave = isMember && !isOwner;
         return `<div class="card family-card">
           <div class="family-head">
             <div class="family-name">🏠 ${esc(f.name)} ${isOwner ? '<span class="tag tag-on">' + t("invite.mine") + '</span>' : ""}</div>
-            ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="openInvite(${f.id}, '${esc(f.name)}')">+ ${t("invite.inviteMember")}</button>` : ""}
+            <div class="family-actions">
+              ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="renameFamily(${f.id}, '${esc(f.name)}')">✏️ ${t("family.rename")}</button>` : ""}
+              ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="openInvite(${f.id}, '${esc(f.name)}')">+ ${t("invite.inviteMember")}</button>` : ""}
+              ${canManage ? `<button class="btn btn-danger-ghost btn-sm" onclick="deleteFamily(${f.id}, '${esc(f.name)}')">🗑 ${t("family.delete")}</button>` : ""}
+              ${canLeave ? `<button class="btn btn-ghost btn-sm" onclick="leaveFamily(${f.id}, '${esc(f.name)}')">🚪 ${t("family.leave")}</button>` : ""}
+            </div>
           </div>
           <div class="family-members">
-            ${(f.members || []).map((m) => `<span class="member-chip">${m.username === f.owner_name ? "👑" : "👤"} ${esc(m.username)}${ME && m.username === ME.username ? "（" + t("invite.me") + "）" : ""}</span>`).join("")}
+            ${(f.members || []).map((m) => `<span class="member-chip">${m.username === f.owner_name ? "👑" : "👤"} ${esc(m.username)}${ME && m.username === ME.username ? "（" + t("invite.me") + "）" : ""}${canManage && m.username !== f.owner_name ? ` <a href="javascript:void(0)" class="member-remove" title="${t("family.removeMember")}" onclick="removeMember(${f.id}, ${m.id}, '${esc(m.username)}', '${esc(f.name)}')">✕</a>` : ""}</span>`).join("")}
           </div>
           ${(f.pending_invites || []).length ? `<div class="muted sm" style="margin-top:8px">${t("invite.waiting", { list: f.pending_invites.map((p) => esc(p)).join(t("unit.comma")) })}</div>` : ""}
         </div>`;
@@ -871,6 +884,41 @@ window.openInvite = (fid, fname) => {
       closeModal(); toast(t("toast.inviteSent")); loadFamily();
     } catch (err) { toast(err.message, false); }
   });
+};
+
+window.renameFamily = (fid, fname) => {
+  openModal(`<h2>${t("family.renameTitle", { name: esc(fname) })}</h2><form id="rename-form" class="modal-form">
+    <div class="field"><label>${t("form.name")} *</label><input id="rf-name" type="text" required value="${esc(fname)}" /></div>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${t("btn.save")}</button></div>
+  </form>`);
+  $("#rename-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/api/families/${fid}`, { method: "PUT", body: JSON.stringify({ name: $("#rf-name").value.trim() }) });
+      closeModal(); toast(t("toast.familyRenamed")); loadFamily();
+    } catch (err) { toast(err.message, false); }
+  });
+};
+
+window.deleteFamily = (fid, fname) => {
+  if (!confirm(t("family.deleteConfirm", { name: esc(fname) }))) return;
+  api(`/api/families/${fid}`, { method: "DELETE" })
+    .then(() => { toast(t("toast.familyDeleted")); loadFamily(); })
+    .catch((err) => toast(err.message, false));
+};
+
+window.removeMember = (fid, uid, uname, fname) => {
+  if (!confirm(t("family.removeMemberConfirm", { name: esc(uname), family: esc(fname) }))) return;
+  api(`/api/families/${fid}/members/${uid}`, { method: "DELETE" })
+    .then(() => { toast(t("toast.memberRemoved")); loadFamily(); })
+    .catch((err) => toast(err.message, false));
+};
+
+window.leaveFamily = (fid, fname) => {
+  if (!confirm(t("family.leaveConfirm", { name: esc(fname) }))) return;
+  api(`/api/families/${fid}/leave`, { method: "POST" })
+    .then(() => { toast(t("toast.leftFamily")); loadFamily(); })
+    .catch((err) => toast(err.message, false));
 };
 
 /* ============ 偏好（主题 + 语言） ============ */
