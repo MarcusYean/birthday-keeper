@@ -1,5 +1,5 @@
 /* ============================================================
-   生日管家 v2.6 · 极简 UI + 多主题 + 多语言
+   生日管家 v2.6.1 · 极简 UI + 5 套完整主题 + 多语言
    设计语言：大量留白 / 灰白基调 / 低饱和点缀 / 细字体 / 柔和阴影
    5 套浅色主题：clean(默认) / warm / mint / morandi / sakura
    ============================================================ */
@@ -91,7 +91,9 @@ body {
 .auth-msg.err { color: var(--bad); }
 
 /* ---------- 布局 ---------- */
-.app { display: flex; min-height: 100vh; }
+.app { display: flex; min-height: 100vh; width: 100%; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; }
+.content { padding: 32px 36px 48px; width: 100%; max-width: none; min-width: 0; }
 .sidebar {
   width: 232px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--line);
   display: flex; flex-direction: column; padding: 28px 16px; position: sticky; top: 0; height: 100vh;
@@ -106,9 +108,8 @@ body {
 .nav-item span { font-size: 16px; }
 .nav-item:hover { background: var(--bg); color: var(--text); }
 .nav-item.active { background: var(--primary-soft); color: var(--primary-d); font-weight: 500; }
-.side-foot { margin-top: auto; padding: 12px; color: #c3c9d4; font-size: 11.5px; font-weight: 300; letter-spacing: .05em; }
+.side-foot { margin-top: auto; padding: 12px; color: var(--muted); font-size: 11.5px; font-weight: 300; letter-spacing: .05em; }
 
-.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; padding: 18px 36px;
   background: rgba(255,255,255,.75); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line);
@@ -119,7 +120,6 @@ body {
 .user-chip { font-size: 12.5px; color: var(--muted); letter-spacing: .02em; }
 .user-chip b { color: var(--text); font-weight: 500; }
 
-.content { padding: 32px 36px 48px; width: 100%; min-width: 0; }
 .view { animation: fade .25s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -136,8 +136,9 @@ tbody tr { transition: background .12s; }
 tbody tr:hover { background: #fafbfc; }
 
 /* 表格自适应：容器过宽时横向滚动，避免列被压扁 */
-.card:has(.table) { overflow-x: auto; }
-table { min-width: 100%; }
+.table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius); }
+.table-card .table { min-width: 100%; width: auto; }
+.card:has(.table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* 标签：低饱和、去边框 */
 .tag {
@@ -498,73 +499,154 @@ body.menu-top .topbar { padding: 15px 36px; }
 }
 
 /* ============================================================
-   5 套简约主题（均为浅色基调，通过覆盖 CSS 变量切换）
+   5 套完整主题（浅色基调，覆盖变量 + 组件级样式）
    clean = 默认（见上方 :root）；以下为 warm / mint / morandi / sakura
+   v2.6.1 升级：每套主题拥有独立字体、圆角、阴影、按钮/卡片/标签风格
    ============================================================ */
+
+/* ---- Warm：暖灰纸张，家庭温馨感 ---- */
 html[data-theme="warm"] {
   --bg: #f6f4f2;
   --card: #fffdfb;
   --line: #efeae5;
   --line-strong: #e6ddd5;
+  --text: #4a443f;
+  --text-strong: #2d2925;
+  --muted: #a89b8f;
   --primary: #b08968;
-  --primary-d: #97704f;
+  --primary-d: #8f6b4d;
   --primary-soft: #f3ece5;
   --cool-1: #f1ece7;
   --cool-2: #efeae4;
   --warm-soft: #f6efe7;
-  --ok: #6f9b6e;
+  --ok: #6f8f64;
   --ok-soft: #eef3ec;
-  --bad: #c98a7d;
+  --bad: #c47a6b;
   --bad-soft: #f7eeea;
+  --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Georgia, serif;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(60,50,40,.03), 0 6px 18px rgba(60,50,40,.04);
+  --shadow-lift: 0 3px 10px rgba(60,50,40,.05), 0 12px 32px rgba(60,50,40,.07);
 }
+html[data-theme="warm"] .sidebar { background: linear-gradient(180deg, #fffdfb 0%, #faf7f4 100%); border-right-color: var(--line); }
+html[data-theme="warm"] .topbar { background: rgba(255,253,251,.85); }
+html[data-theme="warm"] .btn { border-radius: 10px; font-weight: 500; letter-spacing: .01em; }
+html[data-theme="warm"] .btn-ghost { border-color: var(--line-strong); background: #fffdfb; }
+html[data-theme="warm"] .card { border-radius: 16px; box-shadow: var(--shadow); border-color: var(--line); }
+html[data-theme="warm"] .contact-card:hover { transform: translateY(-2px); }
+html[data-theme="warm"] .tag { border-radius: 8px; font-weight: 500; }
+html[data-theme="warm"] .vis-opt { border-radius: 10px; }
+html[data-theme="warm"] .nav-item.active { border-radius: 10px; }
 
+/* ---- Mint：清新薄荷，自然活力 ---- */
 html[data-theme="mint"] {
-  --bg: #f3f8f6;
+  --bg: #f0f7f4;
   --card: #ffffff;
-  --line: #e8f1ed;
-  --line-strong: #dcebe4;
-  --primary: #3fae8f;
-  --primary-d: #2f8f75;
-  --primary-soft: #e6f4ef;
-  --cool-1: #eaf4f0;
-  --cool-2: #e9f3ef;
+  --line: #e3f0ea;
+  --line-strong: #d2e8de;
+  --text: #2f4a42;
+  --text-strong: #1a302a;
+  --muted: #7e9d92;
+  --primary: #2ea583;
+  --primary-d: #247e64;
+  --primary-soft: #e3f5ee;
+  --cool-1: #e5f3ee;
+  --cool-2: #e2f1eb;
   --warm-soft: #f1f6f0;
-  --ok: #3fae8f;
-  --ok-soft: #e6f4ef;
-  --bad: #d98a82;
+  --ok: #2ea583;
+  --ok-soft: #e3f5ee;
+  --bad: #d97970;
   --bad-soft: #f9eeec;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 2px 4px rgba(30,90,70,.04), 0 8px 24px rgba(30,90,70,.05);
+  --shadow-lift: 0 4px 14px rgba(30,90,70,.06), 0 16px 40px rgba(30,90,70,.08);
 }
+html[data-theme="mint"] .sidebar { background: #ffffff; border-right: none; box-shadow: 2px 0 16px rgba(30,90,70,.04); }
+html[data-theme="mint"] .topbar { background: rgba(255,255,255,.9); }
+html[data-theme="mint"] .btn { border-radius: 999px; font-weight: 500; }
+html[data-theme="mint"] .btn-ghost { background: #f6fbf9; border-color: #d2e8de; }
+html[data-theme="mint"] .card { border-radius: 20px; border: none; box-shadow: var(--shadow); }
+html[data-theme="mint"] .contact-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
+html[data-theme="mint"] .tag { border-radius: 999px; }
+html[data-theme="mint"] .vis-opt { border-radius: 999px; }
+html[data-theme="mint"] .nav-item { border-radius: 12px; }
+html[data-theme="mint"] .nav-item.active { border-radius: 12px; }
+html[data-theme="mint"] .modal, html[data-theme="mint"] .drawer { border-radius: 24px; }
 
+/* ---- Morandi：莫兰迪艺术，低调优雅 ---- */
 html[data-theme="morandi"] {
-  --bg: #f4f3f1;
-  --card: #fcfbfa;
-  --line: #ececea;
-  --line-strong: #e2e0dd;
-  --primary: #9a8f87;
-  --primary-d: #7e746c;
-  --primary-soft: #efeae8;
-  --cool-1: #eeece9;
-  --cool-2: #edf0ee;
-  --warm-soft: #f3eeea;
-  --ok: #8a9b86;
-  --ok-soft: #eef1ec;
-  --bad: #c09a96;
-  --bad-soft: #f6eeed;
+  --bg: #f2f1ef;
+  --card: #faf9f8;
+  --line: #e5e4e2;
+  --line-strong: #d8d6d3;
+  --text: #595551;
+  --text-strong: #3a3734;
+  --muted: #9e9994;
+  --primary: #8c827a;
+  --primary-d: #6e655e;
+  --primary-soft: #ebe7e4;
+  --cool-1: #e8e6e3;
+  --cool-2: #e6ebe8;
+  --warm-soft: #ede8e4;
+  --ok: #7a9172;
+  --ok-soft: #ecefe9;
+  --bad: #b38780;
+  --bad-soft: #f5edeb;
+  --font: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow: none;
+  --shadow-lift: 0 6px 20px rgba(80,75,70,.08);
 }
+html[data-theme="morandi"] .sidebar { background: var(--card); border-right: 2px solid var(--line); }
+html[data-theme="morandi"] .topbar { background: rgba(250,249,248,.92); border-bottom: 2px solid var(--line); }
+html[data-theme="morandi"] .btn { border-radius: 4px; text-transform: uppercase; font-size: 12.5px; letter-spacing: .04em; }
+html[data-theme="morandi"] .btn-ghost { background: transparent; border: 2px solid var(--line-strong); }
+html[data-theme="morandi"] .card { border-radius: 8px; border: 2px solid var(--line); box-shadow: none; }
+html[data-theme="morandi"] .contact-card:hover { transform: none; box-shadow: var(--shadow-lift); border-color: var(--line-strong); }
+html[data-theme="morandi"] .tag { border-radius: 4px; font-weight: 500; }
+html[data-theme="morandi"] .vis-opt { border-radius: 4px; border-width: 2px; }
+html[data-theme="morandi"] .nav-item.active { border-radius: 4px; }
+html[data-theme="morandi"] .modal, html[data-theme="morandi"] .drawer { border-radius: 8px; border: 2px solid var(--line); box-shadow: var(--shadow-lift); }
+html[data-theme="morandi"] input, html[data-theme="morandi"] select, html[data-theme="morandi"] textarea { border-width: 2px; }
 
+/* ---- Sakura：樱粉浪漫，柔和治愈 ---- */
 html[data-theme="sakura"] {
   --bg: #fbf4f6;
   --card: #fffdfe;
-  --line: #f3e9ed;
-  --line-strong: #ecdde4;
-  --primary: #e09bb0;
-  --primary-d: #c97f97;
-  --primary-soft: #fbeef3;
-  --cool-1: #f9eef2;
-  --cool-2: #f7eef3;
-  --warm-soft: #fbeef2;
-  --ok: #6faa8b;
-  --ok-soft: #eef5f0;
-  --bad: #d98a9a;
+  --line: #f2e6eb;
+  --line-strong: #ead6de;
+  --text: #5a4750;
+  --text-strong: #3d2f35;
+  --muted: #b597a3;
+  --primary: #d4829c;
+  --primary-d: #b5657f;
+  --primary-soft: #fcecf2;
+  --cool-1: #f7ecf1;
+  --cool-2: #f5ecf4;
+  --warm-soft: #fbeff3;
+  --ok: #5fa082;
+  --ok-soft: #eef6f2;
+  --bad: #d47a8a;
   --bad-soft: #f9eef1;
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow: 0 2px 6px rgba(150,80,100,.04), 0 10px 30px rgba(150,80,100,.05);
+  --shadow-lift: 0 6px 18px rgba(150,80,100,.06), 0 20px 48px rgba(150,80,100,.08);
 }
+html[data-theme="sakura"] .sidebar { background: linear-gradient(180deg, #fffdfe, #fdf5f8); border-right-color: var(--line); }
+html[data-theme="sakura"] .topbar { background: rgba(255,253,254,.88); }
+html[data-theme="sakura"] .btn { border-radius: 999px; font-weight: 500; }
+html[data-theme="sakura"] .btn-ghost { background: #fff7fa; border-color: var(--line-strong); }
+html[data-theme="sakura"] .card { border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+html[data-theme="sakura"] .contact-card:hover { transform: translateY(-3px) rotate(.3deg); box-shadow: var(--shadow-lift); }
+html[data-theme="sakura"] .tag { border-radius: 999px; padding: 3px 12px; }
+html[data-theme="sakura"] .vis-opt { border-radius: 999px; }
+html[data-theme="sakura"] .nav-item { border-radius: 14px; }
+html[data-theme="sakura"] .nav-item.active { border-radius: 14px; }
+html[data-theme="sakura"] .modal, html[data-theme="sakura"] .drawer { border-radius: 28px; }
+html[data-theme="sakura"] .cc-stat { border-radius: 18px; }

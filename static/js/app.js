@@ -371,7 +371,7 @@ function renderGroup(g) {
   const items = g.items.map((r) => mode === "card" ? cardHtml(r) : mode === "compact" ? compactRowHtml(r) : listRowHtml(r)).join("");
   if (mode === "card") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="card-grid">${items}</div></div>`;
   if (mode === "compact") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="compact-list">${items}</div></div>`;
-  return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><table class="table"><thead>${listHeader()}</thead><tbody>${items}</tbody></table></div>`;
+  return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="table-card"><table class="table"><thead>${listHeader()}</thead><tbody>${items}</tbody></table></div></div>`;
 }
 function hasField(key) { return FIELD_SET.has(key); }
 function renderPagination(total, totalPages, page) {
@@ -876,8 +876,16 @@ window.openInvite = (fid, fname) => {
 /* ============ 偏好（主题 + 语言） ============ */
 function loadPrefs() {
   const box = $("#prefs-card"); if (!box) return;
-  const themeOpts = THEMES.map((th) => `<label class="vis-opt ${th.code === getTheme() ? "active" : ""}"><input type="radio" name="pref-theme" value="${th.code}" ${th.code === getTheme() ? "checked" : ""} hidden />${th.icon || ""} ${th.label}</label>`).join("");
-  const langOpts = LANGS.map((lg) => `<label class="vis-opt ${lg.code === getLang() ? "active" : ""}"><input type="radio" name="pref-lang" value="${lg.code}" ${lg.code === getLang() ? "checked" : ""} hidden />${lg.label}</label>`).join("");
+  const themes = (typeof THEMES !== "undefined" && THEMES) || [];
+  const langs = (typeof LANGS !== "undefined" && LANGS) || [];
+  if (!themes.length || !langs.length) {
+    box.innerHTML = '<div class="empty">' + (t("prefs.loadError") || "偏好数据未加载，请按 Ctrl+F5 强制刷新缓存后再试。") + '</div>';
+    return;
+  }
+  const curTheme = (typeof getTheme === "function" ? getTheme() : "clean") || "clean";
+  const curLang = (typeof getLang === "function" ? getLang() : "zh") || "zh";
+  const themeOpts = themes.map((th) => `<label class="vis-opt ${th.code === curTheme ? "active" : ""}"><input type="radio" name="pref-theme" value="${esc(th.code)}" ${th.code === curTheme ? "checked" : ""} hidden />${th.icon || ""} ${esc(th.label)}</label>`).join("");
+  const langOpts = langs.map((lg) => `<label class="vis-opt ${lg.code === curLang ? "active" : ""}"><input type="radio" name="pref-lang" value="${esc(lg.code)}" ${lg.code === curLang ? "checked" : ""} hidden />${esc(lg.label)}</label>`).join("");
   box.innerHTML = `
     <div class="field setting-field">
       <div class="field-main"><label>${t("prefs.theme")}</label></div>

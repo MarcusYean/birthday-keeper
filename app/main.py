@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.0")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.1")
 
 
 # ---------- 鉴权依赖 ----------
@@ -562,4 +562,16 @@ def avatar_file(filename: str):
     return FileResponse(str(p))
 
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+class VersionedStaticFiles(StaticFiles):
+    """带版本号查询参数时允许长期缓存；否则强制 revalidate，避免旧代码缓存。"""
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        resp = super().file_response(full_path, stat_result, scope, status_code)
+        qs = scope.get("query_string", b"")
+        if isinstance(qs, bytes): qs = qs.decode("utf-8", errors="ignore")
+        if "v=" in qs:
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return resp
+
+app.mount("/static", VersionedStaticFiles(directory=str(STATIC_DIR)), name="static")
