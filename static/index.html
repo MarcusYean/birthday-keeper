@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="clean">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🎂 生日管家</title>
+<title data-i18n="app.title">🎂 生日管家</title>
 <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body class="menu-left">
@@ -12,57 +12,57 @@
   <div class="auth-card">
     <div class="brand">
       <div class="brand-logo">🎂</div>
-      <h1>生日管家</h1>
-      <p class="brand-sub" id="auth-sub">记录亲友生日 · 农历/公历 · 微信 & 飞书提醒</p>
+      <h1 data-i18n="app.name">生日管家</h1>
+      <p class="brand-sub" id="auth-sub" data-i18n="auth.sub.login">记录亲友生日 · 农历/公历 · 微信 & 飞书提醒</p>
     </div>
 
     <form id="login-form" class="auth-form">
-      <label>用户名</label>
-      <input id="login-user" type="text" autocomplete="username" placeholder="请输入用户名" required />
-      <label>密码</label>
-      <input id="login-pass" type="password" autocomplete="current-password" placeholder="请输入密码" required />
-      <button type="submit" class="btn btn-primary btn-block">登录</button>
+      <label data-i18n="label.username">用户名</label>
+      <input id="login-user" type="text" autocomplete="username" data-i18n-ph="placeholder.username" required />
+      <label data-i18n="label.password">密码</label>
+      <input id="login-pass" type="password" autocomplete="current-password" data-i18n-ph="placeholder.password" required />
+      <button type="submit" class="btn btn-primary btn-block" data-i18n="btn.login">登录</button>
       <div class="auth-links">
-        <a href="#" id="to-register">注册账号</a>
-        <a href="#" id="to-forgot">忘记密码</a>
+        <a href="#" id="to-register" data-i18n="link.register">注册账号</a>
+        <a href="#" id="to-forgot" data-i18n="link.forgot">忘记密码</a>
       </div>
     </form>
 
     <form id="setup-form" class="auth-form hidden">
-      <div class="callout">首次使用，请创建管理员账号（用于配置提醒参数）。</div>
-      <label>管理员用户名</label>
-      <input id="setup-user" type="text" placeholder="如 admin" required />
-      <label>管理员密码</label>
-      <input id="setup-pass" type="password" placeholder="设置登录密码" required />
-      <button type="submit" class="btn btn-primary btn-block">创建并进入</button>
+      <div class="callout" data-i18n="setup.callout">首次使用，请创建管理员账号（用于配置提醒参数）。</div>
+      <label data-i18n="label.adminUser">管理员用户名</label>
+      <input id="setup-user" type="text" data-i18n-ph="placeholder.adminUser" required />
+      <label data-i18n="label.adminPass">管理员密码</label>
+      <input id="setup-pass" type="password" data-i18n-ph="placeholder.adminPass" required />
+      <button type="submit" class="btn btn-primary btn-block" data-i18n="btn.createAdmin">创建并进入</button>
     </form>
 
     <form id="register-form" class="auth-form hidden">
-      <div class="callout" id="register-callout">注册新账号（需管理员在设置中开启注册）。</div>
-      <label>用户名</label>
-      <input id="reg-user" type="text" placeholder="设置用户名" required />
-      <label>密码</label>
-      <input id="reg-pass" type="password" placeholder="至少 6 位" required />
-      <button type="submit" class="btn btn-primary btn-block">注册并登录</button>
-      <a href="#" class="auth-back" id="reg-back">返回登录</a>
+      <div class="callout" id="register-callout" data-i18n="register.callout">注册新账号（需管理员在设置中开启注册）。</div>
+      <label data-i18n="label.username">用户名</label>
+      <input id="reg-user" type="text" data-i18n-ph="placeholder.regUser" required />
+      <label data-i18n="label.password">密码</label>
+      <input id="reg-pass" type="password" data-i18n-ph="placeholder.regPass" required />
+      <button type="submit" class="btn btn-primary btn-block" data-i18n="btn.register">注册并登录</button>
+      <a href="#" class="auth-back" id="reg-back" data-i18n="link.back">返回登录</a>
     </form>
 
     <form id="forgot-form" class="auth-form hidden">
-      <div class="callout">输入用户名，若系统已配置邮件，我们将发送重置链接。</div>
-      <label>用户名</label>
-      <input id="forgot-user" type="text" placeholder="请输入用户名" required />
-      <button type="submit" class="btn btn-primary btn-block">发送重置邮件</button>
+      <div class="callout" data-i18n="forgot.callout">输入用户名，若系统已配置邮件，我们将发送重置链接。</div>
+      <label data-i18n="label.username">用户名</label>
+      <input id="forgot-user" type="text" data-i18n-ph="placeholder.username" required />
+      <button type="submit" class="btn btn-primary btn-block" data-i18n="btn.sendReset">发送重置邮件</button>
       <div class="auth-msg" id="forgot-msg"></div>
-      <a href="#" class="auth-back" id="forgot-back">返回登录</a>
+      <a href="#" class="auth-back" id="forgot-back" data-i18n="link.back">返回登录</a>
     </form>
 
     <form id="reset-form" class="auth-form hidden">
-      <div class="callout">设置你的新密码。</div>
-      <label>新密码</label>
-      <input id="reset-pass" type="password" placeholder="至少 6 位" required />
-      <button type="submit" class="btn btn-primary btn-block">重置密码</button>
+      <div class="callout" data-i18n="reset.callout">设置你的新密码。</div>
+      <label data-i18n="label.newPassword">新密码</label>
+      <input id="reset-pass" type="password" data-i18n-ph="placeholder.regPass" required />
+      <button type="submit" class="btn btn-primary btn-block" data-i18n="btn.resetPass">重置密码</button>
       <div class="auth-msg" id="reset-msg"></div>
-      <a href="#" class="auth-back" id="reset-back">返回登录</a>
+      <a href="#" class="auth-back" id="reset-back" data-i18n="link.back">返回登录</a>
     </form>
   </div>
 </div>
@@ -70,16 +70,17 @@
 <!-- 主应用 -->
 <div id="app-view" class="app hidden">
   <aside class="sidebar">
-    <div class="side-brand">🎂 生日管家</div>
+    <div class="side-brand">🎂 <span data-i18n="app.name">生日管家</span></div>
     <nav class="nav">
-      <a class="nav-item" data-view="contacts"><span>👥</span> 联系人</a>
-      <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span>📌</span> 纪念日</a>
-      <a class="nav-item" data-view="upcoming"><span>⏰</span> 即将到来</a>
-      <a class="nav-item" data-view="family"><span>🏠</span> 家庭 <span id="invite-badge" class="badge hidden"></span></a>
-      <a class="nav-item admin-only" data-view="settings"><span>⚙️</span> 设置</a>
-      <a class="nav-item admin-only" data-view="users"><span>🧑‍💼</span> 用户管理</a>
+      <a class="nav-item" data-view="contacts"><span class="nav-ic">👥</span> <span data-i18n="nav.contacts">联系人</span></a>
+      <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span class="nav-ic">📌</span> <span data-i18n="nav.anniversaries">纪念日</span></a>
+      <a class="nav-item" data-view="upcoming"><span class="nav-ic">⏰</span> <span data-i18n="nav.upcoming">即将到来</span></a>
+      <a class="nav-item" data-view="family"><span class="nav-ic">🏠</span> <span data-i18n="nav.family">家庭</span> <span id="invite-badge" class="badge hidden"></span></a>
+      <a class="nav-item" data-view="prefs"><span class="nav-ic">👤</span> <span data-i18n="nav.prefs">偏好</span></a>
+      <a class="nav-item admin-only" data-view="settings"><span class="nav-ic">⚙️</span> <span data-i18n="nav.settings">设置</span></a>
+      <a class="nav-item admin-only" data-view="users"><span class="nav-ic">🧑‍💼</span> <span data-i18n="nav.users">用户管理</span></a>
     </nav>
-    <div class="side-foot">v2.5 · 自托管</div>
+    <div class="side-foot">v2.6 · <span data-i18n="side.foot">自托管</span></div>
   </aside>
 
   <div class="main">
@@ -87,7 +88,7 @@
       <div class="topbar-title" id="view-title">联系人</div>
       <div class="topbar-right">
         <span class="user-chip" id="user-chip"></span>
-        <button class="btn btn-ghost btn-sm" id="logout-btn">退出</button>
+        <button class="btn btn-ghost btn-sm" id="logout-btn" data-i18n="topbar.logout">退出</button>
       </div>
     </header>
 
@@ -96,50 +97,50 @@
       <section id="view-contacts" class="view">
         <div class="toolbar" id="contacts-toolbar">
           <div class="toolbar-left">
-            <button class="btn btn-primary" id="add-btn">+ 添加联系人</button>
-            <button class="btn btn-ghost" id="refresh-btn">刷新</button>
+            <button class="btn btn-primary" id="add-btn">+ <span data-i18n="contact.add">添加联系人</span></button>
+            <button class="btn btn-ghost" id="refresh-btn" data-i18n="btn.refresh">刷新</button>
             <div class="select-group">
-              <button class="btn btn-ghost btn-sm" id="select-all-btn">全选</button>
-              <button class="btn btn-ghost btn-sm" id="select-inv-btn">反选</button>
-              <button class="btn btn-ghost btn-sm" id="select-none-btn">取消</button>
+              <button class="btn btn-ghost btn-sm" id="select-all-btn" data-i18n="toolbar.selectAll">全选</button>
+              <button class="btn btn-ghost btn-sm" id="select-inv-btn" data-i18n="toolbar.selectInv">反选</button>
+              <button class="btn btn-ghost btn-sm" id="select-none-btn" data-i18n="toolbar.selectNone">取消</button>
             </div>
-            <button class="btn btn-ghost" id="batch-test-btn">🔔 批量测试 <span id="batch-count" class="badge"></span></button>
+            <button class="btn btn-ghost" id="batch-test-btn">🔔 <span data-i18n="toolbar.batchTest">批量测试</span> <span id="batch-count" class="badge"></span></button>
           </div>
           <div class="toolbar-right">
             <div class="tool-group">
-              <label for="per-page">每页</label>
-              <select id="per-page"><option value="10">10</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="0">全部</option></select>
+              <label for="per-page" data-i18n="toolbar.perPage">每页</label>
+              <select id="per-page"><option value="10">10</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="0" data-i18n="pagination.all">全部</option></select>
             </div>
             <div class="tool-group">
-              <label for="view-mode">视图</label>
-              <select id="view-mode"><option value="list">列表</option><option value="card">卡片</option><option value="compact">紧凑</option></select>
+              <label for="view-mode" data-i18n="toolbar.view">视图</label>
+              <select id="view-mode"><option value="list" data-i18n="view.list">列表</option><option value="card" data-i18n="view.card">卡片</option><option value="compact" data-i18n="view.compact">紧凑</option></select>
             </div>
             <div class="tool-group">
-              <label for="sort-by">排序</label>
+              <label for="sort-by" data-i18n="toolbar.sort">排序</label>
               <select id="sort-by">
-                <option value="days_until_asc">按倒计时 ↑</option>
-                <option value="days_until_desc">按倒计时 ↓</option>
-                <option value="name_asc">名称 A-Z</option>
-                <option value="name_desc">名称 Z-A</option>
-                <option value="age_asc">年龄从小到大</option>
-                <option value="age_desc">年龄从大到小</option>
-                <option value="month_day_asc">按生日月份</option>
-                <option value="created_at_desc">最近添加</option>
+                <option value="days_until_asc" data-i18n="sort.days_asc">按倒计时 ↑</option>
+                <option value="days_until_desc" data-i18n="sort.days_desc">按倒计时 ↓</option>
+                <option value="name_asc" data-i18n="sort.name_asc">名称 A-Z</option>
+                <option value="name_desc" data-i18n="sort.name_desc">名称 Z-A</option>
+                <option value="age_asc" data-i18n="sort.age_asc">年龄从小到大</option>
+                <option value="age_desc" data-i18n="sort.age_desc">年龄从大到小</option>
+                <option value="month_day_asc" data-i18n="sort.month">按生日月份</option>
+                <option value="created_at_desc" data-i18n="sort.recent">最近添加</option>
               </select>
             </div>
             <div class="tool-group">
-              <label for="group-by">分类</label>
+              <label for="group-by" data-i18n="toolbar.group">分类</label>
               <select id="group-by">
-                <option value="none">不分组</option>
-                <option value="relationship">按关系</option>
-                <option value="gender">按性别</option>
-                <option value="zodiac">按星座</option>
-                <option value="chinese_zodiac">按生肖</option>
-                <option value="calendar_type">按历法</option>
-                <option value="birth_month">按生日月份</option>
+                <option value="none" data-i18n="group.none">不分组</option>
+                <option value="relationship" data-i18n="group.relationship">按关系</option>
+                <option value="gender" data-i18n="group.gender">按性别</option>
+                <option value="zodiac" data-i18n="group.zodiac">按星座</option>
+                <option value="chinese_zodiac" data-i18n="group.zodiac_cn">按生肖</option>
+                <option value="calendar_type" data-i18n="group.calendar">按历法</option>
+                <option value="birth_month" data-i18n="group.birth_month">按生日月份</option>
               </select>
             </div>
-            <button class="btn btn-ghost" id="fields-btn">显示字段</button>
+            <button class="btn btn-ghost" id="fields-btn" data-i18n="toolbar.fields">显示字段</button>
           </div>
         </div>
         <div id="contacts-list" class="card"></div>
@@ -149,9 +150,9 @@
       <!-- 纪念日 -->
       <section id="view-anniversaries" class="view hidden">
         <div class="toolbar">
-          <button class="btn btn-primary" id="add-anni-btn">+ 添加纪念日</button>
-          <button class="btn btn-ghost" id="refresh-anni-btn">刷新</button>
-          <button class="btn btn-ghost" id="batch-test-anni-btn">🔔 批量测试</button>
+          <button class="btn btn-primary" id="add-anni-btn">+ <span data-i18n="anni.addTitle">添加纪念日</span></button>
+          <button class="btn btn-ghost" id="refresh-anni-btn" data-i18n="anni.refresh">刷新</button>
+          <button class="btn btn-ghost" id="batch-test-anni-btn">🔔 <span data-i18n="anni.batchTest">批量测试</span></button>
         </div>
         <div id="anniversaries-list" class="card"></div>
       </section>
@@ -164,11 +165,19 @@
       <!-- 家庭 -->
       <section id="view-family" class="view hidden">
         <div class="toolbar">
-          <button class="btn btn-primary" id="create-family-btn">+ 创建家庭</button>
-          <span class="muted">家庭成员之间可共享「家庭」权限的数据。</span>
+          <button class="btn btn-primary" id="create-family-btn">+ <span data-i18n="family.create">创建家庭</span></button>
+          <span class="muted" data-i18n="family.hint">家庭成员之间可共享「家庭」权限的数据。</span>
         </div>
         <div id="family-invites"></div>
         <div id="family-list"></div>
+      </section>
+
+      <!-- 偏好 -->
+      <section id="view-prefs" class="view hidden">
+        <div class="toolbar">
+          <div class="muted" data-i18n="prefs.title">偏好设置</div>
+        </div>
+        <div class="card" id="prefs-card"></div>
       </section>
 
       <!-- 设置 -->
@@ -177,8 +186,8 @@
           <nav class="settings-nav" id="settings-nav"></nav>
           <div class="settings-main">
             <div class="toolbar">
-              <button class="btn btn-primary" id="save-settings-btn">保存设置</button>
-              <span class="muted" id="settings-hint">修改后立即生效，无需重启。</span>
+              <button class="btn btn-primary" id="save-settings-btn" data-i18n="settings.save">保存设置</button>
+              <span class="muted" id="settings-hint" data-i18n="settings.hint">修改后立即生效，无需重启。</span>
             </div>
             <div id="settings-form"></div>
           </div>
@@ -188,7 +197,7 @@
       <!-- 用户管理 -->
       <section id="view-users" class="view hidden">
         <div class="toolbar">
-          <button class="btn btn-primary" id="add-user-btn">+ 新增用户</button>
+          <button class="btn btn-primary" id="add-user-btn"><span data-i18n="users.add">+ 新增用户</span></button>
         </div>
         <div class="card" id="users-list"></div>
       </section>
@@ -209,6 +218,14 @@
 <div id="toast"></div>
 <div id="tooltip" class="tooltip" role="tooltip"></div>
 
-<script src="/static/js/app.js"></script>
+<script src="/static/js/i18n.js"></script>
+<script>
+  /* 等待 i18n 加载完当前语言再启动 app.js */
+  I18N.init().then(function () {
+    var s = document.createElement("script");
+    s.src = "/static/js/app.js";
+    document.head.appendChild(s);
+  });
+</script>
 </body>
 </html>

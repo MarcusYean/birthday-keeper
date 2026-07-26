@@ -1,4 +1,4 @@
-# 🎂 生日管家 (Birthday Keeper) v2.5
+# 🎂 生日管家 (Birthday Keeper) v2.6
 
 在 NAS（Docker）上自托管的亲友生日提醒工具。支持**农历 / 公历**双历法，可在生日前指定天数，通过**微信推送（Server酱 / PushPlus / Bark）**与**飞书机器人**主动通知你。数据全部存在你自己的 NAS 上，不依赖任何第三方生日 App。
 
@@ -22,6 +22,7 @@
 - 🏠 **家庭共享**：创建家庭并**邀请其他用户（按用户名）**，对方接受后，标记为「家庭」的生日与纪念日即在家庭成员间共享
 - 🔓 **开放注册 + 密码找回**：管理员可在设置中开启**自助注册**；忘记密码可通过**邮件重置链接**（或管理员后台重置）找回
 - 💎 **全新极简白 UI**：大留白、低饱和冷色调、细字重、柔和阴影与更大圆角，视觉更清爽
+- 🎨 **5 套简约主题 + 多语言**：内置 **clean / warm / mint / morandi / sakura** 五套浅色极简主题，在「偏好」页一键切换、立即生效；界面支持 **简体中文 / 繁體中文 / English / 한국어 / 日本語** 五种语言，所有按钮、字段、表单与提示实时翻译，语言与主题各自保存在浏览器本地（按用户偏好生效）
 - 💾 数据持久化在 `./data` 卷（SQLite + config.yaml），重装/升级不丢失
 - ⏰ 内置定时任务，每天定点检查（默认 08:00，前台可改）
 
@@ -145,7 +146,7 @@ docker compose up -d
 
 ### 升级
 
-镜像在每次推送 `main` 时由 GitHub Actions 自动重建并发布到 `:latest`；每次发布 **GitHub Release（形如 `v2.5`）** 时会额外构建并推送**版本固定标签** `:v2.5`，方便你锁定版本。日常升级只需拉取新镜像：
+镜像在每次推送 `main` 时由 GitHub Actions 自动重建并发布到 `:latest`；每次发布 **GitHub Release（形如 `v2.6`）** 时会额外构建并推送**版本固定标签** `:v2.6`，方便你锁定版本。日常升级只需拉取新镜像：
 
 ```bash
 docker pull ghcr.io/marcusyean/birthday-keeper:latest
@@ -155,7 +156,7 @@ docker compose up -d          # 若用方式一(docker run)，先 docker rm -f b
 如需锁定某版本（更稳定、避免意外变更），改用版本标签：
 
 ```bash
-docker pull ghcr.io/marcusyean/birthday-keeper:v2.5
+docker pull ghcr.io/marcusyean/birthday-keeper:v2.6
 ```
 
 数据始终在 `./data` 卷，升级不丢失。各版本变更记录见仓库 **Releases** 页面。

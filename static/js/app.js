@@ -1,4 +1,4 @@
-/* 生日管家 v2.5 前端 SPA */
+/* 生日管家 v2.6 前端 SPA（含 i18n + 主题偏好） */
 "use strict";
 
 /* ============ 工具 ============ */
@@ -11,14 +11,10 @@ let CONTACTS = [];
 let ANNIS = [];
 let UI_PREFS = { menu_position: "left", contact_edit_mode: "modal", anniversary_enabled: true, default_visibility: "private", allow_register: false };
 
-const VIS_META = {
-  private: { label: "私人", icon: "🔒", cls: "vis-private", tip: "私人：仅你本人可见" },
-  family: { label: "家庭", icon: "🏠", cls: "vis-family", tip: "家庭：你与家庭成员可见" },
-  public: { label: "公开", icon: "🌍", cls: "vis-public", tip: "公开：所有用户可见" },
-};
+const VIS_ICONS = { private: "🔒", family: "🏠", public: "🌍" };
 function visBadge(v) {
-  const m = VIS_META[v || "private"] || VIS_META.private;
-  return `<span class="tag vis ${m.cls}" title="${m.tip}">${m.icon} ${m.label}</span>`;
+  const k = (v === "family" || v === "public") ? v : "private";
+  return `<span class="tag vis vis-${k}" title="${t("vis." + k + "Tip")}">${VIS_ICONS[k]} ${t("vis." + k)}</span>`;
 }
 
 function toast(msg, ok = true) {
@@ -35,7 +31,7 @@ async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { logoutLocal(); throw new Error("登录已过期，请重新登录"); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || "请求失败 " + res.status);
+  if (!res.ok) throw new Error(data.detail || ("请求失败 " + res.status));
   return data;
 }
 
@@ -113,11 +109,11 @@ function showAuthForm(name) {
     const el = $(`#${f}-form`); if (el) el.classList.toggle("hidden", f !== name);
   });
   const subs = {
-    login: "记录亲友生日 · 农历/公历 · 微信 & 飞书提醒",
-    setup: "首次部署 · 创建管理员账号",
-    register: "创建你的账号",
-    forgot: "找回密码",
-    reset: "设置新密码",
+    login: t("auth.sub.login"),
+    setup: t("auth.sub.setup"),
+    register: t("auth.sub.register"),
+    forgot: t("auth.sub.forgot"),
+    reset: t("auth.sub.reset"),
   };
   $("#auth-sub").textContent = subs[name] || subs.login;
 }
@@ -153,16 +149,16 @@ $("#register-form").addEventListener("submit", async (e) => {
     const data = await api("/api/register", { method: "POST", body: JSON.stringify({ username: $("#reg-user").value.trim(), password: $("#reg-pass").value }) });
     TOKEN = data.token; localStorage.setItem("bk_token", TOKEN);
     ME = { username: data.username, role: data.role };
-    toast("注册成功，欢迎使用 🎉"); enterApp();
+    toast(t("toast.regOk")); enterApp();
   } catch (err) { toast(err.message, false); }
 });
 
 $("#forgot-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const msg = $("#forgot-msg"); msg.textContent = "提交中…";
+  const msg = $("#forgot-msg"); msg.textContent = t("forgot.sending");
   try {
     const data = await api("/api/forgot-password", { method: "POST", body: JSON.stringify({ username: $("#forgot-user").value.trim() }) });
-    msg.textContent = data.message || "已提交";
+    msg.textContent = data.message || t("toast.saved");
     msg.className = "auth-msg " + (data.ok ? "ok" : "err");
   } catch (err) { msg.textContent = err.message; msg.className = "auth-msg err"; }
 });
@@ -172,7 +168,7 @@ $("#reset-form").addEventListener("submit", async (e) => {
   const msg = $("#reset-msg");
   try {
     await api("/api/reset-password", { method: "POST", body: JSON.stringify({ token: RESET_TOKEN, password: $("#reset-pass").value }) });
-    msg.textContent = "密码已重置，请用新密码登录 ✅"; msg.className = "auth-msg ok";
+    msg.textContent = t("reset.success"); msg.className = "auth-msg ok";
     setTimeout(() => { history.replaceState(null, "", "/"); showAuthForm("login"); }, 1200);
   } catch (err) { msg.textContent = err.message; msg.className = "auth-msg err"; }
 });
@@ -193,7 +189,7 @@ $("#setup-form").addEventListener("submit", async (e) => {
     const data = await api("/api/setup", { method: "POST", body: JSON.stringify({ username: $("#setup-user").value.trim(), password: $("#setup-pass").value }) });
     TOKEN = data.token; localStorage.setItem("bk_token", TOKEN);
     ME = { username: data.username, role: data.role };
-    toast("管理员创建成功，欢迎使用 🎉"); enterApp();
+    toast(t("toast.adminOk")); enterApp();
   } catch (err) { toast(err.message, false); }
 });
 
@@ -201,7 +197,7 @@ $("#logout-btn").addEventListener("click", async () => { try { await api("/api/l
 
 async function enterApp() {
   $("#auth-view").classList.add("hidden"); $("#app-view").classList.remove("hidden");
-  $("#user-chip").textContent = (ME.role === "admin" ? "👑 " : "👤 ") + ME.username + (ME.role === "admin" ? "（管理员）" : "");
+  $("#user-chip").textContent = (ME.role === "admin" ? "👑 " : "👤 ") + ME.username + (ME.role === "admin" ? "（" + t("user.admin") + "）" : "");
   $$(".admin-only").forEach((el) => el.classList.toggle("hidden", ME.role !== "admin"));
   try { UI_PREFS = await api("/api/ui"); } catch (_) {}
   document.body.classList.toggle("menu-top", UI_PREFS.menu_position === "top");
@@ -220,21 +216,26 @@ async function refreshInviteBadge() {
 }
 
 /* ============ 视图路由 ============ */
-const VIEW_TITLES = { contacts: "联系人", anniversaries: "纪念日", upcoming: "即将到来", family: "家庭共享", settings: "系统设置", users: "用户管理" };
+let CURRENT_VIEW = "contacts";
 
 function switchView(name) {
+  CURRENT_VIEW = name;
   $$(".view").forEach((v) => v.classList.add("hidden"));
   const sec = $("#view-" + name); if (sec) sec.classList.remove("hidden");
   $$(".nav-item").forEach((n) => n.classList.toggle("active", n.dataset.view === name));
-  $("#view-title").textContent = VIEW_TITLES[name] || name;
+  $("#view-title").textContent = t("viewTitle." + name) || name;
   if (name === "contacts") loadContacts();
   if (name === "anniversaries") loadAnniversaries();
   if (name === "upcoming") loadUpcoming();
   if (name === "family") loadFamily();
+  if (name === "prefs") loadPrefs();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
 }
 $$(".nav-item").forEach((n) => n.addEventListener("click", () => switchView(n.dataset.view)));
+
+/* 语言切换后重新渲染当前视图 */
+window.__onLangChange = function () { refreshStaticText(); switchView(CURRENT_VIEW); };
 
 /* ============ 视图偏好 ============ */
 const VIEW_PREFS_KEY = "bk_view_prefs";
@@ -243,19 +244,23 @@ const DEFAULT_FIELDS = ["avatar", "name", "relationship", "gender", "calendar_ba
 function loadViewPrefs() { try { return JSON.parse(localStorage.getItem(VIEW_PREFS_KEY) || "{}"); } catch { return {}; } }
 function saveViewPrefs(p) { localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(p)); }
 let VIEW_PREFS = { mode: "list", sort: "days_until_asc", group: "none", per_page: 50, page: 1, fields: [...DEFAULT_FIELDS], ...loadViewPrefs() };
+let FIELD_SET = new Set(VIEW_PREFS.fields);
 let SELECTED_IDS = new Set();
 
-const FIELD_META = [
-  { key: "avatar", label: "头像" }, { key: "name", label: "姓名" }, { key: "relationship", label: "关系" },
-  { key: "gender", label: "性别" }, { key: "birth_time", label: "时辰" }, { key: "calendar_badge", label: "历法标签" },
-  { key: "birth_date", label: "出生日期" }, { key: "next_date", label: "下次生日" }, { key: "days_until", label: "倒计时" },
-  { key: "age", label: "当前年龄" }, { key: "age_on_next", label: "届时年龄" }, { key: "days_lived", label: "已活天数" },
-  { key: "zodiac", label: "星座" }, { key: "chinese_zodiac", label: "生肖" }, { key: "mbti", label: "MBTI" },
-  { key: "blood_type", label: "血型" }, { key: "hobbies", label: "爱好" }, { key: "note", label: "备注" },
-  { key: "enabled_actions", label: "状态与操作" },
-];
+function buildFieldMeta() {
+  return [
+  { key: "avatar", label: t("field.avatar") }, { key: "name", label: t("field.name") }, { key: "relationship", label: t("field.relationship") },
+  { key: "gender", label: t("field.gender") }, { key: "birth_time", label: t("field.birthTime") }, { key: "calendar_badge", label: t("field.calBadge") },
+  { key: "birth_date", label: t("field.birthDate") }, { key: "next_date", label: t("field.nextDate") }, { key: "days_until", label: t("field.countdown") },
+  { key: "age", label: t("field.age") }, { key: "age_on_next", label: t("field.ageNext") }, { key: "days_lived", label: t("field.daysLived") },
+  { key: "zodiac", label: t("field.zodiac") }, { key: "chinese_zodiac", label: t("field.zodiacCn") }, { key: "mbti", label: t("field.mbti") },
+  { key: "blood_type", label: t("field.blood") }, { key: "hobbies", label: t("field.hobbies") }, { key: "note", label: t("field.note") },
+  { key: "enabled_actions", label: t("field.actions") },
+  ];
+}
+let FIELD_META = buildFieldMeta();
 
-const CH_NAMES = { wechat: "微信", feishu: "飞书", email: "邮件" };
+function chNames() { return { wechat: t("ch.wechat"), feishu: t("ch.feishu"), email: t("ch.email") }; }
 const BIRTH_TIMES = ["", "子时 23:00-01:00", "丑时 01:00-03:00", "寅时 03:00-05:00", "卯时 05:00-07:00", "辰时 07:00-09:00", "巳时 09:00-11:00", "午时 11:00-13:00", "未时 13:00-15:00", "申时 15:00-17:00", "酉时 17:00-19:00", "戌时 19:00-21:00", "亥时 21:00-23:00"];
 const ZODIACS = ["", "白羊座", "金牛座", "双子座", "巨蟹座", "狮子座", "处女座", "天秤座", "天蝎座", "射手座", "摩羯座", "水瓶座", "双鱼座"];
 const AVATARS = ["", "🎂", "🎈", "🎁", "🧸", "🎊", "🎉", "👶", "👧", "👦", "👩", "👨", "👴", "👵", "🧑", "🐶", "🐱", "🐰", "🐯", "🐼", "🐨", "🦊", "🦁"];
@@ -278,8 +283,8 @@ const MBTI_ANALYSIS = {
   "ISTP": "ISTP 鉴赏家：冷静动手派，擅长解决现实问题。", "ISFP": "ISFP 探险家：温柔艺术感强，活在当下、随性自由。",
   "ESTP": "ESTP 企业家：行动派、反应快、喜欢刺激与挑战。", "ESFP": "ESFP 表演者：活力四射、热爱热闹、感染力强。",
 };
-function bloodTip(t) { return t ? (BLOOD_ANALYSIS[t] || "暂无该血型分析。") : "选择血型后，悬停可查看性格与健康小贴士。"; }
-function mbtiTip(t) { return t ? (MBTI_ANALYSIS[t] || "暂无该 MBTI 分析。") : "选择 MBTI 后，悬停可查看性格特质分析。"; }
+function bloodTip(tp) { return tp ? (BLOOD_ANALYSIS[tp] || "暂无该血型分析。") : "选择血型后，悬停可查看性格与健康小贴士。"; }
+function mbtiTip(tp) { return tp ? (MBTI_ANALYSIS[tp] || "暂无该 MBTI 分析。") : "选择 MBTI 后，悬停可查看性格特质分析。"; }
 
 /* ============ 联系人 ============ */
 $("#view-mode").addEventListener("change", (e) => { VIEW_PREFS.mode = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
@@ -296,7 +301,7 @@ $("#select-none-btn").addEventListener("click", () => { SELECTED_IDS.clear(); up
 $("#select-inv-btn").addEventListener("click", () => { CONTACTS.forEach((r) => { if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id); else SELECTED_IDS.add(r.id); }); updateBatchBadge(); renderContacts(); });
 
 async function loadContacts() {
-  const box = $("#contacts-list"); box.innerHTML = '<div class="empty">加载中…</div>';
+  const box = $("#contacts-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try {
     CONTACTS = await api("/api/birthdays");
     // 移除已不存在的选中
@@ -325,23 +330,23 @@ function sortContacts(rows) {
 function groupValue(r) {
   const g = VIEW_PREFS.group;
   if (g === "none") return null;
-  if (g === "birth_month") return r.month ? `${r.month} 月` : "未填写";
-  if (g === "calendar_type") return r.calendar_type === "lunar" ? "农历生日" : "公历生日";
-  if (g === "zodiac") return r.zodiac || "未填写";
-  if (g === "chinese_zodiac") return r.chinese_zodiac || "未填写";
-  return r[g] || "未分组";
+  if (g === "birth_month") return r.month ? `${r.month} ${t("unit.month")}` : t("group.unfiled");
+  if (g === "calendar_type") return r.calendar_type === "lunar" ? t("cal.lunar") + t("cal.birthday") : t("cal.solar") + t("cal.birthday");
+  if (g === "zodiac") return r.zodiac || t("group.unfiled");
+  if (g === "chinese_zodiac") return r.chinese_zodiac || t("group.unfiled");
+  return r[g] || t("group.unfiled");
 }
 function groupContacts(rows) {
-  if (VIEW_PREFS.group === "none") return [{ title: "全部联系人", items: rows }];
+  if (VIEW_PREFS.group === "none") return [{ title: t("group.all"), items: rows }];
   const map = new Map();
   rows.forEach((r) => { const k = groupValue(r); if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
   const titles = Array.from(map.keys());
   if (VIEW_PREFS.group === "birth_month") titles.sort((a, b) => parseInt(a) - parseInt(b));
-  return titles.map((t) => ({ title: t, items: map.get(t) }));
+  return titles.map((tt) => ({ title: tt, items: map.get(tt) }));
 }
 function renderContacts() {
   const box = $("#contacts-list");
-  if (!CONTACTS.length) { box.innerHTML = '<div class="empty">还没有联系人，点击「+ 添加联系人」开始记录 🎂</div>'; $("#contacts-paging").innerHTML = ""; return; }
+  if (!CONTACTS.length) { box.innerHTML = '<div class="empty">' + t("empty.contacts") + '</div>'; $("#contacts-paging").innerHTML = ""; return; }
   const sorted = sortContacts(CONTACTS);
   const perPage = VIEW_PREFS.per_page;
   let pageItems = sorted, totalPages = 1, page = VIEW_PREFS.page || 1;
@@ -355,7 +360,11 @@ function renderContacts() {
   const groups = groupContacts(pageItems);
   box.innerHTML = groups.map((g) => renderGroup(g)).join("");
   renderPagination(sorted.length, totalPages, page);
-  bindRowSelection();
+  const allPage = $("#select-all-page");
+  if (allPage) {
+    const visible = $$(".row-select");
+    allPage.checked = visible.length > 0 && visible.every((cb) => SELECTED_IDS.has(parseInt(cb.value)));
+  }
 }
 function renderGroup(g) {
   const mode = VIEW_PREFS.mode;
@@ -364,41 +373,20 @@ function renderGroup(g) {
   if (mode === "compact") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="compact-list">${items}</div></div>`;
   return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><table class="table"><thead>${listHeader()}</thead><tbody>${items}</tbody></table></div>`;
 }
-function hasField(key) { return VIEW_PREFS.fields.includes(key); }
+function hasField(key) { return FIELD_SET.has(key); }
 function renderPagination(total, totalPages, page) {
   const box = $("#contacts-paging");
-  if (totalPages <= 1) { box.innerHTML = `<span class="muted sm">共 ${total} 人</span>`; return; }
-  let html = `<button class="btn btn-ghost btn-sm" id="page-prev" ${page === 1 ? "disabled" : ""}>上一页</button>`;
+  if (totalPages <= 1) { box.innerHTML = `<span class="muted sm">` + t("pagination.total", { n: total }) + `</span>`; return; }
+  let html = `<button class="btn btn-ghost btn-sm" id="page-prev" ${page === 1 ? "disabled" : ""}>${t("pagination.prev")}</button>`;
   for (let i = 1; i <= totalPages; i++) {
     html += `<button class="btn btn-sm page-num ${i === page ? "btn-primary" : "btn-ghost"}" data-page="${i}">${i}</button>`;
   }
-  html += `<button class="btn btn-ghost btn-sm" id="page-next" ${page === totalPages ? "disabled" : ""}>下一页</button>`;
-  html += `<span class="muted sm">共 ${total} 人 · 第 ${page}/${totalPages} 页</span>`;
+  html += `<button class="btn btn-ghost btn-sm" id="page-next" ${page === totalPages ? "disabled" : ""}>${t("pagination.next")}</button>`;
+  html += `<span class="muted sm">` + t("pagination.page", { n: total, cur: page, total: totalPages }) + `</span>`;
   box.innerHTML = html;
   $("#page-prev") && $("#page-prev").addEventListener("click", () => { VIEW_PREFS.page--; saveViewPrefs(VIEW_PREFS); renderContacts(); });
   $("#page-next") && $("#page-next").addEventListener("click", () => { VIEW_PREFS.page++; saveViewPrefs(VIEW_PREFS); renderContacts(); });
   $$(".page-num").forEach((b) => b.addEventListener("click", () => { VIEW_PREFS.page = parseInt(b.dataset.page); saveViewPrefs(VIEW_PREFS); renderContacts(); }));
-}
-function bindRowSelection() {
-  $$(".row-select").forEach((cb) => {
-    cb.addEventListener("change", () => {
-      const id = parseInt(cb.value);
-      if (cb.checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id);
-      updateBatchBadge();
-    });
-  });
-  const allPage = $("#select-all-page");
-  if (allPage) {
-    const visible = $$(".row-select");
-    allPage.checked = visible.length > 0 && visible.every((cb) => SELECTED_IDS.has(parseInt(cb.value)));
-    allPage.addEventListener("change", () => {
-      const visibleIds = $$(".row-select").map((cb) => parseInt(cb.value));
-      if (allPage.checked) visibleIds.forEach((id) => SELECTED_IDS.add(id));
-      else visibleIds.forEach((id) => SELECTED_IDS.delete(id));
-      updateBatchBadge();
-      renderContacts();
-    });
-  }
 }
 function updateBatchBadge() {
   const badge = $("#batch-count");
@@ -409,57 +397,57 @@ function updateBatchBadge() {
 
 function listHeader() {
   const ths = [];
-  ths.push('<th class="select-col"><input type="checkbox" id="select-all-page" title="全选当前页"></th>');
+  ths.push('<th class="select-col"><input type="checkbox" id="select-all-page" title="' + t("toolbar.selectAll") + '"></th>');
   if (hasField("avatar")) ths.push("<th></th>");
-  if (hasField("name")) ths.push("<th>姓名</th>");
-  if (hasField("relationship")) ths.push("<th>关系</th>");
-  if (hasField("gender")) ths.push("<th>性别</th>");
-  if (hasField("birth_time")) ths.push("<th>时辰</th>");
-  if (hasField("calendar_badge")) ths.push("<th>历法</th>");
-  if (hasField("birth_date")) ths.push("<th>出生日期</th>");
-  if (hasField("next_date")) ths.push("<th>下次生日</th>");
-  if (hasField("days_until")) ths.push("<th>倒计时</th>");
-  if (hasField("age")) ths.push("<th>年龄</th>");
-  if (hasField("age_on_next")) ths.push("<th>届时</th>");
-  if (hasField("days_lived")) ths.push("<th>已活天数</th>");
-  if (hasField("zodiac")) ths.push("<th>星座</th>");
-  if (hasField("chinese_zodiac")) ths.push("<th>生肖</th>");
-  if (hasField("mbti")) ths.push("<th>MBTI</th>");
-  if (hasField("blood_type")) ths.push("<th>血型</th>");
-  if (hasField("hobbies")) ths.push("<th>爱好</th>");
-  if (hasField("note")) ths.push("<th>备注</th>");
-  if (hasField("enabled_actions")) ths.push('<th class="ta-r">状态 / 操作</th>');
+  if (hasField("name")) ths.push("<th>" + t("field.name") + "</th>");
+  if (hasField("relationship")) ths.push("<th>" + t("field.relationship") + "</th>");
+  if (hasField("gender")) ths.push("<th>" + t("field.gender") + "</th>");
+  if (hasField("birth_time")) ths.push("<th>" + t("field.birthTime") + "</th>");
+  if (hasField("calendar_badge")) ths.push("<th>" + t("field.calBadge") + "</th>");
+  if (hasField("birth_date")) ths.push("<th>" + t("field.birthDate") + "</th>");
+  if (hasField("next_date")) ths.push("<th>" + t("field.nextDate") + "</th>");
+  if (hasField("days_until")) ths.push("<th>" + t("field.countdown") + "</th>");
+  if (hasField("age")) ths.push("<th>" + t("field.age") + "</th>");
+  if (hasField("age_on_next")) ths.push("<th>" + t("field.ageNext") + "</th>");
+  if (hasField("days_lived")) ths.push("<th>" + t("field.daysLived") + "</th>");
+  if (hasField("zodiac")) ths.push("<th>" + t("field.zodiac") + "</th>");
+  if (hasField("chinese_zodiac")) ths.push("<th>" + t("field.zodiacCn") + "</th>");
+  if (hasField("mbti")) ths.push("<th>" + t("field.mbti") + "</th>");
+  if (hasField("blood_type")) ths.push("<th>" + t("field.blood") + "</th>");
+  if (hasField("hobbies")) ths.push("<th>" + t("field.hobbies") + "</th>");
+  if (hasField("note")) ths.push("<th>" + t("field.note") + "</th>");
+  if (hasField("enabled_actions")) ths.push('<th class="ta-r">' + t("field.actions") + '</th>');
   return `<tr>${ths.join("")}</tr>`;
 }
 function listRowHtml(r) {
   const cells = [];
-  cells.push(`<td class="select-col" data-label="选择"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
-  if (hasField("avatar")) cells.push(`<td data-label="头像">${avatarHtml(r)}</td>`);
-  if (hasField("name")) cells.push(`<td data-label="姓名"><b>${esc(r.name)}</b>${subLine(r)}</td>`);
-  if (hasField("relationship")) cells.push(`<td data-label="关系">${esc(r.relationship || "-")}</td>`);
-  if (hasField("gender")) cells.push(`<td data-label="性别">${genderBadge(r.gender)}</td>`);
-  if (hasField("birth_time")) cells.push(`<td data-label="时辰">${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
-  if (hasField("calendar_badge")) cells.push(`<td data-label="历法">${calendarBadge(r)}</td>`);
-  if (hasField("birth_date")) cells.push(`<td data-label="出生日期">${birthDateLabel(r)}</td>`);
-  if (hasField("next_date")) cells.push(`<td data-label="下次生日">${nextDateLabel(r)}</td>`);
-  if (hasField("days_until")) cells.push(`<td data-label="倒计时">${daysBadge(r)}</td>`);
-  if (hasField("age")) cells.push(`<td data-label="年龄">${ageLabel(r.age)}</td>`);
-  if (hasField("age_on_next")) cells.push(`<td data-label="届时年龄">${ageLabel(r.age_on_next)}</td>`);
-  if (hasField("days_lived")) cells.push(`<td data-label="已活天数">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</td>`);
-  if (hasField("zodiac")) cells.push(`<td data-label="星座">${zodiacBadge(r.zodiac)}</td>`);
-  if (hasField("chinese_zodiac")) cells.push(`<td data-label="生肖">${esc(r.chinese_zodiac || "-")}</td>`);
-  if (hasField("mbti")) cells.push(`<td data-label="MBTI">${r.mbti ? `${esc(r.mbti)} <span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}">ℹ️</span>` : "-"}</td>`);
-  if (hasField("blood_type")) cells.push(`<td data-label="血型">${r.blood_type ? `${esc(r.blood_type)} <span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span>` : "-"}</td>`);
-  if (hasField("hobbies")) cells.push(`<td class="ellipsis" data-label="爱好">${esc(r.hobbies || "-")}</td>`);
-  if (hasField("note")) cells.push(`<td class="ellipsis" data-label="备注">${esc(r.note || "-")}</td>`);
-  if (hasField("enabled_actions")) cells.push(`<td class="ta-r" data-label="操作">${actionsHtml(r, "contact")}</td>`);
+  cells.push(`<td class="select-col" data-label="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
+  if (hasField("avatar")) cells.push(`<td data-label="${t("field.avatar")}">${avatarHtml(r)}</td>`);
+  if (hasField("name")) cells.push(`<td data-label="${t("field.name")}"><b>${esc(r.name)}</b>${subLine(r)}</td>`);
+  if (hasField("relationship")) cells.push(`<td data-label="${t("field.relationship")}">${esc(r.relationship || "-")}</td>`);
+  if (hasField("gender")) cells.push(`<td data-label="${t("field.gender")}">${genderBadge(r.gender)}</td>`);
+  if (hasField("birth_time")) cells.push(`<td data-label="${t("field.birthTime")}">${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
+  if (hasField("calendar_badge")) cells.push(`<td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>`);
+  if (hasField("birth_date")) cells.push(`<td data-label="${t("field.birthDate")}">${birthDateLabel(r)}</td>`);
+  if (hasField("next_date")) cells.push(`<td data-label="${t("field.nextDate")}">${nextDateLabel(r)}</td>`);
+  if (hasField("days_until")) cells.push(`<td data-label="${t("field.countdown")}">${daysBadge(r)}</td>`);
+  if (hasField("age")) cells.push(`<td data-label="${t("field.age")}">${ageLabel(r.age)}</td>`);
+  if (hasField("age_on_next")) cells.push(`<td data-label="${t("field.ageNext")}">${ageLabel(r.age_on_next)}</td>`);
+  if (hasField("days_lived")) cells.push(`<td data-label="${t("field.daysLived")}">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</td>`);
+  if (hasField("zodiac")) cells.push(`<td data-label="${t("field.zodiac")}">${zodiacBadge(r.zodiac)}</td>`);
+  if (hasField("chinese_zodiac")) cells.push(`<td data-label="${t("field.zodiacCn")}">${esc(r.chinese_zodiac || "-")}</td>`);
+  if (hasField("mbti")) cells.push(`<td data-label="${t("field.mbti")}">${r.mbti ? `${esc(r.mbti)} <span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}">ℹ️</span>` : "-"}</td>`);
+  if (hasField("blood_type")) cells.push(`<td data-label="${t("field.blood")}">${r.blood_type ? `${esc(r.blood_type)} <span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span>` : "-"}</td>`);
+  if (hasField("hobbies")) cells.push(`<td class="ellipsis" data-label="${t("field.hobbies")}">${esc(r.hobbies || "-")}</td>`);
+  if (hasField("note")) cells.push(`<td class="ellipsis" data-label="${t("field.note")}">${esc(r.note || "-")}</td>`);
+  if (hasField("enabled_actions")) cells.push(`<td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, "contact")}</td>`);
   return `<tr>${cells.join("")}</tr>`;
 }
 function cardHtml(r) {
   const name = esc(r.name);
   return `
   <div class="contact-card" data-id="${r.id}">
-    <label class="card-select" title="选择"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
+    <label class="card-select" title="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
     <div class="cc-head">
       <div class="cc-avatar">${avatarHtml(r, true)}</div>
       <div class="cc-head-info">
@@ -468,15 +456,15 @@ function cardHtml(r) {
       </div>
     </div>
     <div class="cc-stats">
-      ${hasField("next_date") || hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">下次生日</span><span class="cc-stat-val">${nextDateLabel(r)}</span></div>` : ""}
-      ${hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">倒计时</span><span class="cc-stat-val">${daysBadge(r)}</span></div>` : ""}
-      ${hasField("age") || hasField("age_on_next") ? `<div class="cc-stat"><span class="cc-stat-label">届时年龄</span><span class="cc-stat-val">${ageLabel(r.age_on_next)}</span></div>` : ""}
-      ${hasField("days_lived") ? `<div class="cc-stat"><span class="cc-stat-label">已活天数</span><span class="cc-stat-val">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</span></div>` : ""}
+      ${hasField("next_date") || hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.nextDate")}</span><span class="cc-stat-val">${nextDateLabel(r)}</span></div>` : ""}
+      ${hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.countdown")}</span><span class="cc-stat-val">${daysBadge(r)}</span></div>` : ""}
+      ${hasField("age") || hasField("age_on_next") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.ageNext")}</span><span class="cc-stat-val">${ageLabel(r.age_on_next)}</span></div>` : ""}
+      ${hasField("days_lived") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.daysLived")}</span><span class="cc-stat-val">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</span></div>` : ""}
     </div>
     <div class="cc-tags">
       ${r.mbti ? `<span class="tag">${esc(r.mbti)}<span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}">ℹ️</span></span>` : ""}
       ${r.blood_type ? `<span class="tag">${esc(r.blood_type)}<span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span></span>` : ""}
-      ${hasField("hobbies") && r.hobbies ? `<span class="muted">爱好：</span>${esc(r.hobbies)}` : ""}
+      ${hasField("hobbies") && r.hobbies ? `<span class="muted">${t("field.hobbies")}：</span>${esc(r.hobbies)}` : ""}
     </div>
     ${hasField("note") && r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
     <div class="cc-actions">${actionsHtml(r, "contact")}</div>
@@ -485,7 +473,7 @@ function cardHtml(r) {
 function compactRowHtml(r) {
   return `
   <div class="compact-item" data-id="${r.id}">
-    <label class="compact-select" title="选择"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
+    <label class="compact-select" title="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
     <div class="compact-left">
       ${avatarHtml(r)}<b>${esc(r.name)}</b>
       <span class="muted sm">${esc(r.relationship || "")}${r.relationship ? " · " : ""}${calendarBadge(r)}</span>
@@ -503,13 +491,13 @@ function compactRowHtml(r) {
 /* 小部件 */
 function avatarHtml(r, big = false) {
   if (r.avatar_url) return `<span class="avatar ${big ? "avatar-lg" : ""}"><img src="${esc(r.avatar_url)}" alt="" /></span>`;
-  const av = r.avatar || (r.gender === "男" ? "👨" : r.gender === "女" ? "👩" : "🧑");
+  const av = r.avatar || (r.gender === t("gender.male") ? "👨" : r.gender === t("gender.female") ? "👩" : "🧑");
   return `<span class="avatar ${big ? "avatar-lg" : ""}">${av}</span>`;
 }
-function calendarBadge(r) { return r.calendar_type === "lunar" ? '<span class="tag tag-lunar">农历</span>' : '<span class="tag tag-solar">公历</span>'; }
-function genderBadge(g) { if (!g) return "-"; const cls = g === "男" ? "male" : g === "女" ? "female" : ""; return `<span class="tag ${cls}">${g}</span>`; }
+function calendarBadge(r) { return r.calendar_type === "lunar" ? '<span class="tag tag-lunar">' + t("cal.lunar") + '</span>' : '<span class="tag tag-solar">' + t("cal.solar") + '</span>'; }
+function genderBadge(g) { if (!g) return "-"; const cls = g === t("gender.male") ? "male" : g === t("gender.female") ? "female" : ""; const key = g === t("gender.male") ? "male" : g === t("gender.female") ? "female" : "other"; return `<span class="tag ${cls}">${t("gender." + key)}</span>`; }
 function zodiacBadge(z) { return z ? `<span class="tag zodiac">${esc(z)}</span>` : "-"; }
-function ageLabel(age) { return age != null ? `<span class="num">${age}</span> 岁` : "-"; }
+function ageLabel(age) { return age != null ? `<span class="num">${age}</span> ${t("unit.years")}` : "-"; }
 function subLine(r) { return (r.relationship && !hasField("relationship")) ? `<div class="muted sm">${esc(r.relationship)}</div>` : ""; }
 function metaLine(r) {
   const parts = [];
@@ -517,40 +505,40 @@ function metaLine(r) {
   if (r.gender && hasField("gender")) parts.push(genderBadge(r.gender));
   if (r.birth_time && hasField("birth_time")) parts.push(esc((r.birth_time || "").split(" ")[0]));
   if (r.zodiac && hasField("zodiac")) parts.push(zodiacBadge(r.zodiac));
-  if (r.chinese_zodiac && hasField("chinese_zodiac")) parts.push(r.chinese_zodiac);
+  if (r.chinese_zodiac && hasField("chinese_zodiac")) parts.push(esc(r.chinese_zodiac));
   if (r.mbti && hasField("mbti")) parts.push(esc(r.mbti));
   if (r.blood_type && hasField("blood_type")) parts.push(esc(r.blood_type));
   return parts.join(" ") || "&nbsp;";
 }
 function birthDateLabel(r) {
-  const cal = r.calendar_type === "lunar" ? "农历" : "公历"; const y = r.year ? r.year + " 年 " : "";
-  return `${cal} ${y}${r.month} 月 ${r.day} 日${r.is_leap ? "（闰月）" : ""}`;
+  const cal = r.calendar_type === "lunar" ? t("cal.lunar") : t("cal.solar"); const y = r.year ? r.year + " " + t("unit.year") + " " : "";
+  return `${cal} ${y}${r.month} ${t("unit.month")} ${r.day} ${t("unit.day")}${r.is_leap ? "（" + t("form.leapShort") + "）" : ""}`;
 }
 function nextDateLabel(r) { return r.next_date ? `<span class="mono">${r.next_date}</span>` : "-"; }
 function daysBadge(r) {
   if (r.days_until == null) return "-";
-  if (r.is_today || r.days_until === 0) return '<span class="tag today">🎉 今天</span>';
-  if (r.days_until <= 3) return `<span class="tag soon">${r.days_until} 天后</span>`;
-  if (r.days_until <= 14) return `<span class="tag near">${r.days_until} 天后</span>`;
-  return `<span class="tag">${r.days_until} 天后</span>`;
+  if (r.is_today || r.days_until === 0) return '<span class="tag today">🎉 ' + t("today") + '</span>';
+  if (r.days_until <= 3) return `<span class="tag soon">${r.days_until} ${t("days.left")}</span>`;
+  if (r.days_until <= 14) return `<span class="tag near">${r.days_until} ${t("days.left")}</span>`;
+  return `<span class="tag">${r.days_until} ${t("days.left")}</span>`;
 }
 function actionsHtml(r, kind) {
-  const en = visBadge(r.visibility) + (r.enabled ? '<span class="tag tag-on">启用</span>' : '<span class="tag tag-off">停用</span>');
+  const en = visBadge(r.visibility) + (r.enabled ? '<span class="tag tag-on">' + t("tag.enabled") + '</span>' : '<span class="tag tag-off">' + t("tag.disabled") + '</span>');
   const btns = `
-    <button class="btn btn-ghost btn-sm" onclick="edit${kind === "anni" ? "Anni" : "Contact"}(${r.id})">编辑</button>
-    <button class="btn btn-danger-ghost btn-sm" onclick="delRecord('${kind}', ${r.id}, '${esc(r.name)}')">删除</button>`;
+    <button class="btn btn-ghost btn-sm" onclick="edit${kind === "anni" ? "Anni" : "Contact"}(${r.id})">${t("btn.edit")}</button>
+    <button class="btn btn-danger-ghost btn-sm" onclick="delRecord('${kind}', ${r.id}, '${esc(r.name)}')">${t("btn.delete")}</button>`;
   return `<div class="actions">${en}${btns}</div>`;
 }
 
 /* 字段选择器 */
 function openFieldPicker() {
-  const rows = FIELD_META.map((f) => `<label class="field-check"><input type="checkbox" value="${f.key}" ${VIEW_PREFS.fields.includes(f.key) ? "checked" : ""} /><span>${f.label}</span></label>`).join("");
-  openModal(`<h2>选择显示字段</h2><p class="muted sm" style="margin-bottom:12px">勾选希望在联系人列表/卡片中显示的字段。</p><form id="fields-form" class="field-picker">${rows}</form><div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="button" class="btn btn-primary" id="save-fields-btn">保存</button></div>`);
+  const rows = FIELD_META.map((f) => `<label class="field-check"><input type="checkbox" value="${f.key}" ${FIELD_SET.has(f.key) ? "checked" : ""} /><span>${f.label}</span></label>`).join("");
+  openModal(`<h2>${t("fieldPicker.title")}</h2><p class="muted sm" style="margin-bottom:12px">${t("fieldPicker.desc")}</p><form id="fields-form" class="field-picker">${rows}</form><div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="button" class="btn btn-primary" id="save-fields-btn">${t("form.save")}</button></div>`);
   $("#save-fields-btn").addEventListener("click", () => {
     const chosen = $$("#fields-form input:checked").map((i) => i.value);
     if (!chosen.includes("name")) chosen.unshift("name");
     if (!chosen.includes("enabled_actions")) chosen.push("enabled_actions");
-    VIEW_PREFS.fields = chosen; saveViewPrefs(VIEW_PREFS); closeModal(); renderContacts(); toast("显示字段已更新");
+    VIEW_PREFS.fields = chosen; FIELD_SET = new Set(chosen); saveViewPrefs(VIEW_PREFS); closeModal(); renderContacts(); toast(t("fieldPicker.saved"));
   });
 }
 
@@ -563,48 +551,49 @@ function openContactEditor(r) {
   const uploadHtml = `<div class="avatar-upload">
       <div class="avatar-preview">${avatarHtml(r, true)}</div>
       <div>
-        <label class="btn btn-ghost btn-sm">📷 上传照片<input id="c-avatar-file" type="file" accept="image/*" hidden /></label>
-        <span class="muted sm" id="c-avatar-tip">支持 PNG/JPG/WEBP，≤2MB</span>
+        <label class="btn btn-ghost btn-sm">${t("upload.photo")}<input id="c-avatar-file" type="file" accept="image/*" hidden /></label>
+        <span class="muted sm" id="c-avatar-tip">${t("upload.tip")}</span>
       </div>
     </div>`;
+  const visTip = `${t("vis.privateTip")}；${t("vis.familyTip")}；${t("vis.publicTip")}`;
   const html = `
-    <h2>${isEdit ? "编辑联系人" : "添加联系人"}</h2>
+    <h2>${isEdit ? t("contact.edit") : t("contact.add")}</h2>
     <form id="contact-form" class="modal-form">
       <div class="grid2">
-        <div class="field"><label>姓名 *</label><input id="c-name" type="text" required value="${esc(r.name || "")}" placeholder="如：老爸" /></div>
-        <div class="field"><label>关系</label><input id="c-rel" type="text" value="${esc(r.relationship || "")}" placeholder="如：家人 / 朋友" /></div>
+        <div class="field"><label>${t("form.name")} *</label><input id="c-name" type="text" required value="${esc(r.name || "")}" placeholder="${t("form.name")}" /></div>
+        <div class="field"><label>${t("form.relationship")}</label><input id="c-rel" type="text" value="${esc(r.relationship || "")}" placeholder="${t("form.relationship")}" /></div>
       </div>
       <div class="field">${uploadHtml}</div>
       <div class="grid3">
-        <div class="field"><label>性别</label><select id="c-gender">${["", "男", "女", "其他"].map((v) => `<option value="${v}" ${gender === v ? "selected" : ""}>${v || "-"}</option>`).join("")}</select></div>
-        <div class="field"><label>头像（emoji）</label><select id="c-avatar">${AVATARS.map((v) => `<option value="${v}" ${avatar === v ? "selected" : ""}>${v || "默认"}</option>`).join("")}</select></div>
-        <div class="field"><label>出生时辰</label><select id="c-birth-time">${BIRTH_TIMES.map((v) => `<option value="${esc(v)}" ${birthTime === v ? "selected" : ""}>${v ? v.split(" ")[0] + " " + v.split(" ")[1] : "-"}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.gender")}</label><select id="c-gender">${["", t("gender.male"), t("gender.female"), t("gender.other")].map((v) => `<option value="${v}" ${gender === v ? "selected" : ""}>${v || "-"}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.avatarEmoji")}</label><select id="c-avatar">${AVATARS.map((v) => `<option value="${v}" ${avatar === v ? "selected" : ""}>${v || t("form.default")}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.birthTime")}</label><select id="c-birth-time">${BIRTH_TIMES.map((v) => `<option value="${esc(v)}" ${birthTime === v ? "selected" : ""}>${v ? v.split(" ")[0] + " " + v.split(" ")[1] : "-"}</option>`).join("")}</select></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>MBTI <span class="info-ic" id="c-mbti-info" data-tip="${esc(mbtiTip(mbti))}">ℹ️</span></label><select id="c-mbti">${MBTI_TYPES.map((v) => `<option value="${v}" ${mbti === v ? "selected" : ""}>${v || "未填写"}</option>`).join("")}</select></div>
-        <div class="field"><label>血型 <span class="info-ic" id="c-blood-info" data-tip="${esc(bloodTip(blood))}">ℹ️</span></label><select id="c-blood">${BLOOD_TYPES.map((v) => `<option value="${v}" ${blood === v ? "selected" : ""}>${v || "未填写"}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.mbti")} <span class="info-ic" id="c-mbti-info" data-tip="${esc(mbtiTip(mbti))}">ℹ️</span></label><select id="c-mbti">${MBTI_TYPES.map((v) => `<option value="${v}" ${mbti === v ? "selected" : ""}>${v || t("mbti.unset")}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.blood")} <span class="info-ic" id="c-blood-info" data-tip="${esc(bloodTip(blood))}">ℹ️</span></label><select id="c-blood">${BLOOD_TYPES.map((v) => `<option value="${v}" ${blood === v ? "selected" : ""}>${v || t("blood.unset")}</option>`).join("")}</select></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>历法类型</label><select id="c-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>公历（阳历）</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>农历（阴历）</option></select></div>
-        <div class="field"><label>星座（留空自动计算）</label><select id="c-zodiac">${ZODIACS.map((v) => `<option value="${v}" ${r.zodiac === v ? "selected" : ""}>${v || "自动计算"}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.calType")}</label><select id="c-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>${t("cal.solarFull")}</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>${t("cal.lunarFull")}</option></select></div>
+        <div class="field"><label>${t("form.zodiac")}</label><select id="c-zodiac">${ZODIACS.map((v) => `<option value="${v}" ${r.zodiac === v ? "selected" : ""}>${v || t("zodiac.auto")}</option>`).join("")}</select></div>
       </div>
       <div class="grid3">
-        <div class="field"><label>出生年份（可选）</label><input id="c-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="如 1960" /></div>
-        <div class="field"><label>月 *</label><input id="c-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
-        <div class="field"><label>日 *</label><input id="c-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div>
+        <div class="field"><label>${t("form.year")}</label><input id="c-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="${t("form.year")}" /></div>
+        <div class="field"><label>${t("form.month")} *</label><input id="c-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
+        <div class="field"><label>${t("form.day")} *</label><input id="c-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div>
       </div>
-      <div class="field"><label class="chk"><input id="c-leap" type="checkbox" ${r.is_leap ? "checked" : ""}/> 闰月（仅农历）</label></div>
-      <div class="field"><label>爱好（逗号分隔）</label><input id="c-hobbies" type="text" value="${esc(hobbies)}" placeholder="如：读书、旅游、羽毛球" /></div>
-      <div class="field"><label>提前提醒天数（逗号分隔，留空跟随全局）</label><input id="c-days" type="text" value="${nd}" placeholder="如 1,3,7" /></div>
-      <div class="field"><label>提醒渠道（留空跟随全局）</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="c-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${CH_NAMES[c]}</label>`).join("")}</div></div>
-      <div class="field"><label>备注</label><input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="如：喜欢的礼物、忌口等" /></div>
-      <div class="field"><label>可见范围 <span class="info-ic" data-tip="私人：仅自己可见；家庭：家庭成员可见；公开：所有用户可见">ℹ️</span></label>
-        <div class="vis-picker" id="c-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="c-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_META[v].icon} ${VIS_META[v].label}</label>`).join("")}</div>
+      <div class="field"><label class="chk"><input id="c-leap" type="checkbox" ${r.is_leap ? "checked" : ""}/> ${t("form.leap")}</label></div>
+      <div class="field"><label>${t("form.hobbies")}</label><input id="c-hobbies" type="text" value="${esc(hobbies)}" placeholder="${t("form.hobbies")}" /></div>
+      <div class="field"><label>${t("form.notifyDays")}</label><input id="c-days" type="text" value="${nd}" placeholder="${t("form.notifyDaysPh")}" /></div>
+      <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="c-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
+      <div class="field"><label>${t("form.note")}</label><input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
+      <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
+        <div class="vis-picker" id="c-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="c-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
-      <div class="field"><label class="chk"><input id="c-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> 启用提醒</label></div>
+      <div class="field"><label class="chk"><input id="c-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> ${t("form.enabled")}</label></div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" onclick="closeEditor()">取消</button>
-        <button type="submit" class="btn btn-primary">${isEdit ? "保存" : "添加"}</button>
+        <button type="button" class="btn btn-ghost" onclick="closeEditor()">${t("btn.cancel")}</button>
+        <button type="submit" class="btn btn-primary">${isEdit ? t("form.save") : t("form.add")}</button>
       </div>
     </form>`;
   showEditor(html);
@@ -619,15 +608,15 @@ function openContactEditor(r) {
   // 头像上传
   $("#c-avatar-file").addEventListener("change", async (e) => {
     const file = e.target.files[0]; if (!file) return;
-    if (!r.id) { toast("请先保存联系人后再上传头像", false); e.target.value = ""; return; }
+    if (!r.id) { toast(t("toast.avatarNeedSave"), false); e.target.value = ""; return; }
     const fd = new FormData(); fd.append("file", file);
     try {
       const data = await fetch(`/api/birthdays/${r.id}/avatar`, { method: "POST", headers: { Authorization: "Bearer " + TOKEN }, body: fd }).then((x) => x.json());
       if (data.detail) throw new Error(data.detail);
       r.avatar_url = data.avatar_url; r.avatar_path = data.avatar_path;
       $(".avatar-preview").innerHTML = avatarHtml(data, true);
-      toast("头像已更新");
-    } catch (err) { toast(err.message || "上传失败", false); }
+      toast(t("toast.avatarUpdated"));
+    } catch (err) { toast(err.message || t("toast.uploadFail"), false); }
   });
   $("#contact-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -646,7 +635,7 @@ function openContactEditor(r) {
     try {
       if (isEdit) await api(`/api/birthdays/${r.id}`, { method: "PUT", body: JSON.stringify(body) });
       else await api("/api/birthdays", { method: "POST", body: JSON.stringify(body) });
-      closeEditor(); toast(isEdit ? "已保存" : "已添加"); loadContacts();
+      closeEditor(); toast(isEdit ? t("toast.saved") : t("toast.added")); loadContacts();
     } catch (err) { toast(err.message, false); }
   });
 }
@@ -657,43 +646,43 @@ window.closeModal = closeModal;
 /* 批量测试 */
 async function runBatchTestApi(kind, ids) {
   const resultBox = $("#bt-result");
-  if (resultBox) resultBox.textContent = "发送中…";
+  if (resultBox) resultBox.textContent = t("batch.testing");
   try {
     const data = await api(`/api/${kind === "birthday" ? "birthdays" : "anniversaries"}/test`, { method: "POST", body: JSON.stringify({ ids }) });
     const lines = data.results.map((x) => {
-      const rs = x.results.map((r) => `${CH_NAMES[r.channel] || r.channel}：${r.ok ? "✅" : "❌ " + r.message}`).join("；");
+      const rs = x.results.map((r) => `${chNames()[r.channel] || r.channel}：${r.ok ? "✅" : "❌ " + r.message}`).join("；");
       return `· ${x.name}：${rs}`;
     });
-    if (resultBox) resultBox.textContent = `已测试 ${data.tested} 条：\n` + (lines.join("\n") || "无渠道，请先在设置中启用");
+    if (resultBox) resultBox.textContent = t("batch.tested", { n: data.tested }) + "：\n" + (lines.join("\n") || t("batch.noChannel"));
   } catch (err) { if (resultBox) resultBox.textContent = err.message; }
 }
 function runBatchTestSelection(kind) {
   if (kind !== "birthday") { openBatchTest(kind); return; }
   const ids = Array.from(SELECTED_IDS);
-  if (!ids.length) { toast("请先在列表中勾选联系人", false); return; }
-  openModal(`<h2>批量测试通知 · 联系人</h2>
-    <p class="muted sm">已选择 ${ids.length} 位联系人，将发送测试消息到其配置渠道。渠道未配置时会显示失败原因。</p>
-    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="button" class="btn btn-primary" id="bt-run">开始测试</button></div>
+  if (!ids.length) { toast(t("toast.selectFirst"), false); return; }
+  openModal(`<h2>${t("batch.titleB")}</h2>
+    <p class="muted sm">${t("batch.selected", { n: ids.length })}</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="button" class="btn btn-primary" id="bt-run">${t("batch.run")}</button></div>
     <div id="bt-result" class="muted sm" style="margin-top:10px;white-space:pre-wrap"></div>`);
   $("#bt-run").addEventListener("click", () => runBatchTestApi("birthday", ids));
 }
 function openBatchTest(kind) {
   const rows = kind === "birthday" ? CONTACTS : ANNIS;
-  if (!rows.length) { toast("暂无可测试的记录", false); return; }
+  if (!rows.length) { toast(t("batch.noRecord"), false); return; }
   const items = rows.map((r) => `<label class="field-check"><input type="checkbox" class="bt-ch" value="${r.id}" /><span>${esc(r.name)} <span class="muted sm">${r.next_date || ""}</span></span></label>`).join("");
-  openModal(`<h2>批量测试通知 · ${kind === "birthday" ? "联系人" : "纪念日"}</h2>
-    <p class="muted sm" style="margin-bottom:10px">勾选要测试的记录（不勾选则测试全部）。渠道未配置时会显示失败原因。</p>
+  openModal(`<h2>${t("batch.title" + (kind === "birthday" ? "B" : "A"))}</h2>
+    <p class="muted sm" style="margin-bottom:10px">${t("batch.desc")}</p>
     <div class="field-picker" style="max-height:46vh">${items}</div>
     <div class="modal-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button>
-      <button type="button" class="btn btn-ghost" id="bt-all">测试全部（${rows.length}）</button>
-      <button type="button" class="btn btn-primary" id="bt-sel">测试选中</button>
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button>
+      <button type="button" class="btn btn-ghost" id="bt-all">${t("batch.all", { n: rows.length })}</button>
+      <button type="button" class="btn btn-primary" id="bt-sel">${t("batch.sel")}</button>
     </div>
     <div id="bt-result" class="muted sm" style="margin-top:10px;white-space:pre-wrap"></div>`);
   $("#bt-all").addEventListener("click", () => runBatchTestApi(kind, null));
   $("#bt-sel").addEventListener("click", () => {
     const ids = $$(".bt-ch:checked").map((i) => parseInt(i.value));
-    if (!ids.length) return toast("请先勾选要测试的记录", false);
+    if (!ids.length) return toast(t("batch.none"), false);
     runBatchTestApi(kind, ids);
   });
 }
@@ -704,48 +693,49 @@ $("#add-anni-btn").addEventListener("click", () => openAnniEditor(null));
 $("#refresh-anni-btn").addEventListener("click", loadAnniversaries);
 
 async function loadAnniversaries() {
-  const box = $("#anniversaries-list"); box.innerHTML = '<div class="empty">加载中…</div>';
+  const box = $("#anniversaries-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try { ANNIS = await api("/api/anniversaries"); renderAnniversaries(); }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 function renderAnniversaries() {
   const box = $("#anniversaries-list");
-  if (!ANNIS.length) { box.innerHTML = '<div class="empty">还没有纪念日，点击「+ 添加纪念日」开始记录 📌</div>'; return; }
+  if (!ANNIS.length) { box.innerHTML = '<div class="empty">' + t("empty.annis") + '</div>'; return; }
   const rows = ANNIS.map((r) => `
     <tr>
-      <td data-label="名称"><b>${esc(r.name)}</b></td>
-      <td data-label="关系">${esc(r.relationship || "-")}</td>
-      <td data-label="类型">${esc(r.kind || "纪念日")}</td>
-      <td data-label="历法">${calendarBadge(r)}</td>
-      <td data-label="日期">${r.year ? r.year + " 年 " : ""}${r.month} 月 ${r.day} 日${r.is_leap ? "（闰）" : ""}</td>
-      <td data-label="下次">${nextDateLabel(r)}</td>
-      <td data-label="倒计时">${daysBadge(r)}</td>
-      <td data-label="已历">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> 周年` : "-"}</td>
-      <td class="ta-r" data-label="操作">${actionsHtml(r, "anni")}</td>
+      <td data-label="${t("field.name")}"><b>${esc(r.name)}</b></td>
+      <td data-label="${t("field.relationship")}">${esc(r.relationship || "-")}</td>
+      <td data-label="${t("form.type")}">${esc(r.kind || t("anni.default"))}</td>
+      <td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>
+      <td data-label="${t("field.date")}">${r.year ? r.year + " " + t("unit.year") + " " : ""}${r.month} ${t("unit.month")} ${r.day} ${t("unit.day")}${r.is_leap ? "（" + t("form.leapShort") + "）" : ""}</td>
+      <td data-label="${t("field.nextDate")}">${nextDateLabel(r)}</td>
+      <td data-label="${t("field.countdown")}">${daysBadge(r)}</td>
+      <td data-label="${t("field.passed")}">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> ${t("unit.anniv")}` : "-"}</td>
+      <td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, "anni")}</td>
     </tr>`).join("");
-  box.innerHTML = `<table class="table"><thead><tr><th>名称</th><th>关系</th><th>类型</th><th>历法</th><th>日期</th><th>下次</th><th>倒计时</th><th>已历</th><th class="ta-r">操作</th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.relationship")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function openAnniEditor(r) {
   const isEdit = !!r; r = r || {};
   const nd = (r.notify_days || []).join(","); const chs = r.channels || [];
+  const visTip = `${t("vis.privateTip")}；${t("vis.familyTip")}；${t("vis.publicTip")}`;
   const html = `
-    <h2>${isEdit ? "编辑纪念日" : "添加纪念日"}</h2>
+    <h2>${isEdit ? t("anni.editTitle") : t("anni.addTitle")}</h2>
     <form id="anni-form" class="modal-form">
-      <div class="grid2"><div class="field"><label>名称 *</label><input id="a-name" type="text" required value="${esc(r.name || "")}" placeholder="如：结婚纪念日" /></div>
-      <div class="field"><label>关系</label><input id="a-rel" type="text" value="${esc(r.relationship || "")}" placeholder="如：伴侣" /></div></div>
-      <div class="grid2"><div class="field"><label>类型</label><input id="a-kind" type="text" value="${esc(r.kind || "纪念日")}" placeholder="如：恋爱纪念日 / 入职" /></div>
-      <div class="field"><label>历法类型</label><select id="a-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>公历（阳历）</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>农历（阴历）</option></select></div></div>
-      <div class="grid3"><div class="field"><label>起始年份（可选）</label><input id="a-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="如 2015" /></div>
-      <div class="field"><label>月 *</label><input id="a-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
-      <div class="field"><label>日 *</label><input id="a-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div></div>
-      <div class="field"><label>提前提醒天数（逗号分隔）</label><input id="a-days" type="text" value="${nd}" placeholder="如 1,7" /></div>
-      <div class="field"><label>提醒渠道（留空跟随全局）</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${CH_NAMES[c]}</label>`).join("")}</div></div>
-      <div class="field"><label>备注</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="如：订餐厅" /></div>
-      <div class="field"><label>可见范围 <span class="info-ic" data-tip="私人：仅自己可见；家庭：家庭成员可见；公开：所有用户可见">ℹ️</span></label>
-        <div class="vis-picker" id="a-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_META[v].icon} ${VIS_META[v].label}</label>`).join("")}</div>
+      <div class="grid2"><div class="field"><label>${t("form.name")} *</label><input id="a-name" type="text" required value="${esc(r.name || "")}" placeholder="${t("form.name")}" /></div>
+      <div class="field"><label>${t("form.relationship")}</label><input id="a-rel" type="text" value="${esc(r.relationship || "")}" placeholder="${t("form.relationship")}" /></div></div>
+      <div class="grid2"><div class="field"><label>${t("form.type")}</label><input id="a-kind" type="text" value="${esc(r.kind || t("anni.default"))}" placeholder="${t("form.type")}" /></div>
+      <div class="field"><label>${t("form.calType")}</label><select id="a-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>${t("cal.solarFull")}</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>${t("cal.lunarFull")}</option></select></div></div>
+      <div class="grid3"><div class="field"><label>${t("form.startYear")}</label><input id="a-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="${t("form.startYear")}" /></div>
+      <div class="field"><label>${t("form.month")} *</label><input id="a-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
+      <div class="field"><label>${t("form.day")} *</label><input id="a-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div></div>
+      <div class="field"><label>${t("form.reminderDays")}</label><input id="a-days" type="text" value="${nd}" placeholder="${t("form.notifyDaysPh")}" /></div>
+      <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
+      <div class="field"><label>${t("form.note")}</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
+      <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
+        <div class="vis-picker" id="a-vis">${["private", "family", "public"].map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
-      <div class="field"><label class="chk"><input id="a-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> 启用提醒</label></div>
-      <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeEditor()">取消</button><button type="submit" class="btn btn-primary">${isEdit ? "保存" : "添加"}</button></div>
+      <div class="field"><label class="chk"><input id="a-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> ${t("form.enabled")}</label></div>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeEditor()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${isEdit ? t("form.save") : t("form.add")}</button></div>
     </form>`;
   showEditor(html);
   $$("#a-vis input").forEach((i) => i.addEventListener("change", () => {
@@ -754,7 +744,7 @@ function openAnniEditor(r) {
   $("#anni-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const body = {
-      name: $("#a-name").value.trim(), relationship: $("#a-rel").value.trim() || null, kind: $("#a-kind").value.trim() || "纪念日",
+      name: $("#a-name").value.trim(), relationship: $("#a-rel").value.trim() || null, kind: $("#a-kind").value.trim() || t("anni.default"),
       calendar_type: $("#a-cal").value, year: $("#a-year").value ? parseInt($("#a-year").value) : null,
       month: parseInt($("#a-month").value), day: parseInt($("#a-day").value), is_leap: false,
       notify_days: $("#a-days").value.trim() ? $("#a-days").value.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => n >= 0) : null,
@@ -765,33 +755,33 @@ function openAnniEditor(r) {
     try {
       if (isEdit) await api(`/api/anniversaries/${r.id}`, { method: "PUT", body: JSON.stringify(body) });
       else await api("/api/anniversaries", { method: "POST", body: JSON.stringify(body) });
-      closeEditor(); toast(isEdit ? "已保存" : "已添加"); loadAnniversaries();
+      closeEditor(); toast(isEdit ? t("toast.saved") : t("toast.added")); loadAnniversaries();
     } catch (err) { toast(err.message, false); }
   });
 }
 window.editAnni = (id) => { const r = ANNIS.find((x) => x.id === id); openAnniEditor(r || { id }); };
 
 window.delRecord = async (kind, id, name) => {
-  if (!confirm(`确定删除「${name}」吗？`)) return;
+  if (!confirm(t("confirm.delRecord", { name }))) return;
   try {
     await api(`/api/${kind === "anni" ? "anniversaries" : "birthdays"}/${id}`, { method: "DELETE" });
-    toast("已删除");
+    toast(t("toast.deleted"));
     if (kind === "anni") loadAnniversaries(); else loadContacts();
   } catch (err) { toast(err.message, false); }
 };
 
 /* ============ 即将到来（合并生日+纪念日） ============ */
 async function loadUpcoming() {
-  const box = $("#upcoming-list"); box.innerHTML = '<div class="empty">加载中…</div>';
+  const box = $("#upcoming-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try {
     const rows = await api("/api/upcoming?days=60");
-    if (!rows.length) { box.innerHTML = '<div class="empty">未来 60 天内没有生日或纪念日 🍃</div>'; return; }
+    if (!rows.length) { box.innerHTML = '<div class="empty">' + t("empty.upcoming") + '</div>'; return; }
     box.innerHTML = rows.map((r) => {
-      const cal = r.calendar_type === "lunar" ? "农历" : "公历";
+      const cal = r.calendar_type === "lunar" ? t("cal.lunar") : t("cal.solar");
       const isAnni = r.kind === "anniversary";
-      const big = isAnni ? (r.years_on_next != null ? ` · 第 ${r.years_on_next} 周年` : "") : (r.age_on_next != null ? ` · ${r.age_on_next} 岁` : "");
-      const lived = isAnni ? (r.years_passed != null ? `<div class="up-meta">已携手 <span class="num">${r.years_passed}</span> 年</div>` : "") : (r.days_lived != null ? `<div class="up-meta">已活 <span class="num">${r.days_lived.toLocaleString()}</span> 天</div>` : "");
-      const badge = isAnni ? '<span class="tag tag-solar">纪念日</span>' : calendarBadge(r);
+      const big = isAnni ? (r.years_on_next != null ? ` · ${t("unit.anniv")} ${r.years_on_next}` : "") : (r.age_on_next != null ? ` · ${r.age_on_next} ${t("unit.years")}` : "");
+      const lived = isAnni ? (r.years_passed != null ? `<div class="up-meta">${t("field.passed")} <span class="num">${r.years_passed}</span> ${t("unit.year")}</div>` : "") : (r.days_lived != null ? `<div class="up-meta">${t("field.daysLived")} <span class="num">${r.days_lived.toLocaleString()}</span> ${t("unit.days")}</div>` : "");
+      const badge = isAnni ? '<span class="tag tag-solar">' + t("nav.anniversaries") + '</span>' : calendarBadge(r);
       return `<div class="up-item">
         <div class="up-left">
           <div class="up-name">${avatarHtml(r)} ${esc(r.name)} <span class="muted sm">${esc(r.relationship || "")}</span> ${badge}</div>
@@ -806,53 +796,53 @@ async function loadUpcoming() {
 
 /* ============ 家庭共享 ============ */
 $("#create-family-btn").addEventListener("click", () => {
-  openModal(`<h2>创建家庭</h2><form id="family-form" class="modal-form">
-    <div class="field"><label>家庭名称 *</label><input id="f-name" type="text" required placeholder="如：我们的小家" /></div>
-    <p class="muted sm">创建后你将成为家庭管理者，可以邀请其他用户加入。家庭成员之间可以互相看到「家庭」权限的生日与纪念日。</p>
-    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">创建</button></div>
+  openModal(`<h2>${t("family.create")}</h2><form id="family-form" class="modal-form">
+    <div class="field"><label>${t("form.name")} *</label><input id="f-name" type="text" required placeholder="${t("form.name")}" /></div>
+    <p class="muted sm">${t("family.createDesc")}</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${t("btn.create")}</button></div>
   </form>`);
   $("#family-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       await api("/api/families", { method: "POST", body: JSON.stringify({ name: $("#f-name").value.trim() }) });
-      closeModal(); toast("家庭已创建 🏠"); loadFamily();
+      closeModal(); toast(t("toast.familyCreated")); loadFamily();
     } catch (err) { toast(err.message, false); }
   });
 });
 
 async function loadFamily() {
   const invBox = $("#family-invites"), listBox = $("#family-list");
-  invBox.innerHTML = ""; listBox.innerHTML = '<div class="empty">加载中…</div>';
+  invBox.innerHTML = ""; listBox.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try {
     const [invites, families] = await Promise.all([api("/api/families/invites"), api("/api/families")]);
     // 待处理邀请
     if (invites.length) {
       invBox.innerHTML = `<div class="card invite-card">
-        <div class="group-title">📩 待处理邀请</div>
+        <div class="group-title">${t("invite.pending")}</div>
         ${invites.map((iv) => `<div class="invite-item">
-          <div><b>${esc(iv.inviter_name || "用户")}</b> 邀请你加入家庭「<b>${esc(iv.family_name || "")}</b>」</div>
+          <div><b>${esc(iv.inviter_name || t("user.current"))}</b> ${t("invite.from2")}「<b>${esc(iv.family_name || "")}</b>」</div>
           <div class="invite-actions">
-            <button class="btn btn-primary btn-sm" onclick="respondInvite(${iv.id}, true)">接受</button>
-            <button class="btn btn-ghost btn-sm" onclick="respondInvite(${iv.id}, false)">拒绝</button>
+            <button class="btn btn-primary btn-sm" onclick="respondInvite(${iv.id}, true)">${t("invite.accept")}</button>
+            <button class="btn btn-ghost btn-sm" onclick="respondInvite(${iv.id}, false)">${t("invite.reject")}</button>
           </div>
         </div>`).join("")}
       </div>`;
     }
     // 我的家庭
     if (!families.length) {
-      listBox.innerHTML = '<div class="card"><div class="empty">你还没有加入任何家庭。点击「+ 创建家庭」，或等待他人邀请你 🏠</div></div>';
+      listBox.innerHTML = '<div class="card"><div class="empty">' + t("empty.family") + '</div></div>';
     } else {
       listBox.innerHTML = families.map((f) => {
         const isOwner = ME && f.owner_name === ME.username;
         return `<div class="card family-card">
           <div class="family-head">
-            <div class="family-name">🏠 ${esc(f.name)} ${isOwner ? '<span class="tag tag-on">我创建的</span>' : ""}</div>
-            ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="openInvite(${f.id}, '${esc(f.name)}')">+ 邀请成员</button>` : ""}
+            <div class="family-name">🏠 ${esc(f.name)} ${isOwner ? '<span class="tag tag-on">' + t("invite.mine") + '</span>' : ""}</div>
+            ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="openInvite(${f.id}, '${esc(f.name)}')">+ ${t("invite.inviteMember")}</button>` : ""}
           </div>
           <div class="family-members">
-            ${(f.members || []).map((m) => `<span class="member-chip">${m.username === f.owner_name ? "👑" : "👤"} ${esc(m.username)}${ME && m.username === ME.username ? "（我）" : ""}</span>`).join("")}
+            ${(f.members || []).map((m) => `<span class="member-chip">${m.username === f.owner_name ? "👑" : "👤"} ${esc(m.username)}${ME && m.username === ME.username ? "（" + t("invite.me") + "）" : ""}</span>`).join("")}
           </div>
-          ${(f.pending_invites || []).length ? `<div class="muted sm" style="margin-top:8px">待接受：${f.pending_invites.map((p) => esc(p)).join("、")}</div>` : ""}
+          ${(f.pending_invites || []).length ? `<div class="muted sm" style="margin-top:8px">${t("invite.waiting", { list: f.pending_invites.map((p) => esc(p)).join(t("unit.comma")) })}</div>` : ""}
         </div>`;
       }).join("");
     }
@@ -863,76 +853,109 @@ async function loadFamily() {
 window.respondInvite = async (iid, accept) => {
   try {
     await api(`/api/families/invites/${iid}/respond`, { method: "POST", body: JSON.stringify({ accept }) });
-    toast(accept ? "已加入家庭 🎉" : "已拒绝邀请");
+    toast(accept ? t("toast.joined") : t("toast.rejected"));
     loadFamily();
   } catch (err) { toast(err.message, false); }
 };
 
 window.openInvite = (fid, fname) => {
-  openModal(`<h2>邀请成员加入「${esc(fname)}」</h2><form id="invite-form" class="modal-form">
-    <div class="field"><label>对方用户名 *</label><input id="iv-user" type="text" required placeholder="输入要邀请的用户名" /></div>
-    <p class="muted sm">对方登录后会在「家庭」页面看到邀请，接受后即成为家庭成员。</p>
-    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">发送邀请</button></div>
+  openModal(`<h2>${t("invite.sendTitle", { name: esc(fname) })}</h2><form id="invite-form" class="modal-form">
+    <div class="field"><label>${t("invite.username")} *</label><input id="iv-user" type="text" required placeholder="${t("invite.username")}" /></div>
+    <p class="muted sm">${t("invite.desc")}</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${t("invite.send")}</button></div>
   </form>`);
   $("#invite-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       await api(`/api/families/${fid}/invite`, { method: "POST", body: JSON.stringify({ username: $("#iv-user").value.trim() }) });
-      closeModal(); toast("邀请已发送 📩"); loadFamily();
+      closeModal(); toast(t("toast.inviteSent")); loadFamily();
     } catch (err) { toast(err.message, false); }
   });
 };
 
-/* ============ 设置（每个参数带说明 + 二级菜单） ============ */
-const SETTINGS_SCHEMA = [
-  { key: "ui", icon: "🎨", title: "界面与外观", desc: "控制导航菜单位置、联系人编辑方式、是否启用纪念日等界面偏好。", fields: [
-    { path: "ui.menu_position", label: "菜单位置", type: "select", options: [["left", "左侧栏"], ["top", "顶部栏"]], help: "导航菜单显示在页面左侧还是顶部。选择后保存立即生效（刷新一次即可看到布局变化）。" },
-    { path: "ui.contact_edit_mode", label: "联系人编辑方式", type: "select", options: [["modal", "居中弹窗"], ["drawer", "右侧抽屉"]], help: "编辑或新建联系人时，表单以「居中的弹窗」还是「从右侧滑出的抽屉」呈现。抽屉方式在宽屏下更便于一边查看列表一边编辑。" },
-    { path: "ui.anniversary_enabled", label: "启用纪念日功能", type: "bool", help: "关闭后左侧导航与页面中的「纪念日」入口将隐藏。若你只用生日提醒，可关闭以保持界面简洁。" },
-  ] },
-  { key: "privacy", icon: "🔐", title: "隐私与注册", desc: "控制新数据的默认可见范围，以及是否开放用户自助注册。", fields: [
-    { path: "privacy.default_visibility", label: "新数据默认可见范围", type: "select", options: [["private", "🔒 私人（仅自己可见）"], ["family", "🏠 家庭（家庭成员可见）"], ["public", "🌍 公开（所有用户可见）"]], help: "新建生日/纪念日时默认选中的可见范围。私人=仅本人；家庭=与你同属一个家庭的成员可见；公开=系统内所有用户可见。每条数据也可在编辑时单独调整。" },
-    { path: "privacy.allow_register", label: "开放用户注册", type: "bool", help: "开启后，登录页会显示「注册账号」入口，任何人都可以自助注册普通用户。关闭后仅管理员可在「用户管理」中创建账号。" },
-  ] },
-  { key: "notify", icon: "⏰", title: "提醒策略", desc: "控制系统每天什么时候检查生日、默认提前几天提醒、默认用什么渠道发送。", fields: [
-    { path: "notify.check_hour", label: "每日检查时间 - 小时", type: "number", min: 0, max: 23, help: "系统每天在这个小时执行一次生日/纪念日检查（24小时制，0-23）。保存后立即生效，无需重启。" },
-    { path: "notify.check_minute", label: "每日检查时间 - 分钟", type: "number", min: 0, max: 59, help: "配合上面的小时使用，精确到分钟（0-59）。" },
-    { path: "notify.default_notify_days", label: "默认提前提醒天数", type: "numlist", help: "全局默认的提前提醒天数，多个值用逗号分隔。例如「1,3,7」表示每位联系人会在生日前 7/3/1 天各收到一次提醒。联系人单独设置则以联系人自己的为准。填 0 表示当天也提醒。" },
-    { path: "notify.default_channels", label: "默认提醒渠道", type: "channels", help: "全局默认使用哪些渠道（可多选）。联系人未单独指定渠道时使用此设置。勾选的渠道还需在对应板块中「启用」并填好参数才能真正发出。" },
-  ] },
-  { key: "wechat", icon: "💬", title: "微信推送", desc: "通过第三方推送服务把提醒发到你的微信。推荐 Server酱 或 PushPlus。", fields: [
-    { path: "wechat.enabled", label: "启用微信推送", type: "bool", help: "总开关。关闭后即使联系人选择了微信渠道，也不会发送微信提醒。" },
-    { path: "wechat.type", label: "推送服务类型", type: "select", options: [["serverchan", "Server酱"], ["pushplus", "PushPlus"], ["bark", "Bark (iOS)"]], help: "选择你使用的推送服务商。" },
-    { path: "wechat.token", label: "推送 Token / Key", type: "password", help: "推送服务的密钥。" },
-    { path: "wechat.bark_server", label: "Bark 服务器地址", type: "text", help: "仅使用 Bark 时需要。默认官方服务器 https://api.day.app。" },
-  ] },
-  { key: "feishu", icon: "🚀", title: "飞书机器人", desc: "通过飞书群「自定义机器人」发送提醒卡片。", fields: [
-    { path: "feishu.enabled", label: "启用飞书提醒", type: "bool", help: "总开关。" },
-    { path: "feishu.webhook", label: "Webhook 地址", type: "text", help: "自定义机器人的 Webhook URL。" },
-    { path: "feishu.secret", label: "签名密钥（可选）", type: "password", help: "若创建机器人时勾选了签名校验，把密钥填在这里。" },
-  ] },
-  { key: "email", icon: "📧", title: "邮件通知", desc: "通过 SMTP 发送邮件提醒。", fields: [
-    { path: "email.enabled", label: "启用邮件通知", type: "bool", help: "总开关。" },
-    { path: "email.smtp_host", label: "SMTP 服务器地址", type: "text", help: "发件邮箱的 SMTP 服务器域名。" },
-    { path: "email.smtp_port", label: "SMTP 端口", type: "number", min: 1, max: 65535, help: "SSL 一般为 465。" },
-    { path: "email.use_tls", label: "使用 SSL/TLS 加密", type: "bool", help: "端口 465 时应开启。" },
-    { path: "email.smtp_user", label: "SMTP 登录账号", type: "text", help: "发件邮箱完整地址。" },
-    { path: "email.smtp_pass", label: "SMTP 授权码", type: "password", help: "注意：不是邮箱登录密码，而是 SMTP 授权码。" },
-    { path: "email.from_addr", label: "发件人地址", type: "text", help: "一般与登录账号相同，留空自动使用。" },
-    { path: "email.to_addr", label: "收件人地址", type: "text", help: "提醒邮件发送到哪个邮箱，多个用逗号分隔。" },
-  ] },
-  { key: "app", icon: "🛠️", title: "系统", desc: "应用基础参数，修改请谨慎。", fields: [
-    { path: "app.timezone", label: "时区", type: "text", help: "定时检查所使用的时区，默认 Asia/Shanghai。" },
-    { path: "app.port", label: "容器内服务端口", type: "number", min: 1, max: 65535, help: "容器内监听端口，默认 8000。修改后需重启容器并调整 docker-compose 端口映射。" },
-  ] },
-];
+/* ============ 偏好（主题 + 语言） ============ */
+function loadPrefs() {
+  const box = $("#prefs-card"); if (!box) return;
+  const themeOpts = THEMES.map((th) => `<label class="vis-opt ${th.code === getTheme() ? "active" : ""}"><input type="radio" name="pref-theme" value="${th.code}" ${th.code === getTheme() ? "checked" : ""} hidden />${th.icon || ""} ${th.label}</label>`).join("");
+  const langOpts = LANGS.map((lg) => `<label class="vis-opt ${lg.code === getLang() ? "active" : ""}"><input type="radio" name="pref-lang" value="${lg.code}" ${lg.code === getLang() ? "checked" : ""} hidden />${lg.label}</label>`).join("");
+  box.innerHTML = `
+    <div class="field setting-field">
+      <div class="field-main"><label>${t("prefs.theme")}</label></div>
+      <p class="help">${t("prefs.themeDesc")}</p>
+      <div class="vis-picker" id="pref-themes">${themeOpts}</div>
+    </div>
+    <div class="field setting-field">
+      <div class="field-main"><label>${t("prefs.lang")}</label></div>
+      <p class="help">${t("prefs.langDesc")}</p>
+      <div class="vis-picker" id="pref-langs">${langOpts}</div>
+    </div>`;
+  $$("#pref-themes input").forEach((i) => i.addEventListener("change", () => {
+    $$("#pref-themes .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
+    setTheme(i.value); toast(t("toast.themeSaved"));
+  }));
+  $$("#pref-langs input").forEach((i) => i.addEventListener("change", () => {
+    $$("#pref-langs .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
+    setLang(i.value).then(() => toast(t("toast.langSaved")));
+  }));
+}
 
+/* ============ 设置（每个参数带说明 + 二级菜单） ============ */
+let SETTINGS_SCHEMA = buildSettingsSchema();
+function buildSettingsSchema() {
+  return [
+  { key: "ui", icon: "🎨", title: t("settings.group.ui"), desc: t("settings.group.uiDesc"), fields: [
+    { path: "ui.menu_position", label: t("settings.menuPosition"), type: "select", options: [["left", t("settings.menuLeftOpt")], ["top", t("settings.menuTopOpt")]], help: "导航菜单显示在页面左侧还是顶部。选择后保存立即生效（刷新一次即可看到布局变化）。" },
+    { path: "ui.contact_edit_mode", label: t("settings.editMode"), type: "select", options: [["modal", t("settings.modalOpt")], ["drawer", t("settings.drawerOpt")]], help: "编辑或新建联系人时，表单以「居中的弹窗」还是「从右侧滑出的抽屉」呈现。抽屉方式在宽屏下更便于一边查看列表一边编辑。" },
+    { path: "ui.anniversary_enabled", label: t("settings.anniEnabled"), type: "bool", help: "关闭后左侧导航与页面中的「纪念日」入口将隐藏。若你只用生日提醒，可关闭以保持界面简洁。" },
+  ] },
+  { key: "privacy", icon: "🔐", title: t("settings.group.privacy"), desc: t("settings.privacyDesc"), fields: [
+    { path: "privacy.default_visibility", label: t("settings.defaultVis"), type: "select", options: [["private", t("settings.visPrivate")], ["family", t("settings.visFamily")], ["public", t("settings.visPublic")]], help: "新建生日/纪念日时默认选中的可见范围。私人=仅本人；家庭=与你同属一个家庭的成员可见；公开=系统内所有用户可见。每条数据也可在编辑时单独调整。" },
+    { path: "privacy.allow_register", label: t("settings.allowRegister"), type: "bool", help: "开启后，登录页会显示「注册账号」入口，任何人都可以自助注册普通用户。关闭后仅管理员可在「用户管理」中创建账号。" },
+  ] },
+  { key: "notify", icon: "⏰", title: t("settings.group.notify"), desc: t("settings.notifyDesc"), fields: [
+    { path: "notify.check_hour", label: t("settings.checkHour"), type: "number", min: 0, max: 23, help: "系统每天在这个小时执行一次生日/纪念日检查（24小时制，0-23）。保存后立即生效，无需重启。" },
+    { path: "notify.check_minute", label: t("settings.checkMinute"), type: "number", min: 0, max: 59, help: "配合上面的小时使用，精确到分钟（0-59）。" },
+    { path: "notify.default_notify_days", label: t("settings.defaultDays"), type: "numlist", help: "全局默认的提前提醒天数，多个值用逗号分隔。例如「1,3,7」表示每位联系人会在生日前 7/3/1 天各收到一次提醒。联系人单独设置则以联系人自己的为准。填 0 表示当天也提醒。" },
+    { path: "notify.default_channels", label: t("settings.defaultChannels"), type: "channels", help: "全局默认使用哪些渠道（可多选）。联系人未单独指定渠道时使用此设置。勾选的渠道还需在对应板块中「启用」并填好参数才能真正发出。" },
+  ] },
+  { key: "wechat", icon: "💬", title: t("settings.group.wechat"), desc: t("settings.wechatDesc"), fields: [
+    { path: "wechat.enabled", label: t("settings.wechatEnabled"), type: "bool", help: "总开关。关闭后即使联系人选择了微信渠道，也不会发送微信提醒。" },
+    { path: "wechat.type", label: t("settings.wechatType"), type: "select", options: [["serverchan", t("settings.wechatServerchan")], ["pushplus", t("settings.wechatPushplus")], ["bark", t("settings.wechatBark")]], help: "选择你使用的推送服务商。" },
+    { path: "wechat.token", label: t("settings.wechatToken"), type: "password", help: "推送服务的密钥。" },
+    { path: "wechat.bark_server", label: t("settings.barkServer"), type: "text", help: "仅使用 Bark 时需要。默认官方服务器 https://api.day.app。" },
+  ] },
+  { key: "feishu", icon: "🚀", title: t("settings.group.feishu"), desc: t("settings.feishuDesc"), fields: [
+    { path: "feishu.enabled", label: t("settings.feishuEnabled"), type: "bool", help: "总开关。" },
+    { path: "feishu.webhook", label: t("settings.webhook"), type: "text", help: "自定义机器人的 Webhook URL。" },
+    { path: "feishu.secret", label: t("settings.secret"), type: "password", help: "若创建机器人时勾选了签名校验，把密钥填在这里。" },
+  ] },
+  { key: "email", icon: "📧", title: t("settings.group.email"), desc: t("settings.emailDesc"), fields: [
+    { path: "email.enabled", label: t("settings.emailEnabled"), type: "bool", help: "总开关。" },
+    { path: "email.smtp_host", label: t("settings.smtpHost"), type: "text", help: "发件邮箱的 SMTP 服务器域名。" },
+    { path: "email.smtp_port", label: t("settings.smtpPort"), type: "number", min: 1, max: 65535, help: "SSL 一般为 465。" },
+    { path: "email.use_tls", label: t("settings.useTls"), type: "bool", help: "端口 465 时应开启。" },
+    { path: "email.smtp_user", label: t("settings.smtpUser"), type: "text", help: "发件邮箱完整地址。" },
+    { path: "email.smtp_pass", label: t("settings.smtpPass"), type: "password", help: "注意：不是邮箱登录密码，而是 SMTP 授权码。" },
+    { path: "email.from_addr", label: t("settings.fromAddr"), type: "text", help: "一般与登录账号相同，留空自动使用。" },
+    { path: "email.to_addr", label: t("settings.toAddr"), type: "text", help: "提醒邮件发送到哪个邮箱，多个用逗号分隔。" },
+  ] },
+  { key: "app", icon: "🛠️", title: t("settings.group.system"), desc: t("settings.systemDesc"), fields: [
+    { path: "app.timezone", label: t("settings.timezone"), type: "text", help: "定时检查所使用的时区，默认 Asia/Shanghai。" },
+    { path: "app.port", label: t("settings.port"), type: "number", min: 1, max: 65535, help: "容器内监听端口，默认 8000。修改后需重启容器并调整 docker-compose 端口映射。" },
+  ] },
+  ];
+}
+
+function refreshStaticText() {
+  FIELD_META = buildFieldMeta();
+  SETTINGS_SCHEMA = buildSettingsSchema();
+}
 let SETTINGS_CACHE = null;
 function getPath(obj, path) { return path.split(".").reduce((o, k) => (o ? o[k] : undefined), obj); }
 function setPath(obj, path, val) { const keys = path.split("."); let o = obj; for (let i = 0; i < keys.length - 1; i++) { if (typeof o[keys[i]] !== "object" || o[keys[i]] === null) o[keys[i]] = {}; o = o[keys[i]]; } o[keys[keys.length - 1]] = val; }
 
 async function loadSettings() {
-  const box = $("#settings-form"); box.innerHTML = '<div class="empty">加载中…</div>';
+  const box = $("#settings-form"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try {
     SETTINGS_CACHE = await api("/api/settings");
     $("#settings-nav").innerHTML = SETTINGS_SCHEMA.map((g) => `<a class="settings-nav-item" data-target="setgroup-${g.key}">${g.icon} ${g.title}</a>`).join("");
@@ -953,9 +976,9 @@ function groupHtml(g) {
 function fieldHtml(f) {
   const val = getPath(SETTINGS_CACHE, f.path); const id = fieldId(f.path); let input = "";
   if (f.type === "bool") input = `<label class="switch"><input type="checkbox" id="${id}" ${val ? "checked" : ""} /><span class="slider"></span></label>`;
-  else if (f.type === "select") input = `<select id="${id}">${f.options.map(([v, t]) => `<option value="${v}" ${v === val ? "selected" : ""}>${t}</option>`).join("")}</select>`;
-  else if (f.type === "numlist") input = `<input id="${id}" type="text" value="${esc((val || []).join(","))}" placeholder="如 1,3,7" />`;
-  else if (f.type === "channels") { const chosen = val || []; input = `<div class="chk-row" id="${id}">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" value="${c}" ${chosen.includes(c) ? "checked" : ""}/> ${CH_NAMES[c]}</label>`).join("")}</div>`; }
+  else if (f.type === "select") input = `<select id="${id}">${f.options.map(([v, tt]) => `<option value="${v}" ${v === val ? "selected" : ""}>${tt}</option>`).join("")}</select>`;
+  else if (f.type === "numlist") input = `<input id="${id}" type="text" value="${esc((val || []).join(","))}" placeholder="${t("form.notifyDaysPh")}" />`;
+  else if (f.type === "channels") { const chosen = val || []; input = `<div class="chk-row" id="${id}">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" value="${c}" ${chosen.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div>`; }
   else if (f.type === "password") input = `<input id="${id}" type="password" value="${esc(val || "")}" autocomplete="new-password" placeholder="●●●●●●" />`;
   else if (f.type === "number") input = `<input id="${id}" type="number" value="${val ?? ""}" ${f.min != null ? `min="${f.min}"` : ""} ${f.max != null ? `max="${f.max}"` : ""} />`;
   else input = `<input id="${id}" type="text" value="${esc(val ?? "")}" />`;
@@ -982,8 +1005,8 @@ $("#save-settings-btn").addEventListener("click", async () => {
   try {
     const cfg = collectSettings();
     const h = cfg.notify.check_hour, m = cfg.notify.check_minute;
-    if (h < 0 || h > 23 || m < 0 || m > 59) return toast("检查时间不合法（小时0-23，分钟0-59）", false);
-    if (!cfg.notify.default_notify_days.length) return toast("默认提前提醒天数至少填一个值", false);
+    if (h < 0 || h > 23 || m < 0 || m > 59) return toast(t("toast.invalidTime"), false);
+    if (!cfg.notify.default_notify_days.length) return toast(t("toast.notifyDaysRequired"), false);
     await api("/api/settings", { method: "POST", body: JSON.stringify(cfg) });
     SETTINGS_CACHE = cfg;
     // 若界面偏好改变，立即在本地生效
@@ -993,54 +1016,78 @@ $("#save-settings-btn").addEventListener("click", async () => {
       document.body.classList.toggle("menu-left", UI_PREFS.menu_position !== "top");
       $("#nav-anniversaries") && $("#nav-anniversaries").classList.toggle("hidden", UI_PREFS.anniversary_enabled === false);
     }
-    toast("设置已保存并立即生效 ✅");
+    toast(t("toast.saved"));
   } catch (err) { toast(err.message, false); }
 });
 
 /* ============ 用户管理 ============ */
 async function loadUsers() {
-  const box = $("#users-list"); box.innerHTML = '<div class="empty">加载中…</div>';
+  const box = $("#users-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try {
     const rows = await api("/api/users");
-    box.innerHTML = `<table class="table"><thead><tr><th>用户名</th><th>角色</th><th>创建时间</th><th class="ta-r">操作</th></tr></thead><tbody>${rows.map((u) => `<tr>
-      <td data-label="用户名"><b>${esc(u.username)}</b>${ME && u.username === ME.username ? ' <span class="tag tag-solar">当前</span>' : ""}</td>
-      <td data-label="角色">${u.role === "admin" ? '<span class="tag tag-on">管理员</span>' : '<span class="tag tag-off">普通用户</span>'}</td>
-      <td data-label="创建时间" class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", " "))}</td>
-      <td data-label="操作" class="ta-r"><button class="btn btn-ghost btn-sm" onclick="resetUserPwd(${u.id}, '${esc(u.username)}')">重置密码</button><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">删除</button></td>
-    </tr>`).join("")}</tbody></table><p class="muted sm" style="padding:12px 16px">说明：管理员可管理联系人、修改系统设置、管理用户；普通用户只能管理联系人和查看即将到来的生日。</p>`;
+    box.innerHTML = `<table class="table"><thead><tr><th>${t("user.username")}</th><th>${t("user.role")}</th><th>${t("user.createdAt")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${rows.map((u) => `<tr>
+      <td data-label="${t("user.username")}"><b>${esc(u.username)}</b>${ME && u.username === ME.username ? ' <span class="tag tag-solar">' + t("user.current") + '</span>' : ""}</td>
+      <td data-label="${t("user.role")}">${u.role === "admin" ? '<span class="tag tag-on">' + t("user.admin") + '</span>' : '<span class="tag tag-off">' + t("user.normal") + '</span>'}</td>
+      <td data-label="${t("user.createdAt")}" class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", " "))}</td>
+      <td data-label="${t("field.actions")}" class="ta-r"><button class="btn btn-ghost btn-sm" onclick="resetUserPwd(${u.id}, '${esc(u.username)}')">${t("btn.resetPass")}</button><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">${t("btn.delete")}</button></td>
+    </tr>`).join("")}</tbody></table><p class="muted sm" style="padding:12px 16px">${t("user.note")}</p>`;
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 window.resetUserPwd = (id, name) => {
-  openModal(`<h2>重置「${esc(name)}」的密码</h2><form id="rp-form" class="modal-form">
-    <div class="field"><label>新密码 *</label><input id="rp-pass" type="password" required placeholder="至少 6 位" /></div>
-    <p class="muted sm">重置后该用户的所有登录状态将失效，需用新密码重新登录。</p>
-    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">重置</button></div>
+  openModal(`<h2>${t("user.resetPwd", { name: esc(name) })}</h2><form id="rp-form" class="modal-form">
+    <div class="field"><label>${t("user.newPwd")} *</label><input id="rp-pass" type="password" required placeholder="${t("placeholder.regPass")}" /></div>
+    <p class="muted sm">${t("user.resetDesc")}</p>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${t("btn.resetPass")}</button></div>
   </form>`);
   $("#rp-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       await api(`/api/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password: $("#rp-pass").value }) });
-      closeModal(); toast("密码已重置 ✅");
+      closeModal(); toast(t("toast.pwdReset"));
     } catch (err) { toast(err.message, false); }
   });
 };
 
 window.delUser = async (id, name) => {
-  if (!confirm(`确定删除用户「${name}」吗？其登录状态将立即失效。`)) return;
-  try { await api(`/api/users/${id}`, { method: "DELETE" }); toast("已删除"); loadUsers(); } catch (err) { toast(err.message, false); }
+  if (!confirm(t("confirm.delUser", { name }))) return;
+  try { await api(`/api/users/${id}`, { method: "DELETE" }); toast(t("toast.deleted")); loadUsers(); } catch (err) { toast(err.message, false); }
 };
 $("#add-user-btn").addEventListener("click", () => {
-  openModal(`<h2>新增用户</h2><form id="user-form" class="modal-form">
-    <div class="field"><label>用户名 *</label><input id="u-name" type="text" required placeholder="登录用户名" /></div>
-    <div class="field"><label>密码 *</label><input id="u-pass" type="password" required placeholder="登录密码" /></div>
-    <div class="field"><label>角色</label><select id="u-role"><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
-    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button><button type="submit" class="btn btn-primary">创建</button></div>
+  openModal(`<h2>${t("user.addTitle")}</h2><form id="user-form" class="modal-form">
+    <div class="field"><label>${t("user.username")} *</label><input id="u-name" type="text" required placeholder="${t("user.username")}" /></div>
+    <div class="field"><label>${t("user.password")} *</label><input id="u-pass" type="password" required placeholder="${t("user.password")}" /></div>
+    <div class="field"><label>${t("user.role")}</label><select id="u-role"><option value="user">${t("user.normal")}</option><option value="admin">${t("user.admin")}</option></select></div>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${t("btn.create")}</button></div>
   </form>`);
   $("#user-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    try { await api("/api/users", { method: "POST", body: JSON.stringify({ username: $("#u-name").value.trim(), password: $("#u-pass").value, role: $("#u-role").value }) }); closeModal(); toast("用户已创建"); loadUsers(); }
+    try { await api("/api/users", { method: "POST", body: JSON.stringify({ username: $("#u-name").value.trim(), password: $("#u-pass").value, role: $("#u-role").value }) }); closeModal(); toast(t("toast.added")); loadUsers(); }
     catch (err) { toast(err.message, false); }
   });
+});
+
+/* 行选择事件委托：避免每次 renderContacts 都重新绑定 N 个 checkbox */
+$("#contacts-list").addEventListener("change", (e) => {
+  const rowCb = e.target.closest(".row-select");
+  if (rowCb) {
+    const id = parseInt(rowCb.value);
+    if (rowCb.checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id);
+    updateBatchBadge();
+    const allPage = $("#select-all-page");
+    if (allPage) {
+      const visible = $$(".row-select");
+      allPage.checked = visible.length > 0 && visible.every((cb) => SELECTED_IDS.has(parseInt(cb.value)));
+    }
+    return;
+  }
+  if (e.target.id === "select-all-page") {
+    const checked = e.target.checked;
+    const visibleIds = $$(".row-select").map((cb) => parseInt(cb.value));
+    if (checked) visibleIds.forEach((id) => SELECTED_IDS.add(id));
+    else visibleIds.forEach((id) => SELECTED_IDS.delete(id));
+    updateBatchBadge();
+    renderContacts();
+  }
 });
 
 /* ============ 启动 ============ */

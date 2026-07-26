@@ -7,3 +7,5 @@ __pycache__/
 .gitignore
 README.md
 smoke_test.py
+verify_v25.py
+.github/
