@@ -1,5 +1,5 @@
 /* ============================================================
-   生日管家 v2.6.1 · 极简 UI + 5 套完整主题 + 多语言
+   生日管家 v2.6.2 · 极简 UI + 5 套截然不同主题 + 多语言
    设计语言：大量留白 / 灰白基调 / 低饱和点缀 / 细字体 / 柔和阴影
    5 套浅色主题：clean(默认) / warm / mint / morandi / sakura
    ============================================================ */
@@ -221,25 +221,37 @@ tbody tr:hover { background: #fafbfc; }
 .group-head { padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .group-title { font-size: 14.5px; font-weight: 500; letter-spacing: .03em; color: var(--text-strong); }
 .group-desc { color: var(--muted); font-size: 12.5px; margin-top: 5px; line-height: 1.65; font-weight: 300; }
-.field { padding: 14px 0; border-bottom: 1px solid #f5f6f8; }
+.field { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .field:last-child { border-bottom: none; }
 .field label { font-weight: 500; font-size: 13.5px; color: var(--text-strong); }
-.field .help, .setting-field .help { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; line-height: 1.65; max-width: 640px; font-weight: 300; }
-.field input[type=text], .field input[type=number], .field input[type=password], .field select {
-  width: 100%; max-width: 420px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line-strong);
+.field .help, .setting-field .help { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; line-height: 1.65; max-width: 420px; font-weight: 300; }
+.field-main { display: flex; align-items: center; gap: 28px; }
+.field-main > label { flex: 0 0 150px; max-width: 30%; margin: 0; }
+.field-main > *:not(label) { flex: 1 1 auto; min-width: 0; max-width: 420px; }
+.field-inline .field-main > *:not(label) { flex: 0 0 auto; margin-left: auto; }
+.field input[type=text], .field input[type=number], .field input[type=password], .field select, .field textarea {
+  width: 100%; max-width: 420px; padding: 10px 12px; border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm); font: inherit; background: #fbfcfd; transition: all .18s;
 }
-.field input:focus, .field select:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px var(--primary-soft); }
-.field-inline .field-main { display: flex; align-items: center; justify-content: space-between; max-width: 420px; }
-.field-inline .field-main label { margin: 0; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px var(--primary-soft); }
 
 /* 开关 */
-.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; inset: 0; background: #dde1e8; border-radius: 999px; transition: .2s; cursor: pointer; }
-.slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.slider::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .switch input:checked + .slider { background: var(--primary); }
-.switch input:checked + .slider::before { transform: translateX(18px); }
+.switch input:checked + .slider::before { transform: translateX(20px); }
+
+@media (min-width: 681px) {
+  .field .help { margin-left: 178px; }
+}
+@media (max-width: 680px) {
+  .field-main { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .field-main > label { flex: none; max-width: none; }
+  .field-main > *:not(label) { max-width: none; width: 100%; }
+  .field .help { margin-left: 0; }
+}
 
 /* 数字 */
 .num { font-weight: 600; color: var(--primary-d); font-variant-numeric: tabular-nums; }
@@ -501,10 +513,11 @@ body.menu-top .topbar { padding: 15px 36px; }
 /* ============================================================
    5 套完整主题（浅色基调，覆盖变量 + 组件级样式）
    clean = 默认（见上方 :root）；以下为 warm / mint / morandi / sakura
-   v2.6.1 升级：每套主题拥有独立字体、圆角、阴影、按钮/卡片/标签风格
+   v2.6.2 升级：每套主题在字体、圆角、阴影、按钮、卡片、表格、标签、
+   输入框、侧边栏、导航 active 样式上均有独立设计语言，绝非简单换色。
    ============================================================ */
 
-/* ---- Warm：暖灰纸张，家庭温馨感 ---- */
+/* ---- Warm：家庭相册 / 纸质感 ---- */
 html[data-theme="warm"] {
   --bg: #f6f4f2;
   --card: #fffdfb;
@@ -524,22 +537,31 @@ html[data-theme="warm"] {
   --bad: #c47a6b;
   --bad-soft: #f7eeea;
   --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Georgia, serif;
-  --radius: 14px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 2px rgba(60,50,40,.03), 0 6px 18px rgba(60,50,40,.04);
-  --shadow-lift: 0 3px 10px rgba(60,50,40,.05), 0 12px 32px rgba(60,50,40,.07);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(60,50,40,.04), 0 4px 12px rgba(60,50,40,.05);
+  --shadow-lift: 0 6px 18px rgba(60,50,40,.06), 0 14px 32px rgba(60,50,40,.08);
 }
-html[data-theme="warm"] .sidebar { background: linear-gradient(180deg, #fffdfb 0%, #faf7f4 100%); border-right-color: var(--line); }
-html[data-theme="warm"] .topbar { background: rgba(255,253,251,.85); }
-html[data-theme="warm"] .btn { border-radius: 10px; font-weight: 500; letter-spacing: .01em; }
-html[data-theme="warm"] .btn-ghost { border-color: var(--line-strong); background: #fffdfb; }
-html[data-theme="warm"] .card { border-radius: 16px; box-shadow: var(--shadow); border-color: var(--line); }
-html[data-theme="warm"] .contact-card:hover { transform: translateY(-2px); }
-html[data-theme="warm"] .tag { border-radius: 8px; font-weight: 500; }
-html[data-theme="warm"] .vis-opt { border-radius: 10px; }
-html[data-theme="warm"] .nav-item.active { border-radius: 10px; }
+html[data-theme="warm"] body { background: linear-gradient(180deg, #f6f4f2 0%, #efeae5 100%); background-attachment: fixed; }
+html[data-theme="warm"] .sidebar { width: 220px; background: #fffdfb; border-right: 1px solid var(--line); box-shadow: 4px 0 20px rgba(60,50,40,.03); padding: 26px 14px; }
+html[data-theme="warm"] .nav-item { border-radius: 8px; padding: 10px 12px; }
+html[data-theme="warm"] .nav-item.active { background: var(--warm-soft); color: var(--primary-d); box-shadow: inset 0 0 0 1px var(--line-strong); }
+html[data-theme="warm"] .topbar { background: rgba(255,253,251,.88); border-bottom: 1px solid var(--line); }
+html[data-theme="warm"] .btn { border-radius: 8px; font-weight: 500; letter-spacing: .01em; box-shadow: 0 2px 4px rgba(60,50,40,.06); }
+html[data-theme="warm"] .btn:hover { box-shadow: 0 4px 10px rgba(60,50,40,.1); }
+html[data-theme="warm"] .btn-ghost { background: #fffdfb; border-color: var(--line-strong); }
+html[data-theme="warm"] .btn-primary { background: linear-gradient(180deg, var(--primary), var(--primary-d)); }
+html[data-theme="warm"] .card { border-radius: 14px; box-shadow: var(--shadow); border: 1px solid var(--line); background: var(--card); }
+html[data-theme="warm"] .contact-card { border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(60,50,40,.04); }
+html[data-theme="warm"] .contact-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+html[data-theme="warm"] .tag { border-radius: 6px; font-weight: 500; }
+html[data-theme="warm"] .vis-opt { border-radius: 8px; background: #fffdfb; }
+html[data-theme="warm"] .modal, html[data-theme="warm"] .drawer { border-radius: 16px; }
+html[data-theme="warm"] table thead th { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-strong); background: var(--warm-soft); }
+html[data-theme="warm"] tbody tr:hover { background: var(--warm-soft); }
+html[data-theme="warm"] input, html[data-theme="warm"] select, html[data-theme="warm"] textarea { background: #fffdfb; }
 
-/* ---- Mint：清新薄荷，自然活力 ---- */
+/* ---- Mint：清新薄荷 / 胶囊风 ---- */
 html[data-theme="mint"] {
   --bg: #f0f7f4;
   --card: #ffffff;
@@ -559,24 +581,32 @@ html[data-theme="mint"] {
   --bad: #d97970;
   --bad-soft: #f9eeec;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --shadow: 0 2px 4px rgba(30,90,70,.04), 0 8px 24px rgba(30,90,70,.05);
-  --shadow-lift: 0 4px 14px rgba(30,90,70,.06), 0 16px 40px rgba(30,90,70,.08);
+  --radius: 20px;
+  --radius-sm: 999px;
+  --shadow: 0 2px 6px rgba(30,90,70,.05), 0 8px 24px rgba(30,90,70,.06);
+  --shadow-lift: 0 8px 22px rgba(30,90,70,.08), 0 18px 44px rgba(30,90,70,.1);
 }
-html[data-theme="mint"] .sidebar { background: #ffffff; border-right: none; box-shadow: 2px 0 16px rgba(30,90,70,.04); }
-html[data-theme="mint"] .topbar { background: rgba(255,255,255,.9); }
-html[data-theme="mint"] .btn { border-radius: 999px; font-weight: 500; }
+html[data-theme="mint"] body { background: radial-gradient(circle at 10% 0%, #f6fbf9 0%, var(--bg) 40%); }
+html[data-theme="mint"] .sidebar { background: #ffffff; border-right: none; box-shadow: 3px 0 18px rgba(30,90,70,.05); padding: 28px 16px; }
+html[data-theme="mint"] .nav-item { border-radius: 999px; padding: 10px 14px; }
+html[data-theme="mint"] .nav-item.active { background: var(--primary-soft); color: var(--primary-d); font-weight: 600; }
+html[data-theme="mint"] .topbar { background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line); }
+html[data-theme="mint"] .btn { border-radius: 999px; font-weight: 600; padding: 10px 22px; box-shadow: 0 3px 8px rgba(30,90,70,.12); }
+html[data-theme="mint"] .btn:hover { box-shadow: 0 6px 16px rgba(30,90,70,.18); transform: translateY(-1px); }
 html[data-theme="mint"] .btn-ghost { background: #f6fbf9; border-color: #d2e8de; }
-html[data-theme="mint"] .card { border-radius: 20px; border: none; box-shadow: var(--shadow); }
-html[data-theme="mint"] .contact-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
-html[data-theme="mint"] .tag { border-radius: 999px; }
-html[data-theme="mint"] .vis-opt { border-radius: 999px; }
-html[data-theme="mint"] .nav-item { border-radius: 12px; }
-html[data-theme="mint"] .nav-item.active { border-radius: 12px; }
-html[data-theme="mint"] .modal, html[data-theme="mint"] .drawer { border-radius: 24px; }
+html[data-theme="mint"] .btn-primary { background: linear-gradient(135deg, #36c298, var(--primary)); }
+html[data-theme="mint"] .card { border-radius: 22px; border: none; box-shadow: var(--shadow); }
+html[data-theme="mint"] .contact-card { border: none; box-shadow: 0 3px 10px rgba(30,90,70,.06); }
+html[data-theme="mint"] .contact-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+html[data-theme="mint"] .tag { border-radius: 999px; padding: 3px 12px; font-weight: 500; }
+html[data-theme="mint"] .vis-opt { border-radius: 999px; background: #f6fbf9; border-color: var(--line-strong); }
+html[data-theme="mint"] .modal, html[data-theme="mint"] .drawer { border-radius: 26px; }
+html[data-theme="mint"] table thead th { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--primary-d); background: transparent; border-bottom: 2px solid var(--line); }
+html[data-theme="mint"] tbody tr:hover { background: var(--primary-soft); }
+html[data-theme="mint"] input, html[data-theme="mint"] select, html[data-theme="mint"] textarea { border-radius: 999px; padding-left: 16px; padding-right: 16px; background: #f6fbf9; border-color: var(--line-strong); }
+html[data-theme="mint"] .switch .slider { border-radius: 999px; }
 
-/* ---- Morandi：莫兰迪艺术，低调优雅 ---- */
+/* ---- Morandi：艺术画廊 / 包豪斯 ---- */
 html[data-theme="morandi"] {
   --bg: #f2f1ef;
   --card: #faf9f8;
@@ -596,24 +626,34 @@ html[data-theme="morandi"] {
   --bad: #b38780;
   --bad-soft: #f5edeb;
   --font: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-  --radius: 8px;
-  --radius-sm: 6px;
+  --radius: 0px;
+  --radius-sm: 0px;
   --shadow: none;
   --shadow-lift: 0 6px 20px rgba(80,75,70,.08);
 }
-html[data-theme="morandi"] .sidebar { background: var(--card); border-right: 2px solid var(--line); }
-html[data-theme="morandi"] .topbar { background: rgba(250,249,248,.92); border-bottom: 2px solid var(--line); }
-html[data-theme="morandi"] .btn { border-radius: 4px; text-transform: uppercase; font-size: 12.5px; letter-spacing: .04em; }
-html[data-theme="morandi"] .btn-ghost { background: transparent; border: 2px solid var(--line-strong); }
-html[data-theme="morandi"] .card { border-radius: 8px; border: 2px solid var(--line); box-shadow: none; }
+html[data-theme="morandi"] body { background: var(--bg); }
+html[data-theme="morandi"] .sidebar { width: 210px; background: var(--card); border-right: 3px solid var(--line); padding: 28px 14px; }
+html[data-theme="morandi"] .nav-item { border-radius: 0; padding: 11px 12px; border-left: 3px solid transparent; margin-left: -3px; }
+html[data-theme="morandi"] .nav-item.active { background: transparent; color: var(--primary-d); border-left-color: var(--primary-d); font-weight: 700; }
+html[data-theme="morandi"] .topbar { background: var(--card); border-bottom: 3px solid var(--line); }
+html[data-theme="morandi"] .btn { border-radius: 0; text-transform: uppercase; font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 10px 20px; border-width: 2px; }
+html[data-theme="morandi"] .btn:hover { box-shadow: none; background: var(--primary-d); }
+html[data-theme="morandi"] .btn-ghost { background: transparent; border: 2px solid var(--line-strong); color: var(--text); }
+html[data-theme="morandi"] .btn-ghost:hover { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-d); }
+html[data-theme="morandi"] .card { border-radius: 0; border: 2px solid var(--line); box-shadow: none; background: var(--card); }
+html[data-theme="morandi"] .contact-card { border: 2px solid var(--line); box-shadow: none; }
 html[data-theme="morandi"] .contact-card:hover { transform: none; box-shadow: var(--shadow-lift); border-color: var(--line-strong); }
-html[data-theme="morandi"] .tag { border-radius: 4px; font-weight: 500; }
-html[data-theme="morandi"] .vis-opt { border-radius: 4px; border-width: 2px; }
-html[data-theme="morandi"] .nav-item.active { border-radius: 4px; }
-html[data-theme="morandi"] .modal, html[data-theme="morandi"] .drawer { border-radius: 8px; border: 2px solid var(--line); box-shadow: var(--shadow-lift); }
-html[data-theme="morandi"] input, html[data-theme="morandi"] select, html[data-theme="morandi"] textarea { border-width: 2px; }
+html[data-theme="morandi"] .tag { border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 10.5px; padding: 3px 10px; }
+html[data-theme="morandi"] .vis-opt { border-radius: 0; border-width: 2px; background: var(--card); }
+html[data-theme="morandi"] .vis-opt.active { border-color: var(--primary-d); background: var(--primary-soft); }
+html[data-theme="morandi"] .modal, html[data-theme="morandi"] .drawer { border-radius: 0; border: 2px solid var(--line); box-shadow: var(--shadow-lift); }
+html[data-theme="morandi"] table thead th { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--text-strong); background: var(--cool-1); border-bottom: 2px solid var(--line-strong); }
+html[data-theme="morandi"] tbody tr:hover { background: var(--cool-1); }
+html[data-theme="morandi"] input, html[data-theme="morandi"] select, html[data-theme="morandi"] textarea { border-width: 2px; border-radius: 0; background: var(--card); }
+html[data-theme="morandi"] .switch .slider { border-radius: 0; }
+html[data-theme="morandi"] .switch .slider::before { border-radius: 0; }
 
-/* ---- Sakura：樱粉浪漫，柔和治愈 ---- */
+/* ---- Sakura：樱粉浪漫 / 棉花糖 ---- */
 html[data-theme="sakura"] {
   --bg: #fbf4f6;
   --card: #fffdfe;
@@ -633,20 +673,27 @@ html[data-theme="sakura"] {
   --bad: #d47a8a;
   --bad-soft: #f9eef1;
   --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --radius: 22px;
-  --radius-sm: 14px;
-  --shadow: 0 2px 6px rgba(150,80,100,.04), 0 10px 30px rgba(150,80,100,.05);
-  --shadow-lift: 0 6px 18px rgba(150,80,100,.06), 0 20px 48px rgba(150,80,100,.08);
+  --radius: 24px;
+  --radius-sm: 16px;
+  --shadow: 0 3px 8px rgba(150,80,100,.05), 0 12px 36px rgba(150,80,100,.06);
+  --shadow-lift: 0 8px 24px rgba(150,80,100,.08), 0 24px 56px rgba(150,80,100,.1);
 }
-html[data-theme="sakura"] .sidebar { background: linear-gradient(180deg, #fffdfe, #fdf5f8); border-right-color: var(--line); }
-html[data-theme="sakura"] .topbar { background: rgba(255,253,254,.88); }
-html[data-theme="sakura"] .btn { border-radius: 999px; font-weight: 500; }
+html[data-theme="sakura"] body { background: linear-gradient(135deg, #fbf4f6 0%, #fff8fa 50%, #fbf4f6 100%); background-attachment: fixed; }
+html[data-theme="sakura"] .sidebar { width: 230px; background: linear-gradient(180deg, #fffdfe, #fdf5f8); border-right: 1px solid var(--line); box-shadow: 5px 0 24px rgba(150,80,100,.04); padding: 28px 18px; }
+html[data-theme="sakura"] .nav-item { border-radius: 16px; padding: 11px 14px; }
+html[data-theme="sakura"] .nav-item.active { background: linear-gradient(135deg, #fcecf2, #ffe6ef); color: var(--primary-d); box-shadow: 0 2px 8px rgba(150,80,100,.08); }
+html[data-theme="sakura"] .topbar { background: rgba(255,253,254,.88); border-bottom: 1px solid var(--line); }
+html[data-theme="sakura"] .btn { border-radius: 999px; font-weight: 600; padding: 10px 24px; box-shadow: 0 4px 12px rgba(150,80,100,.14); }
+html[data-theme="sakura"] .btn:hover { box-shadow: 0 8px 22px rgba(150,80,100,.2); transform: translateY(-2px); }
 html[data-theme="sakura"] .btn-ghost { background: #fff7fa; border-color: var(--line-strong); }
-html[data-theme="sakura"] .card { border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+html[data-theme="sakura"] .btn-primary { background: linear-gradient(135deg, #e69ab0, var(--primary)); }
+html[data-theme="sakura"] .card { border-radius: 26px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+html[data-theme="sakura"] .contact-card { border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(150,80,100,.06); }
 html[data-theme="sakura"] .contact-card:hover { transform: translateY(-3px) rotate(.3deg); box-shadow: var(--shadow-lift); }
-html[data-theme="sakura"] .tag { border-radius: 999px; padding: 3px 12px; }
-html[data-theme="sakura"] .vis-opt { border-radius: 999px; }
-html[data-theme="sakura"] .nav-item { border-radius: 14px; }
-html[data-theme="sakura"] .nav-item.active { border-radius: 14px; }
-html[data-theme="sakura"] .modal, html[data-theme="sakura"] .drawer { border-radius: 28px; }
-html[data-theme="sakura"] .cc-stat { border-radius: 18px; }
+html[data-theme="sakura"] .tag { border-radius: 999px; padding: 3px 12px; font-weight: 500; }
+html[data-theme="sakura"] .vis-opt { border-radius: 999px; background: #fff7fa; border-color: var(--line-strong); }
+html[data-theme="sakura"] .modal, html[data-theme="sakura"] .drawer { border-radius: 30px; }
+html[data-theme="sakura"] table thead th { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--primary-d); background: var(--primary-soft); border-bottom: 1px solid var(--line); }
+html[data-theme="sakura"] tbody tr:hover { background: var(--primary-soft); }
+html[data-theme="sakura"] input, html[data-theme="sakura"] select, html[data-theme="sakura"] textarea { border-radius: 16px; background: #fff7fa; border-color: var(--line-strong); }
+html[data-theme="sakura"] .switch .slider { border-radius: 999px; }
