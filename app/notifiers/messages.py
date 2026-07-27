@@ -86,17 +86,24 @@ def _base_ctx(record: dict, days_until: int | None = None) -> dict:
     return ctx
 
 
-def build_reminder(record: dict, days_until: int) -> tuple:
+def build_reminder(record: dict, days_until: int, body_override: str | None = None) -> tuple:
     ctx = _base_ctx(record, days_until)
     age = _age_num(record)
     ctx.update({
         "age": _age_text(record),
         "age_num": age if age is not None else "",
     })
-    return _template("birthday_title", ctx), _template("birthday_body", ctx)
+    title = _template("birthday_title", ctx)
+    body = _template("birthday_body", ctx)
+    if body_override:
+        try:
+            body = body_override.format_map(_SafeDict(ctx))
+        except Exception:
+            pass
+    return title, body
 
 
-def build_anniversary_reminder(record: dict, days_until: int) -> tuple:
+def build_anniversary_reminder(record: dict, days_until: int, body_override: str | None = None) -> tuple:
     ctx = _base_ctx(record, days_until)
     yrs = _years_num(record)
     ctx.update({
@@ -104,7 +111,14 @@ def build_anniversary_reminder(record: dict, days_until: int) -> tuple:
         "years_together": _years_text(record),
         "years_together_num": yrs if yrs is not None else "",
     })
-    return _template("anniversary_title", ctx), _template("anniversary_body", ctx)
+    title = _template("anniversary_title", ctx)
+    body = _template("anniversary_body", ctx)
+    if body_override:
+        try:
+            body = body_override.format_map(_SafeDict(ctx))
+        except Exception:
+            pass
+    return title, body
 
 
 def build_test(record: dict) -> tuple:

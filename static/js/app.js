@@ -201,14 +201,24 @@ $("#logout-btn").addEventListener("click", async () => { try { await api("/api/l
 
 async function enterApp() {
   $("#auth-view").classList.add("hidden"); $("#app-view").classList.remove("hidden");
-  $("#user-chip").textContent = (ME.role === "admin" ? "👑 " : "👤 ") + ME.username + (ME.role === "admin" ? "（" + t("user.admin") + "）" : "");
+  try { ME = await api("/api/me"); } catch (_) {}
+  renderUserChip();
   $$(".admin-only").forEach((el) => el.classList.toggle("hidden", ME.role !== "admin"));
   try { UI_PREFS = await api("/api/ui"); } catch (_) {}
   document.body.classList.toggle("menu-top", UI_PREFS.menu_position === "top");
   document.body.classList.toggle("menu-left", UI_PREFS.menu_position !== "top");
   $("#nav-anniversaries") && $("#nav-anniversaries").classList.toggle("hidden", UI_PREFS.anniversary_enabled === false);
   refreshInviteBadge();
+  refreshNotifBadge();
   switchView("dashboard");
+}
+
+function renderUserChip() {
+  if (!ME) return;
+  const name = ME.nickname || ME.username;
+  $("#user-chip").innerHTML = '<span class="chip-avatar">' + (ME.role === "admin" ? "👑" : "👤") + "</span> " + esc(name);
+  $("#user-chip").classList.add("clickable");
+  $("#user-chip").onclick = () => switchView("profile");
 }
 
 async function refreshInviteBadge() {
@@ -235,6 +245,7 @@ function switchView(name) {
   if (name === "prefs") loadPrefs();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
+  if (name === "profile") loadProfile();
   if (name === "dashboard") loadDashboard();
 }
 $$(".nav-item").forEach((n) => n.addEventListener("click", () => switchView(n.dataset.view)));
@@ -486,20 +497,17 @@ function renderContacts() {
     pageItems = sorted.slice(start, start + perPage);
   } else { VIEW_PREFS.page = 1; }
   const groups = groupContacts(pageItems);
-  box.innerHTML = groups.map((g) => renderGroup(g)).join("");
+  box.innerHTML = groups.map((g, i) => renderGroup(g, i)).join("");
   renderPagination(sorted.length, totalPages, page);
-  const allPage = $("#select-all-page");
-  if (allPage) {
-    const visible = $$(".row-select");
-    allPage.checked = visible.length > 0 && visible.every((cb) => SELECTED_IDS.has(parseInt(cb.value)));
-  }
+  updateSelectStates();
 }
-function renderGroup(g) {
+function renderGroup(g, idx) {
   const mode = VIEW_PREFS.mode;
   const items = g.items.map((r) => mode === "card" ? cardHtml(r) : mode === "compact" ? compactRowHtml(r) : listRowHtml(r)).join("");
-  if (mode === "card") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="card-grid">${items}</div></div>`;
-  if (mode === "compact") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="compact-list">${items}</div></div>`;
-  return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="table-card"><table class="table table-fixed">${listColgroup()}<thead>${listHeader()}</thead><tbody>${items}</tbody></table></div></div>`;
+  const title = `${esc(g.title)} <span class="group-count">${g.items.length}</span> <label class="group-select" title="${t("group.selectAll")}"><input type="checkbox" class="group-select-all" data-gidx="${idx}"> <span data-i18n="group.selectAll">${t("group.selectAll")}</span></label>`;
+  if (mode === "card") return `<div class="group"><div class="group-title">${title}</div><div class="card-grid">${items}</div></div>`;
+  if (mode === "compact") return `<div class="group"><div class="group-title">${title}</div><div class="compact-list">${items}</div></div>`;
+  return `<div class="group"><div class="group-title">${title}</div><div class="table-card"><table class="table table-fixed">${listColgroup()}<thead>${listHeader()}</thead><tbody>${items}</tbody></table></div></div>`;
 }
 function hasField(key) { return FIELD_SET.has(key); }
 function renderPagination(total, totalPages, page) {
@@ -1189,6 +1197,156 @@ window.leaveFamily = (fid, fname) => {
     .catch((err) => toast(err.message, false));
 };
 
+/* ============ 个人资料 + 每用户提醒设置 ============ */
+
+const NOTIFY_CHANNELS = [
+  { key: "inapp", icon: "📥", label: "notify.chanInapp", desc: "notify.chanInappDesc" },
+  { key: "email", icon: "📧", label: "notify.chanEmail", desc: "notify.chanEmailDesc" },
+  { key: "webhook", icon: "🔗", label: "notify.chanWebhook", desc: "notify.chanWebhookDesc" },
+  { key: "wechat", icon: "💬", label: "notify.chanWechat", desc: "notify.chanWechatDesc" },
+  { key: "feishu", icon: "🚀", label: "notify.chanFeishu", desc: "notify.chanFeishuDesc" },
+];
+const ADVANCE_DAYS = [0, 1, 3, 7, 15];
+const DEFAULT_BODY_TPL = "{when}{name}的{type}（{calendar_type}{month}月{day}日）{age}\n关系：{relationship}\n备注：{note}";
+
+function loadProfile() {
+  const box = $("#profile-content"); if (!box) return;
+  box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
+  Promise.all([api("/api/me/prefs"), api("/api/me")]).then(([prefs, me]) => {
+    ME = me;
+    const chanHtml = NOTIFY_CHANNELS.map((c) => {
+      const on = (prefs.channels || []).includes(c.key);
+      return `<label class="chk"><input type="checkbox" class="np-chan" value="${c.key}" ${on ? "checked" : ""}/> ${c.icon} <b>${t(c.label)}</b><br><small class="muted">${t(c.desc)}</small></label>`;
+    }).join("");
+    const advHtml = ADVANCE_DAYS.map((d) => {
+      const on = (prefs.advance_days || []).includes(d);
+      const lbl = d === 0 ? t("notify.day0") : t("notify.dayN", { n: d });
+      return `<label class="chk"><input type="checkbox" class="np-adv" value="${d}" ${on ? "checked" : ""}/> ${lbl}</label>`;
+    }).join("");
+    box.innerHTML = `
+      <div class="card">
+        <div class="group-title">🪪 ${t("profile.basic")}</div>
+        <p class="help">${t("profile.basicDesc")}</p>
+        <div class="field"><label>${t("user.username")} <span class="muted">(${t("profile.accountFixed")})</span></label><input id="pf-username" value="${esc(ME.username)}" disabled /></div>
+        <div class="field"><label>${t("profile.nickname")}</label><input id="pf-nickname" value="${esc(ME.nickname || "")}" placeholder="${t("profile.nicknamePh")}" /></div>
+        <div class="field"><label>${t("profile.email")}</label><input id="pf-email" type="email" value="${esc(ME.email || "")}" placeholder="${t("profile.emailPh")}" /></div>
+        <div class="modal-actions"><button class="btn btn-primary" id="pf-save">${t("btn.save")}</button></div>
+
+        <div class="group-title" style="margin-top:18px">🔑 ${t("profile.password")}</div>
+        <p class="help">${t("profile.passwordDesc")}</p>
+        <div class="field"><label>${t("profile.curPass")}</label><input id="pf-cur" type="password" autocomplete="current-password" /></div>
+        <div class="field"><label>${t("profile.newPass")}</label><input id="pf-new" type="password" autocomplete="new-password" /></div>
+        <div class="field"><label>${t("profile.confirmPass")}</label><input id="pf-conf" type="password" autocomplete="new-password" /></div>
+        <div class="modal-actions"><button class="btn btn-primary" id="pf-pwd">${t("profile.changePass")}</button></div>
+      </div>
+
+      <div class="card">
+        <div class="group-title">⏰ ${t("profile.notify")}</div>
+        <p class="help">${t("profile.notifyDesc")}</p>
+
+        <div class="field"><label>${t("notify.channels")}</label>
+          <div class="chk-row">${chanHtml}</div>
+        </div>
+        <div class="field"><label>${t("notify.advance")}</label>
+          <div class="chk-row">${advHtml}</div>
+          <p class="help">${t("notify.advanceHelp")}</p>
+        </div>
+        <div class="field np-email-field" style="display:none"><label>📧 ${t("notify.emailAddr")}</label><input id="np-email" type="email" value="${esc(prefs.email || "")}" placeholder="${t("notify.emailPh")}" /></div>
+        <div class="field np-webhook-field" style="display:none"><label>🔗 ${t("notify.webhookAddr")}</label><input id="np-webhook" value="${esc(prefs.webhook_url || "")}" placeholder="${t("notify.webhookPh")}" /></div>
+
+        <div class="field"><label>${t("notify.content")}</label>
+          <textarea id="np-body" rows="4" placeholder="${t("notify.contentPh")}">${esc(prefs.template_body || DEFAULT_BODY_TPL)}</textarea>
+          <p class="help">${t("notify.contentHelp")}</p>
+          <button class="btn btn-ghost btn-sm" id="np-reset-tpl">${t("notify.resetTpl")}</button>
+        </div>
+        <div class="modal-actions"><button class="btn btn-primary" id="np-save">${t("btn.save")}</button></div>
+      </div>`;
+
+    const toggleExtra = () => {
+      const chans = Array.from(box.querySelectorAll(".np-chan:checked")).map((i) => i.value);
+      box.querySelector(".np-email-field").style.display = chans.includes("email") ? "" : "none";
+      box.querySelector(".np-webhook-field").style.display = chans.includes("webhook") ? "" : "none";
+    };
+    box.querySelectorAll(".np-chan").forEach((c) => c.addEventListener("change", toggleExtra));
+    toggleExtra();
+
+    $("#pf-save").addEventListener("click", async () => {
+      try {
+        const r = await api("/api/me/profile", { method: "POST", body: JSON.stringify({ nickname: $("#pf-nickname").value.trim(), email: $("#pf-email").value.trim() }) });
+        ME.nickname = r.nickname; ME.email = r.email; renderUserChip();
+        toast(t("toast.saved"));
+      } catch (e) { toast(e.message, false); }
+    });
+    $("#pf-pwd").addEventListener("click", async () => {
+      const cur = $("#pf-cur").value, nw = $("#pf-new").value, cf = $("#pf-conf").value;
+      if (nw.length < 6) { toast(t("profile.pwdTooShort"), false); return; }
+      if (nw !== cf) { toast(t("profile.pwdMismatch"), false); return; }
+      try { await api("/api/me/password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: nw }) }); toast(t("toast.saved")); $("#pf-cur").value = $("#pf-new").value = $("#pf-conf").value = ""; }
+      catch (e) { toast(e.message, false); }
+    });
+    $("#np-reset-tpl").addEventListener("click", () => { $("#np-body").value = DEFAULT_BODY_TPL; });
+    $("#np-save").addEventListener("click", async () => {
+      const channels = Array.from(box.querySelectorAll(".np-chan:checked")).map((i) => i.value);
+      const advance_days = Array.from(box.querySelectorAll(".np-adv:checked")).map((i) => parseInt(i.value));
+      const body = $("#np-body").value.trim();
+      const payload = {
+        channels: channels.length ? channels : ["inapp"],
+        advance_days: advance_days.length ? advance_days : [1, 3, 7],
+        email: $("#np-email").value.trim(),
+        webhook_url: $("#np-webhook").value.trim(),
+        template_body: body === DEFAULT_BODY_TPL ? null : body,
+      };
+      try { await api("/api/me/prefs", { method: "PUT", body: JSON.stringify(payload) }); toast(t("toast.saved")); }
+      catch (e) { toast(e.message, false); }
+    });
+  }).catch((e) => { box.innerHTML = ""; toast(e.message, false); });
+}
+
+/* ============ 站内信（每用户提醒收件箱） ============ */
+
+async function refreshNotifBadge() {
+  try {
+    const d = await api("/api/me/notifications");
+    const b = $("#notif-unread");
+    if (b) { b.textContent = d.unread || ""; b.classList.toggle("hidden", !d.unread); }
+  } catch (_) {}
+}
+
+function loadNotifications() {
+  const list = $("#notif-list"); if (!list) return;
+  api("/api/me/notifications").then((d) => {
+    const items = d.items || [];
+    if (!items.length) { list.innerHTML = '<div class="muted sm" style="padding:12px">' + t("notif.empty") + '</div>'; return; }
+    list.innerHTML = items.map((n) => `<div class="notif-item ${n.is_read ? "" : "unread"}" data-id="${n.id}">
+      <div class="notif-title">${esc(n.title)}</div>
+      <div class="notif-body">${esc(n.content)}</div>
+      <div class="notif-time muted sm">${esc((n.sent_at || "").replace("T", " ").slice(0, 16))}</div>
+    </div>`).join("");
+    list.querySelectorAll(".notif-item.unread").forEach((el) => el.addEventListener("click", async () => {
+      try { await api("/api/me/notifications/read", { method: "POST", body: JSON.stringify({ id: parseInt(el.dataset.id) }) }); el.classList.remove("unread"); refreshNotifBadge(); }
+      catch (_) {}
+    }));
+  }).catch(() => { list.innerHTML = '<div class="muted sm" style="padding:12px">' + t("notif.empty") + '</div>'; });
+}
+
+$("#notif-bell").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const p = $("#notif-panel");
+  const show = p.classList.contains("hidden");
+  p.classList.toggle("hidden", !show);
+  if (show) loadNotifications();
+});
+$("#notif-read-all").addEventListener("click", async () => {
+  try { await api("/api/me/notifications/read-all", { method: "POST" }); $("#notif-panel").querySelectorAll(".notif-item").forEach((el) => el.classList.remove("unread")); refreshNotifBadge(); }
+  catch (_) {}
+});
+document.addEventListener("click", (e) => {
+  const p = $("#notif-panel");
+  if (p && !p.classList.contains("hidden") && !p.contains(e.target) && e.target.id !== "notif-bell") {
+    p.classList.add("hidden");
+  }
+});
+
 /* ============ 偏好（主题 + 语言） ============ */
 function loadPrefs() {
   const box = $("#prefs-card"); if (!box) return;
@@ -1409,22 +1567,47 @@ $("#contacts-list").addEventListener("change", (e) => {
     const id = parseInt(rowCb.value);
     if (rowCb.checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id);
     updateBatchBadge();
-    const allPage = $("#select-all-page");
-    if (allPage) {
-      const visible = $$(".row-select");
-      allPage.checked = visible.length > 0 && visible.every((cb) => SELECTED_IDS.has(parseInt(cb.value)));
-    }
+    updateSelectStates();
     return;
   }
   if (e.target.id === "select-all-page") {
     const checked = e.target.checked;
-    const visibleIds = $$(".row-select").map((cb) => parseInt(cb.value));
-    if (checked) visibleIds.forEach((id) => SELECTED_IDS.add(id));
-    else visibleIds.forEach((id) => SELECTED_IDS.delete(id));
+    $$(".row-select").forEach((cb) => {
+      const id = parseInt(cb.value);
+      if (checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id);
+    });
     updateBatchBadge();
-    renderContacts();
+    updateSelectStates();
+    return;
+  }
+  const groupCb = e.target.closest(".group-select-all");
+  if (groupCb) {
+    const grp = groupCb.closest(".group");
+    const ids = grp ? Array.from(grp.querySelectorAll(".row-select")).map((cb) => parseInt(cb.value)) : [];
+    if (groupCb.checked) ids.forEach((id) => SELECTED_IDS.add(id));
+    else ids.forEach((id) => SELECTED_IDS.delete(id));
+    updateBatchBadge();
+    updateSelectStates();
   }
 });
+
+/* 同步「本页全选」与「各分组全选」的勾选/半选状态 */
+function updateSelectStates() {
+  const allPage = $("#select-all-page");
+  if (allPage) {
+    const visible = $$(".row-select");
+    const sel = visible.filter((cb) => SELECTED_IDS.has(parseInt(cb.value))).length;
+    allPage.checked = visible.length > 0 && sel === visible.length;
+    allPage.indeterminate = sel > 0 && sel < visible.length;
+  }
+  $$(".group-select-all").forEach((gcb) => {
+    const grp = gcb.closest(".group");
+    const cbs = grp ? Array.from(grp.querySelectorAll(".row-select")) : [];
+    const sel = cbs.filter((cb) => SELECTED_IDS.has(parseInt(cb.value))).length;
+    gcb.checked = cbs.length > 0 && sel === cbs.length;
+    gcb.indeterminate = sel > 0 && sel < cbs.length;
+  });
+}
 
 /* ============ 启动 ============ */
 initAuth().catch((err) => toast(err.message, false));

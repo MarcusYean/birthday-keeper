@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.12")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.13")
 
 
 # ---------- 鉴权依赖 ----------
@@ -236,7 +236,65 @@ def reset_password(body: ResetIn):
 
 @app.get("/api/me")
 def me(user: dict = Depends(get_current_user)):
-    return {"username": user["username"], "role": user["role"]}
+    return {
+        "username": user["username"],
+        "role": user["role"],
+        "nickname": user.get("nickname") or user["username"],
+        "email": user.get("email") or "",
+    }
+
+
+@app.post("/api/me/profile")
+def update_profile(body: dict, user: dict = Depends(get_current_user)):
+    nickname = (body.get("nickname") or "").strip()
+    email = (body.get("email") or "").strip()
+    if not nickname:
+        raise HTTPException(status_code=400, detail="昵称不能为空")
+    db.update_user_profile(user["id"], nickname, email or None)
+    return {"ok": True, "nickname": nickname, "email": email}
+
+
+@app.post("/api/me/password")
+def change_password(body: dict, user: dict = Depends(get_current_user)):
+    cur = (body.get("current_password") or "")
+    new = (body.get("new_password") or "")
+    if len(new) < 6:
+        raise HTTPException(status_code=400, detail="新密码至少 6 位")
+    u = db.get_user_by_id(user["id"])
+    if not auth_mod.verify_password(cur, u["password"]):
+        raise HTTPException(status_code=400, detail="当前密码不正确")
+    db.admin_set_password(user["id"], new)
+    return {"ok": True}
+
+
+@app.get("/api/me/prefs")
+def get_my_prefs(user: dict = Depends(get_current_user)):
+    return db.get_user_prefs(user["id"])
+
+
+@app.put("/api/me/prefs")
+def put_my_prefs(body: dict, user: dict = Depends(get_current_user)):
+    db.set_user_prefs(user["id"], body)
+    return {"ok": True}
+
+
+@app.get("/api/me/notifications")
+def my_notifications(user: dict = Depends(get_current_user)):
+    return {"items": db.get_notifications(user["id"]), "unread": db.unread_notification_count(user["id"])}
+
+
+@app.post("/api/me/notifications/read")
+def read_notification(body: dict, user: dict = Depends(get_current_user)):
+    nid = body.get("id")
+    if nid:
+        db.mark_notification_read(int(nid))
+    return {"ok": True}
+
+
+@app.post("/api/me/notifications/read-all")
+def read_all_notifications(user: dict = Depends(get_current_user)):
+    db.mark_all_notifications_read(user["id"])
+    return {"ok": True}
 
 
 # ---------- 生日（需登录） ----------

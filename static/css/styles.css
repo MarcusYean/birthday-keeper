@@ -308,6 +308,39 @@ tbody tr:hover { background: #fafbfc; }
 #batch-count { display: none; }
 #batch-count.show { display: inline-block; }
 
+/* 顶部提醒铃铛 + 站内信面板 */
+.icon-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border: none; background: transparent; border-radius: 9px;
+  font-size: 17px; cursor: pointer; color: var(--text);
+}
+.icon-btn:hover { background: var(--hover); }
+#notif-unread {
+  position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; line-height: 16px;
+  padding: 0 4px; font-size: 10px; text-align: center;
+}
+.notif-panel {
+  position: absolute; top: 48px; right: 14px; width: 340px; max-width: calc(100vw - 28px);
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow); z-index: 50; overflow: hidden;
+}
+.notif-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.notif-list { max-height: 360px; overflow-y: auto; }
+.notif-item { padding: 11px 14px; border-bottom: 1px solid var(--line); cursor: pointer; transition: background .15s; }
+.notif-item:hover { background: var(--hover); }
+.notif-item.unread { background: color-mix(in srgb, var(--primary) 8%, var(--card)); }
+.notif-item.unread .notif-title::before { content: "● "; color: var(--primary); }
+.notif-title { font-weight: 500; font-size: 13.5px; color: var(--text-strong); white-space: pre-wrap; word-break: break-word; }
+.notif-body { font-size: 12.5px; color: var(--text); white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
+.notif-time { margin-top: 4px; }
+
+/* 个人资料 / 分组选择 */
+.user-chip.clickable { cursor: pointer; }
+.chip-avatar { font-size: 14px; }
+.group-select { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; font-size: 11.5px; color: var(--muted); cursor: pointer; }
+.group-select input { vertical-align: middle; }
+
+
 /* ---------- 首页看板 ---------- */
 .dash-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .dash-card {

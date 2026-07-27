@@ -62,6 +62,7 @@ _SCHEMA = [
     """
     CREATE TABLE IF NOT EXISTS notify_log (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER,
         record_id   INTEGER,
         target_year INTEGER,
         offset_days INTEGER,
@@ -70,11 +71,36 @@ _SCHEMA = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS user_prefs (
+        user_id      INTEGER PRIMARY KEY,
+        channels     TEXT,          -- JSON: ["inapp","email","feishu","webhook","wechat"]
+        advance_days TEXT,          -- JSON: [0,1,3,7]
+        email        TEXT,          -- 该用户接收提醒所用的邮箱（邮件渠道时必填）
+        webhook_url  TEXT,          -- 该用户的 Webhook 地址（webhook 渠道时必填）
+        template_body TEXT,         -- 自定义提醒正文模板（NULL=使用系统默认）
+        enabled      INTEGER DEFAULT 1
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS notifications (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL,
+        title       TEXT,
+        content     TEXT,
+        record_id   INTEGER,
+        kind        TEXT,
+        sent_at     TEXT,
+        is_read     INTEGER DEFAULT 0
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS users (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         username   TEXT UNIQUE NOT NULL,
         password   TEXT NOT NULL,
         role       TEXT NOT NULL DEFAULT 'user',
+        nickname   TEXT,
+        email      TEXT,
         created_at TEXT
     )
     """,
@@ -135,6 +161,10 @@ _COLUMN_MIGRATIONS = {
     },
     "users": {
         "role": "TEXT DEFAULT 'user'", "created_at": "TEXT",
+        "nickname": "TEXT", "email": "TEXT",
+    },
+    "notify_log": {
+        "user_id": "INTEGER",
     },
 }
 
@@ -732,12 +762,14 @@ def count_users() -> int:
         conn.close()
 
 
-def create_user(username: str, password: str, role: str = "user") -> int:
+def create_user(username: str, password: str, role: str = "user",
+                nickname: str | None = None, email: str | None = None) -> int:
     conn = _get_conn()
     try:
         cur = conn.execute(
-            "INSERT INTO users(username, password, role, created_at) VALUES(?,?,?,?)",
-            (username, auth.hash_password(password), role, datetime.now(timezone.utc).isoformat()),
+            "INSERT INTO users(username, password, role, nickname, email, created_at) VALUES(?,?,?,?,?,?)",
+            (username, auth.hash_password(password), role, nickname or username, email,
+             datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
         return cur.lastrowid
@@ -766,7 +798,7 @@ def get_user_by_id(uid: int) -> dict | None:
 def list_users() -> list:
     conn = _get_conn()
     try:
-        rows = conn.execute("SELECT id, username, role, created_at FROM users ORDER BY id").fetchall()
+        rows = conn.execute("SELECT id, username, nickname, email, role, created_at FROM users ORDER BY id").fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()
@@ -1072,3 +1104,191 @@ def admin_set_password(user_id: int, new_password: str) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def update_user_profile(user_id: int, nickname: str | None, email: str | None) -> None:
+    """更新个人资料：昵称、邮箱。账号(username)不可改。"""
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "UPDATE users SET nickname=?, email=? WHERE id=?",
+            (nickname, email, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------- 个人提醒偏好（每个用户独立） ----------
+
+DEFAULT_USER_PREFS = {
+    "channels": ["inapp"],
+    "advance_days": [1, 3, 7],
+    "email": "",
+    "webhook_url": "",
+    "template_body": None,
+    "enabled": 1,
+}
+
+
+def get_user_prefs(user_id: int) -> dict:
+    conn = _get_conn()
+    try:
+        r = conn.execute("SELECT * FROM user_prefs WHERE user_id=?", (user_id,)).fetchone()
+    finally:
+        conn.close()
+    if not r:
+        return dict(DEFAULT_USER_PREFS)
+    d = dict(DEFAULT_USER_PREFS)
+    d.update(dict(r))
+    # 解析 JSON 字段
+    for k in ("channels", "advance_days"):
+        if isinstance(d.get(k), str):
+            try:
+                d[k] = json.loads(d[k])
+            except Exception:
+                d[k] = DEFAULT_USER_PREFS[k]
+    if not d.get("channels"):
+        d["channels"] = list(DEFAULT_USER_PREFS["channels"])
+    if not d.get("advance_days"):
+        d["advance_days"] = list(DEFAULT_USER_PREFS["advance_days"])
+    d["enabled"] = int(d.get("enabled", 1) or 0)
+    return d
+
+
+def set_user_prefs(user_id: int, data: dict) -> None:
+    channels = data.get("channels") or ["inapp"]
+    advance_days = data.get("advance_days") or [1, 3, 7]
+    conn = _get_conn()
+    try:
+        conn.execute(
+            """INSERT INTO user_prefs(user_id, channels, advance_days, email, webhook_url, template_body, enabled)
+               VALUES(?,?,?,?,?,?,?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 channels=excluded.channels, advance_days=excluded.advance_days,
+                 email=excluded.email, webhook_url=excluded.webhook_url,
+                 template_body=excluded.template_body, enabled=excluded.enabled""",
+            (
+                user_id,
+                json.dumps(channels, ensure_ascii=False),
+                json.dumps(advance_days, ensure_ascii=False),
+                (data.get("email") or "").strip(),
+                (data.get("webhook_url") or "").strip(),
+                data.get("template_body") or None,
+                int(bool(data.get("enabled", True))),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------- 站内信（提醒收件箱，每人独立） ----------
+
+def insert_notification(user_id: int, title: str, content: str, record_id: int | None, kind: str) -> None:
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO notifications(user_id, title, content, record_id, kind, sent_at) VALUES(?,?,?,?,?,?)",
+            (user_id, title, content, record_id, kind, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_notifications(user_id: int, limit: int = 50) -> list:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM notifications WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def unread_notification_count(user_id: int) -> int:
+    conn = _get_conn()
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (user_id,)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def mark_notification_read(nid: int) -> None:
+    conn = _get_conn()
+    try:
+        conn.execute("UPDATE notifications SET is_read=1 WHERE id=?", (nid,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_all_notifications_read(user_id: int) -> None:
+    conn = _get_conn()
+    try:
+        conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------- 每用户去重（提醒只发一次） ----------
+
+def has_notified_user(user_id: int, record_id: int, target_year: int, offset: int) -> bool:
+    conn = _get_conn()
+    try:
+        cur = conn.execute(
+            "SELECT 1 FROM notify_log WHERE user_id=? AND record_id=? AND target_year=? AND offset_days=?",
+            (user_id, record_id, target_year, offset),
+        )
+        return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def mark_notified_user(user_id: int, record_id: int, target_year: int, offset: int, detail: str) -> None:
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO notify_log(user_id, record_id, target_year, offset_days, detail, sent_at) VALUES(?,?,?,?,?,?)",
+            (user_id, record_id, target_year, offset, detail, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------- 通知任务：记录 × 可见用户（不含管理员越权） ----------
+
+def _viewer_ids(r: dict, fam_idx: dict, user_ids: list) -> list:
+    """返回能看见该记录的用户 id 列表（仅按归属/家庭/公开，不含管理员全部可见）。"""
+    vids = []
+    owner = r.get("owner_id")
+    vis = (r.get("visibility") or "private")
+    for uid in user_ids:
+        if uid == owner:
+            vids.append(uid); continue
+        if vis == "public":
+            vids.append(uid); continue
+        if vis == "family":
+            if fam_idx.get(uid, set()) & fam_idx.get(owner, set()):
+                vids.append(uid)
+    return vids
+
+
+def get_notification_jobs() -> list:
+    """返回 [(record_dict, [viewer_user_id,...]), ...]，涵盖生日与纪念日。"""
+    fam_idx = _family_index()
+    user_ids = [u["id"] for u in list_users()]
+    jobs = []
+    for r in get_all_birthdays() + get_all_anniversaries():
+        vids = _viewer_ids(r, fam_idx, user_ids)
+        if vids:
+            jobs.append((r, vids))
+    return jobs
+
