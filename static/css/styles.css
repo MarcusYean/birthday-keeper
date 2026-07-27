@@ -381,9 +381,8 @@ tbody tr:hover { background: #fafbfc; }
 .dist-track { flex: 1; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .dist-fill { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
 .dist-num { flex: 0 0 28px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-@media (max-width: 720px) {
-/* 数据分析区块 */
-.dash-analysis-head { font-size: 14.5px; font-weight: 500; color: var(--text-strong); margin: 4px 0 12px; letter-spacing: .03em; }
+/* 数据分析区块（桌面与移动端通用；原先误置于移动端媒体查询内，导致桌面端样式缺失、时间线错乱） */
+.dash-analysis-head { font-size: 14.5px; font-weight: 500; color: var(--text-strong); margin: 18px 0 12px; letter-spacing: .03em; }
 .dash-tl { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin-top: 4px; }
 .dash-tl-col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
 .dash-tl-fill { width: 100%; background: var(--primary); border-radius: 3px 3px 0 0; min-height: 2px; transition: height .3s ease; }
@@ -391,6 +390,7 @@ tbody tr:hover { background: #fafbfc; }
 .dash-tl-axis { display: flex; justify-content: space-between; margin-top: 5px; font-size: 9px; color: var(--muted); }
 .dash-insights .insight-list { margin: 2px 0 0; padding-left: 18px; }
 .insight-list li { font-size: 12.5px; color: var(--text); margin: 7px 0; line-height: 1.5; }
+@media (max-width: 720px) {
   .dash-cards { grid-template-columns: repeat(2, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
 }

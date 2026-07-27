@@ -31,6 +31,17 @@ def _lunar_to_solar(year: int, month: int, day: int, is_leap: bool = False):
             return ld.to_solar_date() if hasattr(ld, "to_solar_date") else ld.toSolarDate()
         except Exception:
             d -= 1
+    # 闰月仅存在于部分年份：若当年根本没有这个闰月（如「闰五月」遇无闰月之年），
+    # 则回退到同月的普通版本（民间惯例：无闰月年份在农历同月过），避免「算不出来」。
+    if is_leap:
+        d = day
+        leap = 0
+        while d >= 1:
+            try:
+                ld = LunarDate(year, month, d, leap)
+                return ld.to_solar_date() if hasattr(ld, "to_solar_date") else ld.toSolarDate()
+            except Exception:
+                d -= 1
     return None
 
 
