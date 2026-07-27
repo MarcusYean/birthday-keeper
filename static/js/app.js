@@ -251,6 +251,12 @@ let VIEW_PREFS = { mode: "list", sort: "days_until_asc", group: "none", per_page
 let FIELD_SET = new Set(VIEW_PREFS.fields);
 let SELECTED_IDS = new Set();
 
+const UPCOMING_PREFS_KEY = "bk_upcoming_prefs";
+function loadUpcomingPrefs() { try { return JSON.parse(localStorage.getItem(UPCOMING_PREFS_KEY) || "{}"); } catch { return {}; } }
+function saveUpcomingPrefs(p) { localStorage.setItem(UPCOMING_PREFS_KEY, JSON.stringify(p)); }
+let UPCOMING_PREFS = { mode: "list", ...loadUpcomingPrefs() };
+let UPCOMING_ROWS = [];
+
 function buildFieldMeta() {
   return [
   { key: "avatar", label: t("field.avatar") }, { key: "name", label: t("field.name") }, { key: "relationship", label: t("field.relationship") },
@@ -318,6 +324,7 @@ $("#batch-test-anni-btn").addEventListener("click", () => runBatchTestSelection(
 $("#select-all-btn").addEventListener("click", () => { CONTACTS.forEach((r) => SELECTED_IDS.add(r.id)); updateBatchBadge(); renderContacts(); });
 $("#select-none-btn").addEventListener("click", () => { SELECTED_IDS.clear(); updateBatchBadge(); renderContacts(); });
 $("#select-inv-btn").addEventListener("click", () => { CONTACTS.forEach((r) => { if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id); else SELECTED_IDS.add(r.id); }); updateBatchBadge(); renderContacts(); });
+$("#up-view-mode").addEventListener("change", (e) => { UPCOMING_PREFS.mode = e.target.value; saveUpcomingPrefs(UPCOMING_PREFS); renderUpcoming(); });
 
 async function loadContacts() {
   const box = $("#contacts-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
@@ -330,7 +337,7 @@ async function loadContacts() {
   }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
-function applyToolbar() { $("#view-mode").value = VIEW_PREFS.mode; $("#sort-by").value = VIEW_PREFS.sort; $("#group-by").value = VIEW_PREFS.group; $("#per-page").value = VIEW_PREFS.per_page; }
+function applyToolbar() { $("#view-mode").value = VIEW_PREFS.mode; $("#sort-by").value = VIEW_PREFS.sort; $("#group-by").value = VIEW_PREFS.group; $("#per-page").value = VIEW_PREFS.per_page; const ue = $("#up-view-mode"); if (ue) ue.value = UPCOMING_PREFS.mode; }
 
 function sortContacts(rows) {
   const s = VIEW_PREFS.sort; const a = [...rows];
@@ -728,7 +735,7 @@ function renderAnniversaries() {
   const rows = ANNIS.map((r) => `
     <tr>
       <td data-label="${t("field.name")}"><b>${esc(r.name)}</b></td>
-      <td data-label="${t("field.relationship")}">${esc(r.relationship || "-")}</td>
+      <td data-label="${t("field.desc")}">${esc(r.note || "-")}</td>
       <td data-label="${t("form.type")}">${esc(r.kind || t("anni.default"))}</td>
       <td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>
       <td data-label="${t("field.date")}">${r.year ? r.year + " " + t("unit.year") + " " : ""}${r.month} ${t("unit.month")} ${r.day} ${t("unit.day")}${r.is_leap ? "（" + t("form.leapShort") + "）" : ""}</td>
@@ -737,7 +744,7 @@ function renderAnniversaries() {
       <td data-label="${t("field.passed")}">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> ${t("unit.anniv")}` : "-"}</td>
       <td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, "anni")}</td>
     </tr>`).join("");
-  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.relationship")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function openAnniEditor(r) {
   const isEdit = !!r; r = r || {};
@@ -746,16 +753,15 @@ function openAnniEditor(r) {
   const html = `
     <h2>${isEdit ? t("anni.editTitle") : t("anni.addTitle")}</h2>
     <form id="anni-form" class="modal-form">
-      <div class="grid2"><div class="field"><label>${t("form.name")} *</label><input id="a-name" type="text" required value="${esc(r.name || "")}" placeholder="${t("form.name")}" /></div>
-      <div class="field"><label>${t("form.relationship")}</label><input id="a-rel" type="text" value="${esc(r.relationship || "")}" placeholder="${t("form.relationship")}" /></div></div>
-      <div class="grid2"><div class="field"><label>${t("form.type")}</label><input id="a-kind" type="text" value="${esc(r.kind || t("anni.default"))}" placeholder="${t("form.type")}" /></div>
-      <div class="field"><label>${t("form.calType")}</label><select id="a-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>${t("cal.solarFull")}</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>${t("cal.lunarFull")}</option></select></div></div>
-      <div class="grid3"><div class="field"><label>${t("form.startYear")}</label><input id="a-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="${t("form.startYear")}" /></div>
-      <div class="field"><label>${t("form.month")} *</label><input id="a-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
-      <div class="field"><label>${t("form.day")} *</label><input id="a-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div></div>
+      <div class="grid2"><div class="field"><label>${t("form.anniName")} *</label><input id="a-name" type="text" required value="${esc(r.name || "")}" placeholder="${t("form.anniName")}" /></div>
+      <div class="field"><label>${t("form.type")}</label><input id="a-kind" type="text" value="${esc(r.kind || t("anni.default"))}" placeholder="${t("form.type")}" /></div></div>
+      <div class="grid2"><div class="field"><label>${t("form.calType")}</label><select id="a-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>${t("cal.solarFull")}</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>${t("cal.lunarFull")}</option></select></div>
+      <div class="field"><label>${t("form.startYear")}</label><input id="a-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="${t("form.startYear")}" /></div></div>
+      <div class="grid3"><div class="field"><label>${t("form.month")} *</label><input id="a-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
+      <div class="field"><label>${t("form.day")} *</label><input id="a-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div>
+      <div class="field"><label>${t("form.anniDesc")}</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.anniDesc")}" /></div></div>
       <div class="field"><label>${t("form.reminderDays")}</label>${daysPickerHtml("a-days", days)}</div>
       <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
-      <div class="field"><label>${t("form.note")}</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
         <div class="vis-picker" id="a-vis">${visOptions().map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
@@ -769,7 +775,7 @@ function openAnniEditor(r) {
   $("#anni-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const body = {
-      name: $("#a-name").value.trim(), relationship: $("#a-rel").value.trim() || null, kind: $("#a-kind").value.trim() || t("anni.default"),
+      name: $("#a-name").value.trim(), kind: $("#a-kind").value.trim() || t("anni.default"),
       calendar_type: $("#a-cal").value, year: $("#a-year").value ? parseInt($("#a-year").value) : null,
       month: parseInt($("#a-month").value), day: parseInt($("#a-day").value), is_leap: false,
       notify_days: collectDays("a-days"),
@@ -795,28 +801,97 @@ window.delRecord = async (kind, id, name) => {
   } catch (err) { toast(err.message, false); }
 };
 
-/* ============ 即将到来（合并生日+纪念日） ============ */
+/* ============ 即将到来（当前自然年内的全部生日+纪念日，含已过） ============ */
 async function loadUpcoming() {
   const box = $("#upcoming-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
+  // 预热联系人/纪念日数据，便于即将到来里直接编辑
+  if (!CONTACTS.length) loadContacts();
+  if (!ANNIS.length) loadAnniversaries();
   try {
-    const rows = await api("/api/upcoming?days=60");
-    if (!rows.length) { box.innerHTML = '<div class="empty">' + t("empty.upcoming") + '</div>'; return; }
-    box.innerHTML = rows.map((r) => {
-      const cal = r.calendar_type === "lunar" ? t("cal.lunar") : t("cal.solar");
-      const isAnni = r.kind === "anniversary";
-      const big = isAnni ? (r.years_on_next != null ? ` · ${t("unit.anniv")} ${r.years_on_next}` : "") : (r.age_on_next != null ? ` · ${r.age_on_next} ${t("unit.years")}` : "");
-      const lived = isAnni ? (r.years_passed != null ? `<div class="up-meta">${t("field.passed")} <span class="num">${r.years_passed}</span> ${t("unit.year")}</div>` : "") : (r.days_lived != null ? `<div class="up-meta">${t("field.daysLived")} <span class="num">${r.days_lived.toLocaleString()}</span> ${t("unit.days")}</div>` : "");
-      const badge = isAnni ? '<span class="tag tag-solar">' + t("nav.anniversaries") + '</span>' : calendarBadge(r);
-      return `<div class="up-item">
-        <div class="up-left">
-          <div class="up-name">${avatarHtml(r)} ${esc(r.name)} <span class="muted sm">${esc(r.relationship || "")}</span> ${badge}</div>
-          <div class="muted sm">${cal} ${r.month}.${r.day} · ${r.next_date}${big}</div>
-          ${lived}
-        </div>
-        ${daysBadge(r)}
-      </div>`;
-    }).join("");
+    UPCOMING_ROWS = await api("/api/year-dates");
+    renderUpcoming();
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
+}
+function anniKindBadge(kind) { return kind ? `<span class="tag tag-anni">${esc(kind)}</span>` : ""; }
+function upDaysBadge(r) {
+  if (r.days_until == null) return "-";
+  if (r.days_until === 0 || r.is_today) return '<span class="tag today">🎉 ' + t("today") + '</span>';
+  if (r.days_until > 0) {
+    if (r.days_until <= 3) return `<span class="tag soon">${r.days_until} ${t("days.left")}</span>`;
+    if (r.days_until <= 14) return `<span class="tag near">${r.days_until} ${t("days.left")}</span>`;
+    return `<span class="tag">${r.days_until} ${t("days.left")}</span>`;
+  }
+  return `<span class="tag tag-off">${t("field.passedDays", { n: Math.abs(r.days_until) })}</span>`;
+}
+function upSubLabel(r) {
+  const isAnni = r.kind === "anniversary";
+  if (isAnni) return r.kind || t("anni.default");
+  return r.relationship || "";
+}
+function upHead() {
+  return `<tr><th>${t("field.name")}</th><th>${t("form.type")}</th><th>${t("field.date")}</th><th>${t("field.countdown")}</th><th class="ta-r">${t("field.actions")}</th></tr>`;
+}
+function upRow(r) {
+  const isAnni = r.kind === "anniversary";
+  return `<tr>
+    <td data-label="${t("field.name")}"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</td>
+    <td data-label="${t("form.type")}">${isAnni ? esc(r.kind || t("anni.default")) : esc(r.relationship || "-")}</td>
+    <td data-label="${t("field.date")}"><span class="mono">${r.occ_date}</span></td>
+    <td data-label="${t("field.countdown")}">${upDaysBadge(r)}</td>
+    <td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, isAnni ? "anni" : "contact")}</td>
+  </tr>`;
+}
+function upCard(r) {
+  const isAnni = r.kind === "anniversary";
+  const extra = isAnni
+    ? (r.anniv_num != null ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.passed")}</span><span class="cc-stat-val"><span class="num">${r.anniv_num}</span> ${t("unit.anniv")}</span></div>` : "")
+    : (r.age_on_occ != null ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.age")}</span><span class="cc-stat-val"><span class="num">${r.age_on_occ}</span> ${t("unit.years")}</span></div>` : "");
+  return `<div class="contact-card" data-id="${r.id}">
+    <div class="cc-head">
+      <div class="cc-avatar">${avatarHtml(r, true)}</div>
+      <div class="cc-head-info">
+        <div class="cc-name">${esc(r.name)} ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</div>
+        <div class="cc-sub">${esc(upSubLabel(r))}</div>
+      </div>
+    </div>
+    <div class="cc-stats">
+      <div class="cc-stat"><span class="cc-stat-label">${t("field.date")}</span><span class="cc-stat-val"><span class="mono">${r.occ_date}</span></span></div>
+      <div class="cc-stat"><span class="cc-stat-label">${t("field.countdown")}</span><span class="cc-stat-val">${upDaysBadge(r)}</span></div>
+      ${extra}
+    </div>
+    ${r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
+    <div class="cc-actions">${actionsHtml(r, isAnni ? "anni" : "contact")}</div>
+  </div>`;
+}
+function upCompact(r) {
+  const isAnni = r.kind === "anniversary";
+  return `<div class="compact-item" data-id="${r.id}">
+    <div class="compact-left">
+      ${avatarHtml(r)}<b>${esc(r.name)}</b>
+      <span class="muted sm">${esc(upSubLabel(r))} ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</span>
+    </div>
+    <div class="compact-right">
+      ${upDaysBadge(r)}
+      <span class="muted sm"><span class="mono">${r.occ_date}</span></span>
+      ${actionsHtml(r, isAnni ? "anni" : "contact")}
+    </div>
+  </div>`;
+}
+function renderUpcoming() {
+  const box = $("#upcoming-list");
+  const rows = UPCOMING_ROWS;
+  if (!rows.length) { box.innerHTML = '<div class="empty">' + t("empty.upcoming") + '</div>'; return; }
+  const mode = UPCOMING_PREFS.mode;
+  const build = (r) => mode === "card" ? upCard(r) : mode === "compact" ? upCompact(r) : upRow(r);
+  const wrapOpen = mode === "card" ? `<div class="card-grid">` : mode === "compact" ? `<div class="compact-list">` : `<div class="table-card"><table class="table"><thead>${upHead()}</thead><tbody>`;
+  const wrapClose = mode === "card" ? `</div>` : mode === "compact" ? `</div>` : `</tbody></table></div>`;
+  const renderGroup = (title, items) => {
+    if (!items.length) return "";
+    return `<div class="group"><div class="group-title">${title} <span class="group-count">${items.length}</span></div>${wrapOpen}${items.map(build).join("")}${wrapClose}</div>`;
+  };
+  const upcoming = rows.filter((r) => r.is_upcoming);
+  const passed = rows.filter((r) => r.is_passed);
+  box.innerHTML = renderGroup(t("upcoming.soon"), upcoming) + renderGroup(t("upcoming.passed"), passed);
 }
 
 /* ============ 家庭共享 ============ */

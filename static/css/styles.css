@@ -1,5 +1,5 @@
 /* ============================================================
-   生日管家 v2.6.8 · 主流 UI 风格主题 + 多语言
+   生日管家 v2.6.9 · 主流 UI 风格主题 + 多语言
    5 套完全不同的界面风格：极简现代 / 玻璃拟态 / 新拟态 / 包豪斯 / Material You
    每套主题不仅换色，更在字体、布局、圆角、阴影、按钮、卡片、输入框、开关与复选框形态上独立设计。
    ============================================================ */
@@ -148,6 +148,7 @@ tbody tr:hover { background: #fafbfc; }
 }
 .tag.lunar, .tag-lunar { background: var(--warm-soft); color: #a8825a; }
 .tag-solar { background: var(--cool-1); color: #67809c; }
+.tag-anni { background: #f3eafa; color: #8a5fc0; }
 .tag.soon { background: #f7efee; color: #bb7570; font-weight: 500; }
 .tag.near { background: #f8f4ea; color: #a8905e; }
 .tag.today { background: #f7eceb; color: var(--bad); font-weight: 500; }
@@ -553,7 +554,7 @@ body.menu-top .topbar { padding: 15px 36px; }
    mint  = 新拟态 (Neumorphism / Soft UI)
    morandi = 包豪斯 (Bauhaus / Brutalist)
    sakura = Material You
-   v2.6.8 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
+   v2.6.9 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
    按钮、卡片、表格、标签、输入框、侧边栏、导航、开关、复选框形态上的独立设计语言。
    ============================================================ */
 

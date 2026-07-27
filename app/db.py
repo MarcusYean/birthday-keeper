@@ -659,6 +659,55 @@ def upcoming_combined(days: int = 60, viewer_id: int | None = None, is_admin: bo
     return out
 
 
+def _occurrence_in_year(calendar_type: str, month: int, day: int, is_leap: bool, year: int):
+    """返回指定年份内该生日/纪念日对应的公历日期；不存在则返回 None。"""
+    from . import lunar
+
+    if calendar_type == "lunar":
+        return lunar._lunar_to_solar(year, month, day, is_leap)
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def year_dates(viewer_id: int | None = None, is_admin: bool = False) -> list:
+    """当前自然年内所有可见的生日 + 纪念日（含已经过与即将到来），按年内日期排序。
+
+    每条返回：kind / occ_date(今年对应公历日期) / days_until(相对今天，可为负) /
+    is_passed(今年已过) / is_upcoming(今天及以后) / age_on_occ(生日今年周岁) /
+    anniv_num(纪念日今年为第几周年，有起始年才有)。
+    """
+    today = date.today()
+    yr = today.year
+    items: list = []
+    for r in get_all_birthdays():
+        occ = _occurrence_in_year(r["calendar_type"], r["month"], r["day"], bool(r.get("is_leap")), yr)
+        if occ is None:
+            continue
+        d = (occ - today).days
+        item = dict(r, kind="birthday", occ_date=occ.isoformat(), days_until=d,
+                    is_passed=d < 0, is_upcoming=d >= 0)
+        y = r.get("year")
+        item["age_on_occ"] = (yr - y) if y else None
+        items.append(item)
+    for r in get_all_anniversaries():
+        occ = _occurrence_in_year(r["calendar_type"], r["month"], r["day"], bool(r.get("is_leap")), yr)
+        if occ is None:
+            continue
+        d = (occ - today).days
+        item = dict(r, kind="anniversary", occ_date=occ.isoformat(), days_until=d,
+                    is_passed=d < 0, is_upcoming=d >= 0)
+        y = r.get("year")
+        item["anniv_num"] = (yr - y) if y else None
+        items.append(item)
+    if viewer_id is not None:
+        fam_idx = _family_index()
+        items = [x for x in items if _is_visible(x, viewer_id, fam_idx, is_admin)]
+    items.sort(key=lambda x: x["occ_date"])
+    return items
+
+
 # ---------- 用户 & 会话 ----------
 
 def count_users() -> int:

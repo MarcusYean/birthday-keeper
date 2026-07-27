@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.8")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.9")
 
 
 # ---------- 鉴权依赖 ----------
@@ -356,6 +356,12 @@ def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
 @app.get("/api/upcoming")
 def upcoming(days: int = 30, user: dict = Depends(get_current_user)):
     return db.upcoming_combined(days, user["id"], user["role"] == "admin")
+
+
+@app.get("/api/year-dates")
+def year_dates(user: dict = Depends(get_current_user)):
+    """当前自然年内的全部生日 + 纪念日（含已过的与未来的）。"""
+    return db.year_dates(user["id"], user["role"] == "admin")
 
 
 @app.post("/api/anniversaries/test")
