@@ -118,7 +118,7 @@ body {
 }
 .topbar-title { font-size: 17px; font-weight: 500; letter-spacing: .04em; color: var(--text-strong); }
 .topbar-right { display: flex; align-items: center; gap: 14px; }
-.user-chip { font-size: 12.5px; color: var(--muted); letter-spacing: .02em; }
+.user-chip { position: relative; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); letter-spacing: .02em; }
 .user-chip b { color: var(--text); font-weight: 500; }
 
 .view { animation: fade .25s ease; }
@@ -244,9 +244,10 @@ tbody tr:hover { background: #fafbfc; }
 .group-head { padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .group-title { font-size: 14.5px; font-weight: 500; letter-spacing: .03em; color: var(--text-strong); }
 .group-desc { color: var(--muted); font-size: 12.5px; margin-top: 5px; line-height: 1.65; font-weight: 300; }
+.set-hint { display: block; margin-top: 7px; color: var(--primary-d); font-size: 12px; font-weight: 400; line-height: 1.6; }
 .field { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .field:last-child { border-bottom: none; }
-.field label { font-weight: 500; font-size: 13.5px; color: var(--text-strong); }
+.field label { display: block; font-weight: 500; font-size: 13.5px; color: var(--text-strong); margin-bottom: 7px; }
 .field .help, .setting-field .help { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; line-height: 1.65; max-width: 420px; font-weight: 300; }
 .field-main { display: flex; align-items: center; gap: 28px; }
 .field-main > label.field-label { flex: 0 0 150px; max-width: 30%; margin: 0; }
@@ -257,6 +258,7 @@ tbody tr:hover { background: #fafbfc; }
   border-radius: var(--radius-sm); font: inherit; background: #fbfcfd; transition: all .18s;
 }
 .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px var(--primary-soft); }
+.field input:disabled, .field select:disabled, .field textarea:disabled, .auth-form input:disabled, .modal-form input:disabled { background: var(--cool-1); color: var(--muted); cursor: default; border-color: var(--line); }
 .field textarea { resize: vertical; min-height: 72px; }
 
 /* 开关 */
@@ -280,7 +282,7 @@ tbody tr:hover { background: #fafbfc; }
 
 /* 数字 */
 .num { font-weight: 600; color: var(--primary-d); font-variant-numeric: tabular-nums; }
-.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ellipsis { white-space: nowrap; }
 .mono { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
 /* ---------- 工具栏 ---------- */
@@ -340,6 +342,26 @@ tbody tr:hover { background: #fafbfc; }
 .group-select { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; font-size: 11.5px; color: var(--muted); cursor: pointer; }
 .group-select input { vertical-align: middle; }
 
+/* 用户名 hover / 点击下拉菜单 */
+.chip-caret { font-size: 10px; opacity: .6; margin-left: 1px; transition: transform .15s; }
+.user-chip:hover .chip-caret { transform: rotate(180deg); }
+.user-menu {
+  position: absolute; top: calc(100% + 10px); right: 0; min-width: 176px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-lift); padding: 6px; z-index: 60;
+  opacity: 0; visibility: hidden; transform: translateY(-6px); transition: all .16s ease;
+}
+.user-chip:hover .user-menu, .user-menu.open { opacity: 1; visibility: visible; transform: translateY(0); }
+.user-menu::before { content: ""; position: absolute; top: -7px; right: 14px; border: 7px solid transparent; border-bottom-color: var(--card); }
+.user-menu-item {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 9px 12px; border-radius: 8px; font: inherit; font-size: 13px; color: var(--text); cursor: pointer; transition: background .12s;
+}
+.user-menu-item:hover { background: var(--bg); color: var(--text-strong); }
+.user-menu-item.danger { color: var(--bad); }
+.user-menu-item.danger:hover { background: var(--bad-soft); }
+.user-menu-sep { height: 1px; background: var(--line); margin: 5px 4px; }
+
 
 /* ---------- 首页看板 ---------- */
 .dash-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
@@ -360,6 +382,15 @@ tbody tr:hover { background: #fafbfc; }
 .dist-fill { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
 .dist-num { flex: 0 0 28px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 720px) {
+/* 数据分析区块 */
+.dash-analysis-head { font-size: 14.5px; font-weight: 500; color: var(--text-strong); margin: 4px 0 12px; letter-spacing: .03em; }
+.dash-tl { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin-top: 4px; }
+.dash-tl-col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.dash-tl-fill { width: 100%; background: var(--primary); border-radius: 3px 3px 0 0; min-height: 2px; transition: height .3s ease; }
+.dash-tl-num { font-size: 9px; color: var(--muted); margin-bottom: 2px; font-variant-numeric: tabular-nums; line-height: 1; }
+.dash-tl-axis { display: flex; justify-content: space-between; margin-top: 5px; font-size: 9px; color: var(--muted); }
+.dash-insights .insight-list { margin: 2px 0 0; padding-left: 18px; }
+.insight-list li { font-size: 12.5px; color: var(--text); margin: 7px 0; line-height: 1.5; }
   .dash-cards { grid-template-columns: repeat(2, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
 }
@@ -378,11 +409,12 @@ tbody tr:hover { background: #fafbfc; }
 .filter-panel.hidden { display: none; }
 .filter-panel .tool-group select { min-width: 110px; }
 
-/* 分组/分页多表格列宽统一（colgroup + fixed 布局，窄屏堆叠布局下自动失效） */
-.table-fixed { table-layout: fixed; }
-.table-fixed td { overflow: hidden; text-overflow: ellipsis; }
+/* 列表自适应：列宽作为最小宽度由内容撑开；单行完全显示，容器横向滚动 */
+.table-fixed { table-layout: auto; }
+.table-fixed td { white-space: nowrap; }
 @media (max-width: 720px) {
   .table-fixed { table-layout: auto; }
+  .table-fixed td { white-space: normal; }
   .search-input { width: 100%; min-width: 0; }
   .filter-panel { flex-direction: column; align-items: stretch; }
   .filter-panel .tool-group { width: 100%; justify-content: space-between; }

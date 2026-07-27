@@ -216,10 +216,31 @@ async function enterApp() {
 function renderUserChip() {
   if (!ME) return;
   const name = ME.nickname || ME.username;
-  $("#user-chip").innerHTML = '<span class="chip-avatar">' + (ME.role === "admin" ? "👑" : "👤") + "</span> " + esc(name);
-  $("#user-chip").classList.add("clickable");
-  $("#user-chip").onclick = () => switchView("profile");
+  const chip = $("#user-chip");
+  chip.className = "user-chip clickable";
+  chip.innerHTML = '<span class="chip-avatar">' + (ME.role === "admin" ? "👑" : "👤") + '</span><span class="chip-name">' + esc(name) + '</span><span class="chip-caret">▾</span>' +
+    '<div class="user-menu" id="user-menu">' +
+      '<button type="button" class="user-menu-item" data-go="profile">' + t("nav.profile") + '</button>' +
+      '<button type="button" class="user-menu-item" data-go="prefs">' + t("nav.prefs") + '</button>' +
+      '<button type="button" class="user-menu-item" data-go="settings">' + t("nav.settings") + '</button>' +
+      '<div class="user-menu-sep"></div>' +
+      '<button type="button" class="user-menu-item danger" id="user-logout">' + t("topbar.logout") + '</button>' +
+    '</div>';
+  chip.onclick = (e) => {
+    const item = e.target.closest(".user-menu-item");
+    if (item) {
+      if (item.id === "user-logout") { doLogout(); return; }
+      switchView(item.dataset.go);
+      closeUserMenu();
+      return;
+    }
+    toggleUserMenu();
+  };
 }
+function toggleUserMenu() { const m = document.getElementById("user-menu"); if (m) m.classList.toggle("open"); }
+function closeUserMenu() { const m = document.getElementById("user-menu"); if (m) m.classList.remove("open"); }
+function doLogout() { api("/api/logout", { method: "POST" }).catch(() => {}); logoutLocal(); }
+document.addEventListener("click", (e) => { const m = document.getElementById("user-menu"); if (m && !e.target.closest("#user-chip")) m.classList.remove("open"); });
 
 async function refreshInviteBadge() {
   try {
@@ -559,7 +580,7 @@ function listColgroup() {
   return `<colgroup>${cols.join("")}</colgroup>`;
 }
 function listHeader() {
-  const ths = ['<th class="select-col"><input type="checkbox" id="select-all-page" title="' + t("toolbar.selectAll") + '"></th>'];
+  const ths = ['<th class="select-col"><input type="checkbox" id="select-all-page" title="' + t("toolbar.selectAllPage") + '"></th>'];
   CONTACT_COLUMNS.forEach((c) => {
     if (!hasField(c.key)) return;
     ths.push("<th" + (c.cls ? ' class="' + c.cls + '"' : "") + ">" + (c.label ? t(c.label) : "") + "</th>");
@@ -638,11 +659,20 @@ function compactRowHtml(r) {
 /* 小部件 */
 function avatarHtml(r, big = false) {
   if (r.avatar_url) return `<span class="avatar ${big ? "avatar-lg" : ""}"><img src="${esc(r.avatar_url)}" alt="" /></span>`;
-  const av = r.avatar || (r.gender === t("gender.male") ? "👨" : r.gender === t("gender.female") ? "👩" : "🧑");
+  const av = r.avatar || (genderKey(r.gender) === "male" ? "👨" : genderKey(r.gender) === "female" ? "👩" : "🧑");
   return `<span class="avatar ${big ? "avatar-lg" : ""}">${av}</span>`;
 }
 function calendarBadge(r) { return r.calendar_type === "lunar" ? '<span class="tag tag-lunar">' + t("cal.lunar") + '</span>' : '<span class="tag tag-solar">' + t("cal.solar") + '</span>'; }
-function genderBadge(g) { if (!g) return "-"; const cls = g === t("gender.male") ? "male" : g === t("gender.female") ? "female" : ""; const key = g === t("gender.male") ? "male" : g === t("gender.female") ? "female" : "other"; return `<span class="tag ${cls}">${t("gender." + key)}</span>`; }
+function genderKey(g) {
+  if (!g) return "";
+  const s = String(g).trim().toLowerCase();
+  if (s === "male" || s === "m" || s === "男" || s === "雄性") return "male";
+  if (s === "female" || s === "f" || s === "女" || s === "雌性") return "female";
+  if (s === "other" || s === "o" || s === "其他" || s === "其它") return "other";
+  return "";
+}
+function genderLabel(g) { const k = genderKey(g); return k ? t("gender." + k) : ""; }
+function genderBadge(g) { const k = genderKey(g); if (!k) return "-"; return `<span class="tag ${k}">${t("gender." + k)}</span>`; }
 function zodiacBadge(z) { return z ? `<span class="tag zodiac">${esc(z)}</span>` : "-"; }
 function ageLabel(age) { return age != null ? `<span class="num">${age}</span> ${t("unit.years")}` : "-"; }
 function subLine(r) { return (r.relationship && !hasField("relationship")) ? `<div class="muted sm">${esc(r.relationship)}</div>` : ""; }
@@ -1049,7 +1079,7 @@ function renderDashboard() {
   const nextBirthdays = CONTACTS.filter((r) => r.days_until != null && r.days_until >= 0).sort((a, b) => a.days_until - b.days_until).slice(0, 6);
   const z = _dist(CONTACTS, "zodiac");
   const zc = _dist(CONTACTS, "chinese_zodiac");
-  const g = _dist(CONTACTS.map((r) => ({ gender: r.gender ? t("gender." + r.gender) : "" })), "gender");
+  const g = _dist(CONTACTS.map((r) => ({ gender: genderLabel(r.gender) })), "gender");
   const nextHtml = nextBirthdays.length
     ? nextBirthdays.map((r) => `<div class="dash-birth"><b>${esc(r.name)}</b> <span class="muted sm">${esc(r.relationship || "")}</span><span class="tag soon">${r.days_until} ${t("days.left")}</span><span class="muted sm mono">${r.next_date || ""}</span></div>`).join("")
     : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
@@ -1057,6 +1087,31 @@ function renderDashboard() {
   const anniHtml = nextAnnis.length
     ? nextAnnis.map((r) => `<div class="dash-birth"><b>${esc(r.name)}</b> <span class="muted sm">${esc(r.kind || "")}</span><span class="tag soon">${r.days_until} ${t("days.left")}</span><span class="muted sm mono">${r.occ_date || ""}</span></div>`).join("")
     : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  // —— 数据分析：分布与洞察 ——
+  const monthArr = new Array(12).fill(0);
+  CONTACTS.forEach((r) => { if (r.month >= 1 && r.month <= 12) monthArr[r.month - 1]++; });
+  const monthEntries = monthArr.map((v, i) => [`${i + 1}${t("unit.month")}`, v]).filter(([, v]) => v > 0);
+  const ageBuckets = [["0-12", 0], ["13-18", 0], ["19-25", 0], ["26-35", 0], ["36-45", 0], ["46-60", 0], ["60+", 0]];
+  CONTACTS.forEach((r) => { const a = r.age; if (a == null) return; const idx = a <= 12 ? 0 : a <= 18 ? 1 : a <= 25 ? 2 : a <= 35 ? 3 : a <= 45 ? 4 : a <= 60 ? 5 : 6; ageBuckets[idx][1]++; });
+  const ageEntries = ageBuckets.filter(([, v]) => v > 0);
+  const rel = _dist(CONTACTS, "relationship");
+  const tl = new Array(30).fill(0);
+  CONTACTS.forEach((r) => { const d = r.days_until; if (d != null && d >= 0 && d < 30) tl[d]++; });
+  const tlMax = Math.max(1, ...tl);
+  const tlHtml = tl.map((c, i) => `<div class="dash-tl-col"><span class="dash-tl-num">${c ? c : ""}</span><div class="dash-tl-fill" style="height:${c ? Math.max(8, Math.round(c / tlMax * 90)) : 2}px" title="${i} ${t("days.left")}: ${c}"></div></div>`).join("");
+  const topMonth = monthEntries.slice().sort((a, b) => b[1] - a[1])[0];
+  const topZ = z.entries[0];
+  const ages = CONTACTS.map((r) => r.age).filter((a) => a != null);
+  const avgAge = ages.length ? (ages.reduce((s, a) => s + a, 0) / ages.length).toFixed(1) : "-";
+  const insights = [];
+  if (topMonth) insights.push(t("insight.mostMonth", { month: topMonth[0], n: topMonth[1] }));
+  insights.push(t("insight.upcoming", { n: upcoming30.length }));
+  if (topZ) insights.push(t("insight.topZodiac", { z: topZ[0], n: topZ[1] }));
+  insights.push(t("insight.avgAge", { age: avgAge }));
+  const relHtml = rel.entries.length ? _distBars(rel.entries, rel.max) : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  const monthHtml = monthEntries.length ? _distBars(monthEntries, Math.max(1, ...monthEntries.map((e) => e[1]))) : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  const ageHtml = ageEntries.length ? _distBars(ageEntries, Math.max(1, ...ageEntries.map((e) => e[1]))) : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  const insightsHtml = insights.map((s) => `<li>${esc(s)}</li>`).join("");
   box.innerHTML = `
     <div class="dash-cards">
       <div class="dash-card"><div class="dash-num">${CONTACTS.length}</div><div class="dash-label">${t("dashboard.totalContacts")}</div></div>
@@ -1065,12 +1120,20 @@ function renderDashboard() {
       <div class="dash-card"><div class="dash-num">${today.length}</div><div class="dash-label">${t("dashboard.today")}</div></div>
       <div class="dash-card"><div class="dash-num">${passedYear.length}</div><div class="dash-label">${t("dashboard.passedYear")}</div></div>
     </div>
+    <div class="dash-analysis-head">📊 ${t("analysis.title")}</div>
     <div class="dash-grid">
-      <div class="card dash-section"><div class="group-title">${t("dashboard.nextBirthdays")}</div>${nextHtml}</div>
-      <div class="card dash-section"><div class="group-title">${t("dashboard.nextAnnis")}</div>${anniHtml}</div>
+      <div class="card dash-section"><div class="group-title">${t("chart.upcoming30")}</div><div class="dash-tl">${tlHtml}</div><div class="dash-tl-axis"><span>0</span><span>15</span><span>30 ${t("unit.day")}</span></div></div>
+      <div class="card dash-section"><div class="group-title">${t("chart.monthDist")}</div>${monthHtml}</div>
+      <div class="card dash-section"><div class="group-title">${t("chart.ageDist")}</div>${ageHtml}</div>
+      <div class="card dash-section"><div class="group-title">${t("chart.relDist")}</div>${relHtml}</div>
       <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiac")}</div>${_distBars(z.entries, z.max)}</div>
       <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiacCn")}</div>${_distBars(zc.entries, zc.max)}</div>
       <div class="card dash-section"><div class="group-title">${t("dashboard.distGender")}</div>${_distBars(g.entries, g.max)}</div>
+      <div class="card dash-section dash-insights"><div class="group-title">${t("chart.insight")}</div><ul class="insight-list">${insightsHtml}</ul></div>
+    </div>
+    <div class="dash-grid">
+      <div class="card dash-section"><div class="group-title">${t("dashboard.nextBirthdays")}</div>${nextHtml}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.nextAnnis")}</div>${anniHtml}</div>
     </div>`;
 }
 
@@ -1395,7 +1458,7 @@ function buildSettingsSchema() {
     { path: "privacy.default_visibility", label: t("settings.defaultVis"), type: "select", options: [["private", t("settings.visPrivate")], ["family", t("settings.visFamily")], ["public", t("settings.visPublic")]], help: "新建生日/纪念日时默认选中的可见范围。私人=仅本人；家庭=与你同属一个家庭的成员可见；公开=系统内所有用户可见。每条数据也可在编辑时单独调整。" },
     { path: "privacy.allow_register", label: t("settings.allowRegister"), type: "bool", help: "开启后，登录页会显示「注册账号」入口，任何人都可以自助注册普通用户。关闭后仅管理员可在「用户管理」中创建账号。" },
   ] },
-  { key: "notify", icon: "⏰", title: t("settings.group.notify"), desc: t("settings.notifyDesc"), fields: [
+  { key: "notify", icon: "⏰", title: t("settings.group.notify"), desc: t("settings.notifyDesc") + ' <span class="set-hint">💡 ' + t("settings.notifyHint") + '</span>', fields: [
     { path: "notify.check_hour", label: t("settings.checkHour"), type: "number", min: 0, max: 23, help: "系统每天在这个小时执行一次生日/纪念日检查（24小时制，0-23）。保存后立即生效，无需重启。" },
     { path: "notify.check_minute", label: t("settings.checkMinute"), type: "number", min: 0, max: 59, help: "配合上面的小时使用，精确到分钟（0-59）。" },
     { path: "notify.default_notify_days", label: t("settings.defaultDays"), type: "numlist", help: "全局默认的提前提醒天数，多个值用逗号分隔。例如「1,3,7」表示每位联系人会在生日前 7/3/1 天各收到一次提醒。联系人单独设置则以联系人自己的为准。填 0 表示当天也提醒。" },
