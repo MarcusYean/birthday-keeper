@@ -208,7 +208,7 @@ async function enterApp() {
   document.body.classList.toggle("menu-left", UI_PREFS.menu_position !== "top");
   $("#nav-anniversaries") && $("#nav-anniversaries").classList.toggle("hidden", UI_PREFS.anniversary_enabled === false);
   refreshInviteBadge();
-  switchView("contacts");
+  switchView("dashboard");
 }
 
 async function refreshInviteBadge() {
@@ -235,6 +235,7 @@ function switchView(name) {
   if (name === "prefs") loadPrefs();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
+  if (name === "dashboard") loadDashboard();
 }
 $$(".nav-item").forEach((n) => n.addEventListener("click", () => switchView(n.dataset.view)));
 
@@ -311,6 +312,79 @@ const MBTI_ANALYSIS = {
 function bloodTip(tp) { return tp ? (BLOOD_ANALYSIS[tp] || "暂无该血型分析。") : "选择血型后，悬停可查看性格与健康小贴士。"; }
 function mbtiTip(tp) { return tp ? (MBTI_ANALYSIS[tp] || "暂无该 MBTI 分析。") : "选择 MBTI 后，悬停可查看性格特质分析。"; }
 
+/* ============ 搜索与筛选（联系人 / 纪念日 / 即将到来 通用） ============ */
+const VIEW_STATE = {
+  contacts: { search: "", filters: { gender: "", zodiac: "", zodiacCn: "", calendar: "", enabled: "" } },
+  annis: { search: "", filters: { calendar: "", enabled: "" } },
+  upcoming: { search: "", filters: { category: "", calendar: "" } },
+};
+const SEARCH_FIELDS = {
+  contacts: ["name", "relationship", "gender", "zodiac", "chinese_zodiac", "mbti", "blood_type", "hobbies", "note", "calendar_type"],
+  annis: ["name", "kind", "note", "calendar_type"],
+  upcoming: ["name", "relationship", "kind"],
+};
+function _norm(s) { return String(s == null ? "" : s).toLowerCase(); }
+function matchesSearch(view, r) {
+  const term = (VIEW_STATE[view].search || "").trim().toLowerCase();
+  if (!term) return true;
+  return (SEARCH_FIELDS[view] || []).some((f) => _norm(r[f]).includes(term));
+}
+function _activeCount(st) { return ((st.search || "").trim() ? 1 : 0) + Object.values(st.filters).filter(Boolean).length; }
+
+function getFilteredContacts() {
+  const st = VIEW_STATE.contacts; let rows = CONTACTS.filter((r) => matchesSearch("contacts", r));
+  const f = st.filters;
+  if (f.gender) rows = rows.filter((r) => r.gender === f.gender);
+  if (f.zodiac) rows = rows.filter((r) => r.zodiac === f.zodiac);
+  if (f.zodiacCn) rows = rows.filter((r) => r.chinese_zodiac === f.zodiacCn);
+  if (f.calendar) rows = rows.filter((r) => r.calendar_type === f.calendar);
+  if (f.enabled) rows = rows.filter((r) => (r.enabled ? "on" : "off") === f.enabled);
+  return rows;
+}
+function getFilteredAnnis() {
+  const st = VIEW_STATE.annis; let rows = ANNIS.filter((r) => matchesSearch("annis", r));
+  const f = st.filters;
+  if (f.calendar) rows = rows.filter((r) => r.calendar_type === f.calendar);
+  if (f.enabled) rows = rows.filter((r) => (r.enabled ? "on" : "off") === f.enabled);
+  return rows;
+}
+function getFilteredUpcoming() {
+  const st = VIEW_STATE.upcoming; let rows = UPCOMING_ROWS.filter((r) => matchesSearch("upcoming", r));
+  const f = st.filters;
+  if (f.category) rows = rows.filter((r) => r.category === f.category);
+  if (f.calendar) rows = rows.filter((r) => r.calendar_type === f.calendar);
+  return rows;
+}
+function populateSelect(el, options, allLabel) {
+  if (!el) return;
+  const cur = el.value;
+  el.innerHTML = `<option value="">${esc(allLabel)}</option>` + options.map((o) => `<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("");
+  el.value = cur;
+}
+function updateFilterBadge(view, badgeId) {
+  const el = $("#" + badgeId); if (!el) return;
+  const n = _activeCount(VIEW_STATE[view]);
+  el.textContent = n || ""; el.classList.toggle("show", n > 0);
+}
+function populateContactFilters() {
+  populateSelect($("#f-gender"), [["male", t("gender.male")], ["female", t("gender.female")], ["other", t("gender.other")]], t("filter.all"));
+  populateSelect($("#f-zodiac"), ZODIACS.slice(1).map((z) => [z, z]), t("filter.all"));
+  populateSelect($("#f-zodiacCn"), CHINESE_ZODIACS.map((z) => [z, z]), t("filter.all"));
+  populateSelect($("#f-calendar"), [["solar", t("cal.solar")], ["lunar", t("cal.lunar")]], t("filter.all"));
+  populateSelect($("#f-enabled"), [["on", t("filter.statusOn")], ["off", t("filter.statusOff")]], t("filter.all"));
+  updateFilterBadge("contacts", "contact-filter-count");
+}
+function populateAnniFilters() {
+  populateSelect($("#a-f-calendar"), [["solar", t("cal.solar")], ["lunar", t("cal.lunar")]], t("filter.all"));
+  populateSelect($("#a-f-enabled"), [["on", t("filter.statusOn")], ["off", t("filter.statusOff")]], t("filter.all"));
+  updateFilterBadge("annis", "anni-filter-count");
+}
+function populateUpcomingFilters() {
+  populateSelect($("#u-f-category"), [["birthday", t("filter.categoryBirthday")], ["anniversary", t("filter.categoryAnni")]], t("filter.all"));
+  populateSelect($("#u-f-calendar"), [["solar", t("cal.solar")], ["lunar", t("cal.lunar")]], t("filter.all"));
+  updateFilterBadge("upcoming", "upcoming-filter-count");
+}
+
 /* ============ 联系人 ============ */
 $("#view-mode").addEventListener("change", (e) => { VIEW_PREFS.mode = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
 $("#sort-by").addEventListener("change", (e) => { VIEW_PREFS.sort = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
@@ -326,6 +400,31 @@ $("#select-none-btn").addEventListener("click", () => { SELECTED_IDS.clear(); up
 $("#select-inv-btn").addEventListener("click", () => { CONTACTS.forEach((r) => { if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id); else SELECTED_IDS.add(r.id); }); updateBatchBadge(); renderContacts(); });
 $("#up-view-mode").addEventListener("change", (e) => { UPCOMING_PREFS.mode = e.target.value; saveUpcomingPrefs(UPCOMING_PREFS); renderUpcoming(); });
 
+/* 综合搜索 + 组合筛选 + 刷新重算 */
+$("#contact-search").addEventListener("input", (e) => { VIEW_STATE.contacts.search = e.target.value; renderContacts(); });
+$("#f-gender").addEventListener("change", (e) => { VIEW_STATE.contacts.filters.gender = e.target.value; renderContacts(); });
+$("#f-zodiac").addEventListener("change", (e) => { VIEW_STATE.contacts.filters.zodiac = e.target.value; renderContacts(); });
+$("#f-zodiacCn").addEventListener("change", (e) => { VIEW_STATE.contacts.filters.zodiacCn = e.target.value; renderContacts(); });
+$("#f-calendar").addEventListener("change", (e) => { VIEW_STATE.contacts.filters.calendar = e.target.value; renderContacts(); });
+$("#f-enabled").addEventListener("change", (e) => { VIEW_STATE.contacts.filters.enabled = e.target.value; renderContacts(); });
+$("#f-reset").addEventListener("click", () => { VIEW_STATE.contacts = { search: "", filters: { gender: "", zodiac: "", zodiacCn: "", calendar: "", enabled: "" } }; $("#contact-search").value = ""; populateContactFilters(); renderContacts(); });
+$("#contact-filter-toggle").addEventListener("click", () => { $("#contact-filter-panel").classList.toggle("hidden"); });
+
+$("#anni-search").addEventListener("input", (e) => { VIEW_STATE.annis.search = e.target.value; renderAnniversaries(); });
+$("#a-f-calendar").addEventListener("change", (e) => { VIEW_STATE.annis.filters.calendar = e.target.value; renderAnniversaries(); });
+$("#a-f-enabled").addEventListener("change", (e) => { VIEW_STATE.annis.filters.enabled = e.target.value; renderAnniversaries(); });
+$("#a-f-reset").addEventListener("click", () => { VIEW_STATE.annis = { search: "", filters: { calendar: "", enabled: "" } }; $("#anni-search").value = ""; populateAnniFilters(); renderAnniversaries(); });
+$("#anni-filter-toggle").addEventListener("click", () => { $("#anni-filter-panel").classList.toggle("hidden"); });
+
+$("#upcoming-search").addEventListener("input", (e) => { VIEW_STATE.upcoming.search = e.target.value; renderUpcoming(); });
+$("#u-f-category").addEventListener("change", (e) => { VIEW_STATE.upcoming.filters.category = e.target.value; renderUpcoming(); });
+$("#u-f-calendar").addEventListener("change", (e) => { VIEW_STATE.upcoming.filters.calendar = e.target.value; renderUpcoming(); });
+$("#u-f-reset").addEventListener("click", () => { VIEW_STATE.upcoming = { search: "", filters: { category: "", calendar: "" } }; $("#upcoming-search").value = ""; populateUpcomingFilters(); renderUpcoming(); });
+$("#upcoming-filter-toggle").addEventListener("click", () => { $("#upcoming-filter-panel").classList.toggle("hidden"); });
+
+$("#refresh-up-btn").addEventListener("click", loadUpcoming);
+$("#dash-refresh").addEventListener("click", loadDashboard);
+
 async function loadContacts() {
   const box = $("#contacts-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
   try {
@@ -333,7 +432,7 @@ async function loadContacts() {
     // 移除已不存在的选中
     const validIds = new Set(CONTACTS.map((r) => r.id));
     SELECTED_IDS = new Set(Array.from(SELECTED_IDS).filter((id) => validIds.has(id)));
-    applyToolbar(); updateBatchBadge(); renderContacts();
+    applyToolbar(); updateBatchBadge(); renderContacts(); populateContactFilters();
   }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
@@ -347,6 +446,7 @@ function sortContacts(rows) {
     if (key === "days_until") return r.days_until == null ? 9999 : r.days_until;
     if (key === "age") return r.age == null ? -1 : r.age;
     if (key === "month_day") return (r.month || 0) * 100 + (r.day || 0);
+    if (key === "days_lived") return r.days_lived == null ? -1 : r.days_lived;
     if (key === "created_at") return r.created_at || "";
     return r.name || "";
   };
@@ -373,7 +473,9 @@ function groupContacts(rows) {
 function renderContacts() {
   const box = $("#contacts-list");
   if (!CONTACTS.length) { box.innerHTML = '<div class="empty">' + t("empty.contacts") + '</div>'; $("#contacts-paging").innerHTML = ""; return; }
-  const sorted = sortContacts(CONTACTS);
+  const rowsAll = getFilteredContacts();
+  if (!rowsAll.length) { box.innerHTML = '<div class="empty">' + t("filter.noResult") + '</div>'; $("#contacts-paging").innerHTML = ""; return; }
+  const sorted = sortContacts(rowsAll);
   const perPage = VIEW_PREFS.per_page;
   let pageItems = sorted, totalPages = 1, page = VIEW_PREFS.page || 1;
   if (perPage > 0) {
@@ -397,7 +499,7 @@ function renderGroup(g) {
   const items = g.items.map((r) => mode === "card" ? cardHtml(r) : mode === "compact" ? compactRowHtml(r) : listRowHtml(r)).join("");
   if (mode === "card") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="card-grid">${items}</div></div>`;
   if (mode === "compact") return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="compact-list">${items}</div></div>`;
-  return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="table-card"><table class="table"><thead>${listHeader()}</thead><tbody>${items}</tbody></table></div></div>`;
+  return `<div class="group"><div class="group-title">${esc(g.title)} <span class="group-count">${g.items.length}</span></div><div class="table-card"><table class="table table-fixed">${listColgroup()}<thead>${listHeader()}</thead><tbody>${items}</tbody></table></div></div>`;
 }
 function hasField(key) { return FIELD_SET.has(key); }
 function renderPagination(total, totalPages, page) {
@@ -421,28 +523,39 @@ function updateBatchBadge() {
   badge.classList.toggle("show", SELECTED_IDS.size > 0);
 }
 
+/* 列定义（顺序即表头顺序）。宽度用于 colgroup，使分组/分页的多个表格列宽完全一致。 */
+const CONTACT_COLUMNS = [
+  { key: "avatar", label: "", width: "48px" },
+  { key: "name", label: "field.name", width: "150px" },
+  { key: "relationship", label: "field.relationship", width: "120px" },
+  { key: "gender", label: "field.gender", width: "72px" },
+  { key: "birth_time", label: "field.birthTime", width: "98px" },
+  { key: "calendar_badge", label: "field.calBadge", width: "68px" },
+  { key: "birth_date", label: "field.birthDate", width: "150px" },
+  { key: "next_date", label: "field.nextDate", width: "112px" },
+  { key: "days_until", label: "field.countdown", width: "96px" },
+  { key: "age", label: "field.age", width: "72px" },
+  { key: "age_on_next", label: "field.ageNext", width: "72px" },
+  { key: "days_lived", label: "field.daysLived", width: "104px" },
+  { key: "zodiac", label: "field.zodiac", width: "76px" },
+  { key: "chinese_zodiac", label: "field.zodiacCn", width: "54px" },
+  { key: "mbti", label: "field.mbti", width: "84px" },
+  { key: "blood_type", label: "field.blood", width: "62px" },
+  { key: "hobbies", label: "field.hobbies", width: "150px" },
+  { key: "note", label: "field.note", width: "170px" },
+  { key: "enabled_actions", label: "field.actions", width: "170px", cls: "ta-r" },
+];
+function listColgroup() {
+  const cols = ['<col style="width:38px">'];
+  CONTACT_COLUMNS.forEach((c) => { if (hasField(c.key)) cols.push('<col style="width:' + c.width + '">'); });
+  return `<colgroup>${cols.join("")}</colgroup>`;
+}
 function listHeader() {
-  const ths = [];
-  ths.push('<th class="select-col"><input type="checkbox" id="select-all-page" title="' + t("toolbar.selectAll") + '"></th>');
-  if (hasField("avatar")) ths.push("<th></th>");
-  if (hasField("name")) ths.push("<th>" + t("field.name") + "</th>");
-  if (hasField("relationship")) ths.push("<th>" + t("field.relationship") + "</th>");
-  if (hasField("gender")) ths.push("<th>" + t("field.gender") + "</th>");
-  if (hasField("birth_time")) ths.push("<th>" + t("field.birthTime") + "</th>");
-  if (hasField("calendar_badge")) ths.push("<th>" + t("field.calBadge") + "</th>");
-  if (hasField("birth_date")) ths.push("<th>" + t("field.birthDate") + "</th>");
-  if (hasField("next_date")) ths.push("<th>" + t("field.nextDate") + "</th>");
-  if (hasField("days_until")) ths.push("<th>" + t("field.countdown") + "</th>");
-  if (hasField("age")) ths.push("<th>" + t("field.age") + "</th>");
-  if (hasField("age_on_next")) ths.push("<th>" + t("field.ageNext") + "</th>");
-  if (hasField("days_lived")) ths.push("<th>" + t("field.daysLived") + "</th>");
-  if (hasField("zodiac")) ths.push("<th>" + t("field.zodiac") + "</th>");
-  if (hasField("chinese_zodiac")) ths.push("<th>" + t("field.zodiacCn") + "</th>");
-  if (hasField("mbti")) ths.push("<th>" + t("field.mbti") + "</th>");
-  if (hasField("blood_type")) ths.push("<th>" + t("field.blood") + "</th>");
-  if (hasField("hobbies")) ths.push("<th>" + t("field.hobbies") + "</th>");
-  if (hasField("note")) ths.push("<th>" + t("field.note") + "</th>");
-  if (hasField("enabled_actions")) ths.push('<th class="ta-r">' + t("field.actions") + '</th>');
+  const ths = ['<th class="select-col"><input type="checkbox" id="select-all-page" title="' + t("toolbar.selectAll") + '"></th>'];
+  CONTACT_COLUMNS.forEach((c) => {
+    if (!hasField(c.key)) return;
+    ths.push("<th" + (c.cls ? ' class="' + c.cls + '"' : "") + ">" + (c.label ? t(c.label) : "") + "</th>");
+  });
   return `<tr>${ths.join("")}</tr>`;
 }
 function listRowHtml(r) {
@@ -726,13 +839,15 @@ $("#refresh-anni-btn").addEventListener("click", loadAnniversaries);
 
 async function loadAnniversaries() {
   const box = $("#anniversaries-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
-  try { ANNIS = await api("/api/anniversaries"); renderAnniversaries(); }
+  try { ANNIS = await api("/api/anniversaries"); renderAnniversaries(); populateAnniFilters(); }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 function renderAnniversaries() {
   const box = $("#anniversaries-list");
   if (!ANNIS.length) { box.innerHTML = '<div class="empty">' + t("empty.annis") + '</div>'; return; }
-  const rows = ANNIS.map((r) => `
+  const rows = getFilteredAnnis();
+  if (!rows.length) { box.innerHTML = '<div class="empty">' + t("filter.noResult") + '</div>'; return; }
+  const body = rows.map((r) => `
     <tr>
       <td data-label="${t("field.name")}"><b>${esc(r.name)}</b></td>
       <td data-label="${t("field.desc")}">${esc(r.note || "-")}</td>
@@ -744,7 +859,7 @@ function renderAnniversaries() {
       <td data-label="${t("field.passed")}">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> ${t("unit.anniv")}` : "-"}</td>
       <td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, "anni")}</td>
     </tr>`).join("");
-  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 function openAnniEditor(r) {
   const isEdit = !!r; r = r || {};
@@ -809,7 +924,7 @@ async function loadUpcoming() {
   if (!ANNIS.length) loadAnniversaries();
   try {
     UPCOMING_ROWS = await api("/api/year-dates");
-    renderUpcoming();
+    renderUpcoming(); populateUpcomingFilters();
   } catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
 function anniKindBadge(kind) { return kind ? `<span class="tag tag-anni">${esc(kind)}</span>` : ""; }
@@ -824,7 +939,7 @@ function upDaysBadge(r) {
   return `<span class="tag tag-off">${t("field.passedDays", { n: Math.abs(r.days_until) })}</span>`;
 }
 function upSubLabel(r) {
-  const isAnni = r.kind === "anniversary";
+  const isAnni = r.category === "anniversary";
   if (isAnni) return r.kind || t("anni.default");
   return r.relationship || "";
 }
@@ -832,7 +947,7 @@ function upHead() {
   return `<tr><th>${t("field.name")}</th><th>${t("form.type")}</th><th>${t("field.date")}</th><th>${t("field.countdown")}</th><th class="ta-r">${t("field.actions")}</th></tr>`;
 }
 function upRow(r) {
-  const isAnni = r.kind === "anniversary";
+  const isAnni = r.category === "anniversary";
   return `<tr>
     <td data-label="${t("field.name")}"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</td>
     <td data-label="${t("form.type")}">${isAnni ? esc(r.kind || t("anni.default")) : esc(r.relationship || "-")}</td>
@@ -842,7 +957,7 @@ function upRow(r) {
   </tr>`;
 }
 function upCard(r) {
-  const isAnni = r.kind === "anniversary";
+  const isAnni = r.category === "anniversary";
   const extra = isAnni
     ? (r.anniv_num != null ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.passed")}</span><span class="cc-stat-val"><span class="num">${r.anniv_num}</span> ${t("unit.anniv")}</span></div>` : "")
     : (r.age_on_occ != null ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.age")}</span><span class="cc-stat-val"><span class="num">${r.age_on_occ}</span> ${t("unit.years")}</span></div>` : "");
@@ -864,7 +979,7 @@ function upCard(r) {
   </div>`;
 }
 function upCompact(r) {
-  const isAnni = r.kind === "anniversary";
+  const isAnni = r.category === "anniversary";
   return `<div class="compact-item" data-id="${r.id}">
     <div class="compact-left">
       ${avatarHtml(r)}<b>${esc(r.name)}</b>
@@ -879,8 +994,9 @@ function upCompact(r) {
 }
 function renderUpcoming() {
   const box = $("#upcoming-list");
-  const rows = UPCOMING_ROWS;
-  if (!rows.length) { box.innerHTML = '<div class="empty">' + t("empty.upcoming") + '</div>'; return; }
+  if (!UPCOMING_ROWS.length) { box.innerHTML = '<div class="empty">' + t("empty.upcoming") + '</div>'; return; }
+  const rows = getFilteredUpcoming();
+  if (!rows.length) { box.innerHTML = '<div class="empty">' + t("filter.noResult") + '</div>'; return; }
   const mode = UPCOMING_PREFS.mode;
   const build = (r) => mode === "card" ? upCard(r) : mode === "compact" ? upCompact(r) : upRow(r);
   const wrapOpen = mode === "card" ? `<div class="card-grid">` : mode === "compact" ? `<div class="compact-list">` : `<div class="table-card"><table class="table"><thead>${upHead()}</thead><tbody>`;
@@ -892,6 +1008,62 @@ function renderUpcoming() {
   const upcoming = rows.filter((r) => r.is_upcoming);
   const passed = rows.filter((r) => r.is_passed);
   box.innerHTML = renderGroup(t("upcoming.soon"), upcoming) + renderGroup(t("upcoming.passed"), passed);
+}
+
+/* ============ 首页看板 ============ */
+async function loadDashboard() {
+  const box = $("#dashboard-content");
+  if (box) box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
+  try {
+    // 始终重新拉取，确保下次生日/倒计时/已活天数/年龄/星座/生肖等自动计算字段实时刷新
+    const [c, a, y] = await Promise.all([
+      api("/api/birthdays"), api("/api/anniversaries"), api("/api/year-dates"),
+    ]);
+    CONTACTS = c; ANNIS = a; UPCOMING_ROWS = y;
+    renderDashboard();
+  } catch (err) { if (box) box.innerHTML = ""; toast(err.message, false); }
+}
+function _dist(rows, key) {
+  const m = {};
+  rows.forEach((r) => { const k = (r[key] && String(r[key]).trim()) || t("group.unfiled"); m[k] = (m[k] || 0) + 1; });
+  const max = Object.values(m).length ? Math.max(...Object.values(m)) : 0;
+  return { entries: Object.entries(m).sort((a, b) => b[1] - a[1]), max };
+}
+function _distBars(entries, max) {
+  if (!entries.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  return entries.map(([k, v]) => `<div class="dist-row"><span class="dist-label">${esc(k)}</span><span class="dist-track"><span class="dist-fill" style="width:${max ? Math.round(v / max * 100) : 0}%"></span></span><span class="dist-num">${v}</span></div>`).join("");
+}
+function renderDashboard() {
+  const box = $("#dashboard-content"); if (!box) return;
+  const today = CONTACTS.filter((r) => r.is_today);
+  const upcoming30 = CONTACTS.filter((r) => r.days_until != null && r.days_until >= 0 && r.days_until <= 30);
+  const passedYear = CONTACTS.filter((r) => r.days_until != null && r.days_until < 0);
+  const nextBirthdays = CONTACTS.filter((r) => r.days_until != null && r.days_until >= 0).sort((a, b) => a.days_until - b.days_until).slice(0, 6);
+  const z = _dist(CONTACTS, "zodiac");
+  const zc = _dist(CONTACTS, "chinese_zodiac");
+  const g = _dist(CONTACTS.map((r) => ({ gender: r.gender ? t("gender." + r.gender) : "" })), "gender");
+  const nextHtml = nextBirthdays.length
+    ? nextBirthdays.map((r) => `<div class="dash-birth"><b>${esc(r.name)}</b> <span class="muted sm">${esc(r.relationship || "")}</span><span class="tag soon">${r.days_until} ${t("days.left")}</span><span class="muted sm mono">${r.next_date || ""}</span></div>`).join("")
+    : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  const nextAnnis = (UPCOMING_ROWS || []).filter((r) => r.category === "anniversary" && r.days_until != null && r.days_until >= 0).sort((a, b) => a.days_until - b.days_until).slice(0, 6);
+  const anniHtml = nextAnnis.length
+    ? nextAnnis.map((r) => `<div class="dash-birth"><b>${esc(r.name)}</b> <span class="muted sm">${esc(r.kind || "")}</span><span class="tag soon">${r.days_until} ${t("days.left")}</span><span class="muted sm mono">${r.occ_date || ""}</span></div>`).join("")
+    : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  box.innerHTML = `
+    <div class="dash-cards">
+      <div class="dash-card"><div class="dash-num">${CONTACTS.length}</div><div class="dash-label">${t("dashboard.totalContacts")}</div></div>
+      <div class="dash-card"><div class="dash-num">${ANNIS.length}</div><div class="dash-label">${t("dashboard.totalAnnis")}</div></div>
+      <div class="dash-card"><div class="dash-num">${upcoming30.length}</div><div class="dash-label">${t("dashboard.upcoming30")}</div></div>
+      <div class="dash-card"><div class="dash-num">${today.length}</div><div class="dash-label">${t("dashboard.today")}</div></div>
+      <div class="dash-card"><div class="dash-num">${passedYear.length}</div><div class="dash-label">${t("dashboard.passedYear")}</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="card dash-section"><div class="group-title">${t("dashboard.nextBirthdays")}</div>${nextHtml}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.nextAnnis")}</div>${anniHtml}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiac")}</div>${_distBars(z.entries, z.max)}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiacCn")}</div>${_distBars(zc.entries, zc.max)}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.distGender")}</div>${_distBars(g.entries, g.max)}</div>
+    </div>`;
 }
 
 /* ============ 家庭共享 ============ */

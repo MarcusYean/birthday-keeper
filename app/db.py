@@ -698,7 +698,7 @@ def year_dates(viewer_id: int | None = None, is_admin: bool = False) -> list:
         if occ is None:
             continue
         d = (occ - today).days
-        item = dict(r, kind="birthday", occ_date=occ.isoformat(), days_until=d,
+        item = dict(r, category="birthday", occ_date=occ.isoformat(), days_until=d,
                     is_passed=d < 0, is_upcoming=d >= 0)
         y = r.get("year")
         item["age_on_occ"] = (yr - y) if y else None
@@ -708,7 +708,9 @@ def year_dates(viewer_id: int | None = None, is_admin: bool = False) -> list:
         if occ is None:
             continue
         d = (occ - today).days
-        item = dict(r, kind="anniversary", occ_date=occ.isoformat(), days_until=d,
+        # 注意：保留纪念日原本的 kind（用户填写的中文类型，如「结婚纪念日」）；
+        # 用独立的 category 字段区分「生日 / 纪念日」，避免像旧版那样把标签覆盖成英文 anniversary。
+        item = dict(r, category="anniversary", occ_date=occ.isoformat(), days_until=d,
                     is_passed=d < 0, is_upcoming=d >= 0)
         y = r.get("year")
         item["anniv_num"] = (yr - y) if y else None

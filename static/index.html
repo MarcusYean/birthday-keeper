@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="app.title">🎂 生日管家</title>
-<link rel="stylesheet" href="/static/css/styles.css?v=2.6.11" />
+<link rel="stylesheet" href="/static/css/styles.css?v=2.6.12" />
 </head>
 <body class="menu-left">
 <!-- 登录 / 初始化 -->
@@ -72,6 +72,7 @@
   <aside class="sidebar">
     <div class="side-brand">🎂 <span data-i18n="app.name">生日管家</span></div>
     <nav class="nav">
+      <a class="nav-item" data-view="dashboard"><span class="nav-ic">📊</span> <span class="nav-label" data-i18n="nav.dashboard">首页</span></a>
       <a class="nav-item" data-view="contacts"><span class="nav-ic">👥</span> <span class="nav-label" data-i18n="nav.contacts">联系人</span></a>
       <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span class="nav-ic">📌</span> <span class="nav-label" data-i18n="nav.anniversaries">纪念日</span></a>
       <a class="nav-item" data-view="upcoming"><span class="nav-ic">⏰</span> <span class="nav-label" data-i18n="nav.upcoming">即将到来</span></a>
@@ -93,6 +94,17 @@
     </header>
 
     <main class="content">
+      <!-- 首页看板 -->
+      <section id="view-dashboard" class="view hidden">
+        <div class="toolbar">
+          <div class="muted" data-i18n="dashboard.summary">数据概览</div>
+          <div class="toolbar-right">
+            <button class="btn btn-ghost" id="dash-refresh" data-i18n="dashboard.refresh">刷新看板</button>
+          </div>
+        </div>
+        <div id="dashboard-content"></div>
+      </section>
+
       <!-- 联系人 -->
       <section id="view-contacts" class="view">
         <div class="toolbar" id="contacts-toolbar">
@@ -107,6 +119,8 @@
             <button class="btn btn-ghost" id="batch-test-btn">🔔 <span data-i18n="toolbar.batchTest">批量测试</span> <span id="batch-count" class="badge"></span></button>
           </div>
           <div class="toolbar-right">
+            <input id="contact-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
+            <button class="btn btn-ghost" id="contact-filter-toggle">⚙ <span data-i18n="filter.title">筛选</span> <span id="contact-filter-count" class="badge"></span></button>
             <div class="tool-group">
               <label for="per-page" data-i18n="toolbar.perPage">每页</label>
               <select id="per-page"><option value="10">10</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="0" data-i18n="pagination.all">全部</option></select>
@@ -124,6 +138,8 @@
                 <option value="name_desc" data-i18n="sort.name_desc">名称 Z-A</option>
                 <option value="age_asc" data-i18n="sort.age_asc">年龄从小到大</option>
                 <option value="age_desc" data-i18n="sort.age_desc">年龄从大到小</option>
+                <option value="days_lived_asc" data-i18n="sort.lived_asc">已活天数 ↑</option>
+                <option value="days_lived_desc" data-i18n="sort.lived_desc">已活天数 ↓</option>
                 <option value="month_day_asc" data-i18n="sort.month">按生日月份</option>
                 <option value="created_at_desc" data-i18n="sort.recent">最近添加</option>
               </select>
@@ -143,6 +159,29 @@
             <button class="btn btn-ghost" id="fields-btn" data-i18n="toolbar.fields">显示字段</button>
           </div>
         </div>
+        <div class="filter-panel hidden" id="contact-filter-panel">
+          <div class="tool-group">
+            <label for="f-gender" data-i18n="filter.gender">性别</label>
+            <select id="f-gender"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <div class="tool-group">
+            <label for="f-zodiac" data-i18n="filter.zodiac">星座</label>
+            <select id="f-zodiac"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <div class="tool-group">
+            <label for="f-zodiacCn" data-i18n="filter.zodiacCn">生肖</label>
+            <select id="f-zodiacCn"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <div class="tool-group">
+            <label for="f-calendar" data-i18n="filter.calendar">历法</label>
+            <select id="f-calendar"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <div class="tool-group">
+            <label for="f-enabled" data-i18n="filter.enabled">提醒状态</label>
+            <select id="f-enabled"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="f-reset" data-i18n="filter.reset">重置</button>
+        </div>
         <div id="contacts-list" class="card"></div>
         <div class="pagination" id="contacts-paging"></div>
       </section>
@@ -150,9 +189,26 @@
       <!-- 纪念日 -->
       <section id="view-anniversaries" class="view hidden">
         <div class="toolbar">
-          <button class="btn btn-primary" id="add-anni-btn">+ <span data-i18n="anni.addTitle">添加纪念日</span></button>
-          <button class="btn btn-ghost" id="refresh-anni-btn" data-i18n="anni.refresh">刷新</button>
-          <button class="btn btn-ghost" id="batch-test-anni-btn">🔔 <span data-i18n="anni.batchTest">批量测试</span></button>
+          <div class="toolbar-left">
+            <button class="btn btn-primary" id="add-anni-btn">+ <span data-i18n="anni.addTitle">添加纪念日</span></button>
+            <button class="btn btn-ghost" id="refresh-anni-btn" data-i18n="anni.refresh">刷新</button>
+            <button class="btn btn-ghost" id="batch-test-anni-btn">🔔 <span data-i18n="anni.batchTest">批量测试</span></button>
+          </div>
+          <div class="toolbar-right">
+            <input id="anni-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
+            <button class="btn btn-ghost" id="anni-filter-toggle">⚙ <span data-i18n="filter.title">筛选</span> <span id="anni-filter-count" class="badge"></span></button>
+          </div>
+        </div>
+        <div class="filter-panel hidden" id="anni-filter-panel">
+          <div class="tool-group">
+            <label for="a-f-calendar" data-i18n="filter.calendar">历法</label>
+            <select id="a-f-calendar"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <div class="tool-group">
+            <label for="a-f-enabled" data-i18n="filter.enabled">提醒状态</label>
+            <select id="a-f-enabled"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="a-f-reset" data-i18n="filter.reset">重置</button>
         </div>
         <div id="anniversaries-list" class="card"></div>
       </section>
@@ -160,12 +216,28 @@
       <!-- 即将到来 -->
       <section id="view-upcoming" class="view hidden">
         <div class="toolbar" id="upcoming-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-ghost" id="refresh-up-btn" data-i18n="btn.refresh">刷新</button>
+          </div>
           <div class="toolbar-right">
+            <input id="upcoming-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
+            <button class="btn btn-ghost" id="upcoming-filter-toggle">⚙ <span data-i18n="filter.title">筛选</span> <span id="upcoming-filter-count" class="badge"></span></button>
             <div class="tool-group">
               <label for="up-view-mode" data-i18n="toolbar.view">视图</label>
               <select id="up-view-mode"><option value="list" data-i18n="view.list">列表</option><option value="card" data-i18n="view.card">卡片</option><option value="compact" data-i18n="view.compact">紧凑</option></select>
             </div>
           </div>
+        </div>
+        <div class="filter-panel hidden" id="upcoming-filter-panel">
+          <div class="tool-group">
+            <label for="u-f-category" data-i18n="filter.category">类别</label>
+            <select id="u-f-category"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <div class="tool-group">
+            <label for="u-f-calendar" data-i18n="filter.calendar">历法</label>
+            <select id="u-f-calendar"><option value="" data-i18n="filter.all">全部</option></select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="u-f-reset" data-i18n="filter.reset">重置</button>
         </div>
         <div id="upcoming-list"></div>
       </section>
@@ -226,12 +298,12 @@
 <div id="toast"></div>
 <div id="tooltip" class="tooltip" role="tooltip"></div>
 
-<script src="/static/js/i18n.js?v=2.6.11"></script>
+<script src="/static/js/i18n.js?v=2.6.12"></script>
 <script>
   /* 等待 i18n 加载完当前语言再启动 app.js */
   I18N.init().then(function () {
     var s = document.createElement("script");
-    s.src = "/static/js/app.js?v=2.6.11";
+    s.src = "/static/js/app.js?v=2.6.12";
     document.head.appendChild(s);
   });
 </script>

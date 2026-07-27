@@ -7,6 +7,16 @@
 (function () {
   "use strict";
 
+  /* 静态资源版本号：从加载本文件的 <script src=".../i18n.js?v=X"> 自动提取，
+     确保懒加载的语言包与主文件同版本、发版后不吃旧缓存 */
+  var ASSET_V = (function () {
+    try {
+      var s = document.querySelector('script[src*="/static/js/i18n.js"]');
+      var m = s && s.src.match(/[?&]v=([^&]+)/);
+      return m ? m[1] : "";
+    } catch (e) { return ""; }
+  })();
+
   /* 可选语言 */
   var LANGS = [
     { code: "zh", label: "简体中文" },
@@ -61,7 +71,7 @@
   function loadLang(code) {
     if (DICT[code]) return Promise.resolve();
     if (LOADING[code]) return LOADING[code];
-    LOADING[code] = loadScript("/static/js/i18n/" + code + ".js").then(function () {
+    LOADING[code] = loadScript("/static/js/i18n/" + code + ".js" + (ASSET_V ? "?v=" + ASSET_V : "")).then(function () {
       if (!DICT[code]) DICT[code] = {};
     });
     return LOADING[code];
