@@ -572,7 +572,6 @@ const CONTACT_COLUMNS = [
   { key: "blood_type", label: "field.blood", width: "62px" },
   { key: "hobbies", label: "field.hobbies", width: "150px" },
   { key: "note", label: "field.note", width: "170px" },
-  { key: "enabled_actions", label: "field.actions", width: "170px", cls: "ta-r" },
 ];
 function listColgroup() {
   const cols = ['<col style="width:38px">'];
@@ -591,7 +590,7 @@ function listRowHtml(r) {
   const cells = [];
   cells.push(`<td class="select-col" data-label="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
   if (hasField("avatar")) cells.push(`<td data-label="${t("field.avatar")}">${avatarHtml(r)}</td>`);
-  if (hasField("name")) cells.push(`<td data-label="${t("field.name")}"><b>${esc(r.name)}</b>${subLine(r)}</td>`);
+  if (hasField("name")) cells.push(`<td data-label="${t("field.name")}"><div class="name-cell" onclick="editContact(${r.id})"><div class="name-line"><b>${esc(r.name)}</b>${statusTags(r)}</div>${subLine(r)}</div></td>`);
   if (hasField("relationship")) cells.push(`<td data-label="${t("field.relationship")}">${esc(r.relationship || "-")}</td>`);
   if (hasField("gender")) cells.push(`<td data-label="${t("field.gender")}">${genderBadge(r.gender)}</td>`);
   if (hasField("birth_time")) cells.push(`<td data-label="${t("field.birthTime")}">${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
@@ -608,7 +607,6 @@ function listRowHtml(r) {
   if (hasField("blood_type")) cells.push(`<td data-label="${t("field.blood")}">${r.blood_type ? `${esc(r.blood_type)} <span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span>` : "-"}</td>`);
   if (hasField("hobbies")) cells.push(`<td class="ellipsis" data-label="${t("field.hobbies")}">${esc(r.hobbies || "-")}</td>`);
   if (hasField("note")) cells.push(`<td class="ellipsis" data-label="${t("field.note")}">${esc(r.note || "-")}</td>`);
-  if (hasField("enabled_actions")) cells.push(`<td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, "contact")}</td>`);
   return `<tr>${cells.join("")}</tr>`;
 }
 function cardHtml(r) {
@@ -616,10 +614,10 @@ function cardHtml(r) {
   return `
   <div class="contact-card" data-id="${r.id}">
     <label class="card-select" title="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
-    <div class="cc-head">
+    <div class="cc-head" onclick="editContact(${r.id})">
       <div class="cc-avatar">${avatarHtml(r, true)}</div>
       <div class="cc-head-info">
-        <div class="cc-name">${name}${calendarBadge(r)}</div>
+        <div class="cc-name">${name}${calendarBadge(r)}${statusTags(r)}</div>
         <div class="cc-sub">${metaLine(r)}</div>
       </div>
     </div>
@@ -635,15 +633,14 @@ function cardHtml(r) {
       ${hasField("hobbies") && r.hobbies ? `<span class="muted">${t("field.hobbies")}：</span>${esc(r.hobbies)}` : ""}
     </div>
     ${hasField("note") && r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
-    <div class="cc-actions">${actionsHtml(r, "contact")}</div>
   </div>`;
 }
 function compactRowHtml(r) {
   return `
   <div class="compact-item" data-id="${r.id}">
     <label class="compact-select" title="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></label>
-    <div class="compact-left">
-      ${avatarHtml(r)}<b>${esc(r.name)}</b>
+    <div class="compact-left" onclick="editContact(${r.id})">
+      ${avatarHtml(r)}<b>${esc(r.name)}</b>${statusTags(r)}
       <span class="muted sm">${esc(r.relationship || "")}${r.relationship ? " · " : ""}${calendarBadge(r)}</span>
     </div>
     <div class="compact-right">
@@ -651,7 +648,6 @@ function compactRowHtml(r) {
       ${hasField("next_date") ? `<span class="muted sm">${nextDateLabel(r)}</span>` : ""}
       ${r.mbti ? `${esc(r.mbti)}<span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}">ℹ️</span>` : ""}
       ${r.blood_type ? `${esc(r.blood_type)}<span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}">ℹ️</span>` : ""}
-      ${actionsHtml(r, "contact")}
     </div>
   </div>`;
 }
@@ -699,12 +695,11 @@ function daysBadge(r) {
   if (r.days_until <= 14) return `<span class="tag near">${r.days_until} ${t("days.left")}</span>`;
   return `<span class="tag">${r.days_until} ${t("days.left")}</span>`;
 }
+function statusTags(r) {
+  return `<span class="row-status">${visBadge(r.visibility)}${r.enabled === false ? '<span class="tag tag-off">' + t("tag.disabled") + '</span>' : '<span class="tag tag-on">' + t("tag.enabled") + '</span>'}</span>`;
+}
 function actionsHtml(r, kind) {
-  const en = visBadge(r.visibility) + (r.enabled ? '<span class="tag tag-on">' + t("tag.enabled") + '</span>' : '<span class="tag tag-off">' + t("tag.disabled") + '</span>');
-  const btns = `
-    <button class="btn btn-ghost btn-sm" onclick="edit${kind === "anni" ? "Anni" : "Contact"}(${r.id})">${t("btn.edit")}</button>
-    <button class="btn btn-danger-ghost btn-sm" onclick="delRecord('${kind}', ${r.id}, '${esc(r.name)}')">${t("btn.delete")}</button>`;
-  return `<div class="actions">${en}${btns}</div>`;
+  return `<div class="actions">${statusTags(r)}<button class="btn btn-ghost btn-sm" onclick="edit${kind === "anni" ? "Anni" : "Contact"}(${r.id})">${t("btn.edit")}</button><button class="btn btn-danger-ghost btn-sm" onclick="delRecord('${kind}', ${r.id}, '${esc(r.name)}')">${t("btn.delete")}</button></div>`;
 }
 
 /* 字段选择器 */
@@ -714,7 +709,6 @@ function openFieldPicker() {
   $("#save-fields-btn").addEventListener("click", () => {
     const chosen = $$("#fields-form input:checked").map((i) => i.value);
     if (!chosen.includes("name")) chosen.unshift("name");
-    if (!chosen.includes("enabled_actions")) chosen.push("enabled_actions");
     VIEW_PREFS.fields = chosen; FIELD_SET = new Set(chosen); saveViewPrefs(VIEW_PREFS); closeModal(); renderContacts(); toast(t("fieldPicker.saved"));
   });
 }
@@ -771,6 +765,7 @@ function openContactEditor(r) {
       </div>
       <div class="field"><label class="chk"><input id="c-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> ${t("form.enabled")}</label></div>
       <div class="modal-actions">
+        ${isEdit ? `<button type="button" class="btn btn-danger-ghost" onclick="delFromEditor('contact', ${r.id}, '${esc(r.name)}')">${t("btn.delete")}</button>` : ""}
         <button type="button" class="btn btn-ghost" onclick="closeEditor()">${t("btn.cancel")}</button>
         <button type="submit" class="btn btn-primary">${isEdit ? t("form.save") : t("form.add")}</button>
       </div>
@@ -887,7 +882,7 @@ function renderAnniversaries() {
   if (!rows.length) { box.innerHTML = '<div class="empty">' + t("filter.noResult") + '</div>'; return; }
   const body = rows.map((r) => `
     <tr>
-      <td data-label="${t("field.name")}"><b>${esc(r.name)}</b></td>
+      <td data-label="${t("field.name")}"><div class="name-cell" onclick="editAnni(${r.id})"><div class="name-line"><b>${esc(r.name)}</b>${statusTags(r)}</div></div></td>
       <td data-label="${t("field.desc")}">${esc(r.note || "-")}</td>
       <td data-label="${t("form.type")}">${esc(r.kind || t("anni.default"))}</td>
       <td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>
@@ -895,9 +890,8 @@ function renderAnniversaries() {
       <td data-label="${t("field.nextDate")}">${nextDateLabel(r)}</td>
       <td data-label="${t("field.countdown")}">${daysBadge(r)}</td>
       <td data-label="${t("field.passed")}">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> ${t("unit.anniv")}` : "-"}</td>
-      <td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, "anni")}</td>
     </tr>`).join("");
-  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${body}</tbody></table>`;
+  box.innerHTML = `<table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 function openAnniEditor(r) {
   const isEdit = !!r; r = r || {};
@@ -919,7 +913,11 @@ function openAnniEditor(r) {
         <div class="vis-picker" id="a-vis">${visOptions().map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
       <div class="field"><label class="chk"><input id="a-enabled" type="checkbox" ${r.enabled === false ? "" : "checked"}/> ${t("form.enabled")}</label></div>
-      <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeEditor()">${t("btn.cancel")}</button><button type="submit" class="btn btn-primary">${isEdit ? t("form.save") : t("form.add")}</button></div>
+      <div class="modal-actions">
+        ${isEdit ? `<button type="button" class="btn btn-danger-ghost" onclick="delFromEditor('anni', ${r.id}, '${esc(r.name)}')">${t("btn.delete")}</button>` : ""}
+        <button type="button" class="btn btn-ghost" onclick="closeEditor()">${t("btn.cancel")}</button>
+        <button type="submit" class="btn btn-primary">${isEdit ? t("form.save") : t("form.add")}</button>
+      </div>
     </form>`;
   showEditor(html);
   $$("#a-vis input").forEach((i) => i.addEventListener("change", () => {
@@ -947,6 +945,15 @@ window.editAnni = (id) => { const r = ANNIS.find((x) => x.id === id); openAnniEd
 
 window.delRecord = async (kind, id, name) => {
   if (!confirm(t("confirm.delRecord", { name }))) return;
+  try {
+    await api(`/api/${kind === "anni" ? "anniversaries" : "birthdays"}/${id}`, { method: "DELETE" });
+    toast(t("toast.deleted"));
+    if (kind === "anni") loadAnniversaries(); else loadContacts();
+  } catch (err) { toast(err.message, false); }
+};
+window.delFromEditor = async (kind, id, name) => {
+  if (!confirm(t("confirm.delRecord", { name }))) return;
+  closeEditor();
   try {
     await api(`/api/${kind === "anni" ? "anniversaries" : "birthdays"}/${id}`, { method: "DELETE" });
     toast(t("toast.deleted"));
@@ -982,16 +989,17 @@ function upSubLabel(r) {
   return r.relationship || "";
 }
 function upHead() {
-  return `<tr><th>${t("field.name")}</th><th>${t("form.type")}</th><th>${t("field.date")}</th><th>${t("field.countdown")}</th><th class="ta-r">${t("field.actions")}</th></tr>`;
+  return `<tr><th>${t("field.name")}</th><th>${t("field.relationship")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.countdown")}</th><th>${t("field.note")}</th></tr>`;
 }
 function upRow(r) {
   const isAnni = r.category === "anniversary";
   return `<tr>
-    <td data-label="${t("field.name")}"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</td>
-    <td data-label="${t("form.type")}">${isAnni ? esc(r.kind || t("anni.default")) : esc(r.relationship || "-")}</td>
-    <td data-label="${t("field.date")}"><span class="mono">${r.occ_date}</span></td>
+    <td data-label="${t("field.name")}"><div class="name-cell"><div class="name-line"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)} ${statusTags(r)}</div><div class="muted sm">${esc(isAnni ? (r.kind || "") : (r.relationship || ""))}</div></div></td>
+    <td data-label="${t("field.relationship")}">${isAnni ? esc(r.kind || "-") : esc(r.relationship || "-")}</td>
+    <td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>
+    <td data-label="${t("field.date")}"><span class="mono">${r.occ_date}</span>${r.is_leap ? ` <span class="muted sm">(${t("form.leapShort")})</span>` : ""}</td>
     <td data-label="${t("field.countdown")}">${upDaysBadge(r)}</td>
-    <td class="ta-r" data-label="${t("field.actions")}">${actionsHtml(r, isAnni ? "anni" : "contact")}</td>
+    <td data-label="${t("field.note")}">${esc(r.note || "-")}</td>
   </tr>`;
 }
 function upCard(r) {
@@ -1012,21 +1020,20 @@ function upCard(r) {
       <div class="cc-stat"><span class="cc-stat-label">${t("field.countdown")}</span><span class="cc-stat-val">${upDaysBadge(r)}</span></div>
       ${extra}
     </div>
+    ${r.relationship || r.kind ? `<div class="cc-note">${isAnni ? esc(r.kind || "") : esc(r.relationship || "")}</div>` : ""}
     ${r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
-    <div class="cc-actions">${actionsHtml(r, isAnni ? "anni" : "contact")}</div>
   </div>`;
 }
 function upCompact(r) {
   const isAnni = r.category === "anniversary";
   return `<div class="compact-item" data-id="${r.id}">
     <div class="compact-left">
-      ${avatarHtml(r)}<b>${esc(r.name)}</b>
+      ${avatarHtml(r)}<b>${esc(r.name)}</b>${statusTags(r)}
       <span class="muted sm">${esc(upSubLabel(r))} ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</span>
     </div>
     <div class="compact-right">
       ${upDaysBadge(r)}
       <span class="muted sm"><span class="mono">${r.occ_date}</span></span>
-      ${actionsHtml(r, isAnni ? "anni" : "contact")}
     </div>
   </div>`;
 }
@@ -1070,6 +1077,32 @@ function _dist(rows, key) {
 function _distBars(entries, max) {
   if (!entries.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
   return entries.map(([k, v]) => `<div class="dist-row"><span class="dist-label">${esc(k)}</span><span class="dist-track"><span class="dist-fill" style="width:${max ? Math.round(v / max * 100) : 0}%"></span></span><span class="dist-num">${v}</span></div>`).join("");
+}
+const PIE_COLORS = ["#5e6ad2", "#3e9c6e", "#d4726f", "#f6a94c", "#8b5cf6", "#0ea5e9", "#ec4899", "#64748b", "#14b8a6", "#f43f5e"];
+function _pieChart(entries) {
+  if (!entries.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  let start = -Math.PI / 2;
+  const slices = entries.map(([k, v], i) => {
+    const angle = (v / total) * Math.PI * 2;
+    const x1 = 50 + 42 * Math.cos(start), y1 = 50 + 42 * Math.sin(start);
+    const x2 = 50 + 42 * Math.cos(start + angle), y2 = 50 + 42 * Math.sin(start + angle);
+    const d = `M50,50 L${x1.toFixed(2)},${y1.toFixed(2)} A42,42 0 ${angle > Math.PI ? 1 : 0},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z`;
+    start += angle;
+    return `<path d="${d}" fill="${PIE_COLORS[i % PIE_COLORS.length]}" stroke="var(--card)" stroke-width="1"><title>${esc(k)}: ${v}</title></path>`;
+  }).join("");
+  const legend = entries.map(([k, v], i) => `<div class="pie-legend"><span class="pie-dot" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span><span>${esc(k)} (${v})</span></div>`).join("");
+  return `<div class="pie-wrap"><svg viewBox="0 0 100 100" class="pie-svg">${slices}</svg><div class="pie-legend-list">${legend}</div></div>`;
+}
+function _cloudChart(entries) {
+  if (!entries.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+  const max = Math.max(...entries.map(([, v]) => v));
+  const colors = ["var(--primary-d)", "var(--primary)", "var(--ok)", "var(--bad)", "var(--muted)"];
+  const tags = entries.map(([k, v], i) => {
+    const size = 12 + (v / max) * 14;
+    return `<span class="cloud-tag" style="font-size:${size.toFixed(1)}px;color:${colors[i % colors.length]}">${esc(k)}<small>${v}</small></span>`;
+  }).join("");
+  return `<div class="tag-cloud">${tags}</div>`;
 }
 function renderDashboard() {
   const box = $("#dashboard-content"); if (!box) return;
@@ -1126,9 +1159,10 @@ function renderDashboard() {
       <div class="card dash-section"><div class="group-title">${t("chart.monthDist")}</div>${monthHtml}</div>
       <div class="card dash-section"><div class="group-title">${t("chart.ageDist")}</div>${ageHtml}</div>
       <div class="card dash-section"><div class="group-title">${t("chart.relDist")}</div>${relHtml}</div>
-      <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiac")}</div>${_distBars(z.entries, z.max)}</div>
-      <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiacCn")}</div>${_distBars(zc.entries, zc.max)}</div>
-      <div class="card dash-section"><div class="group-title">${t("dashboard.distGender")}</div>${_distBars(g.entries, g.max)}</div>
+      <div class="card dash-section"><div class="group-title">${t("chart.pieRel")}</div>${_pieChart(rel.entries)}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.distGender")}</div>${_pieChart(g.entries)}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiac")}</div>${_cloudChart(z.entries)}</div>
+      <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiacCn")}</div>${_cloudChart(zc.entries)}</div>
       <div class="card dash-section dash-insights"><div class="group-title">${t("chart.insight")}</div><ul class="insight-list">${insightsHtml}</ul></div>
     </div>
     <div class="dash-grid">
@@ -1290,7 +1324,7 @@ function loadProfile() {
       <div class="card">
         <div class="group-title">🪪 ${t("profile.basic")}</div>
         <p class="help">${t("profile.basicDesc")}</p>
-        <div class="field"><label>${t("user.username")} <span class="muted">(${t("profile.accountFixed")})</span></label><input id="pf-username" value="${esc(ME.username)}" disabled /></div>
+        <div class="field"><label>${t("user.username")} <span class="muted">(${t("profile.accountFixed")})</span></label><input id="pf-username" type="text" value="${esc(ME.username)}" disabled /></div>
         <div class="field"><label>${t("profile.nickname")}</label><input id="pf-nickname" value="${esc(ME.nickname || "")}" placeholder="${t("profile.nicknamePh")}" /></div>
         <div class="field"><label>${t("profile.email")}</label><input id="pf-email" type="email" value="${esc(ME.email || "")}" placeholder="${t("profile.emailPh")}" /></div>
         <div class="modal-actions"><button class="btn btn-primary" id="pf-save">${t("btn.save")}</button></div>
