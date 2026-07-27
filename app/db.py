@@ -238,14 +238,22 @@ def _birthday_stats(r: dict, today: date | None = None) -> dict:
     item["is_today"] = item["days_until"] == 0 if target else False
     item["is_passed"] = item["days_until"] is None or item["days_until"] < 0
 
-    # 西方星座：使用生日的公历月日（如果是农历，用当年的公历对应月日）
-    z_month, z_day = item["month"], item["day"]
-    if target and item["calendar_type"] == "lunar":
-        z_month, z_day = target.month, target.day
-    item["zodiac"] = item.get("zodiac") or _zodiac_sign(z_month, z_day)
-
     # 生肖与年龄/已活天数依赖 year
     year = item.get("year")
+
+    # 西方星座：按阳历生日计算。阳历直接用月日；
+    # 农历需先转成「出生年份」对应的阳历日期（星座依阳历生日而定，
+    # 农历每年对应的阳历不同，不能用「下一个公历对应日」的月日）。
+    z_month, z_day = item["month"], item["day"]
+    if item["calendar_type"] == "lunar":
+        solar_birth = lunar._lunar_to_solar(year, item["month"], item["day"], item["is_leap"]) if year else None
+        if solar_birth:
+            z_month, z_day = solar_birth.month, solar_birth.day
+        elif target:
+            # 缺出生年份时的近似回退（仍有误差，仅作兜底）
+            z_month, z_day = target.month, target.day
+    item["zodiac"] = item.get("zodiac") or _zodiac_sign(z_month, z_day)
+
     item["chinese_zodiac"] = _chinese_zodiac(year)
 
     if year:
