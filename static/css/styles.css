@@ -253,7 +253,7 @@ tbody tr:hover { background: #fafbfc; }
 .field-main > label.field-label { flex: 0 0 150px; max-width: 30%; margin: 0; }
 .field-main > *:not(.field-label) { flex: 1 1 auto; min-width: 0; max-width: 420px; }
 .field-inline .field-main > *:not(.field-label) { flex: 0 0 auto; }
-.field input[type=text], .field input[type=number], .field input[type=password], .field select, .field textarea {
+.field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea {
   width: 100%; max-width: 420px; padding: 10px 12px; border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm); font: inherit; background: #fbfcfd; transition: all .18s;
 }
@@ -455,7 +455,7 @@ tbody tr:hover { background: #fafbfc; }
 .contact-card:hover { border-color: var(--line-strong); transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 .cc-head { display: flex; align-items: center; gap: 12px; }
 .cc-head-info { flex: 1; min-width: 0; }
-.cc-name { font-weight: 500; font-size: 15px; display: flex; align-items: center; gap: 8px; color: var(--text-strong); }
+.cc-name { font-weight: 500; font-size: 15px; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; color: var(--text-strong); }
 .cc-sub { color: var(--muted); font-size: 12px; margin-top: 3px; font-weight: 300; }
 .cc-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .cc-stat { background: var(--bg); border-radius: 12px; padding: 12px; }
@@ -477,8 +477,8 @@ tbody tr:hover { background: #fafbfc; }
 .compact-right .actions { display: inline-flex; gap: 6px; }
 .name-cell { cursor: pointer; }
 .name-cell:hover .name-line b { color: var(--primary-d); }
-.name-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.row-status { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.name-line { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.row-status { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }
 .row-status .tag { font-size: 10.5px; padding: 1px 6px; }
 .cc-head { cursor: pointer; }
 .cc-head:hover .cc-name b { color: var(--primary-d); }
@@ -902,6 +902,21 @@ html[data-theme="sakura"] tbody tr:hover { background: #fff0f5; }
 html[data-theme="sakura"] input, html[data-theme="sakura"] select, html[data-theme="sakura"] textarea { border-radius: 16px; background: var(--primary-soft); border-color: var(--line-strong); }
 html[data-theme="sakura"] .switch .slider { border-radius: 999px; background: var(--line); }
 html[data-theme="sakura"] .switch input:checked + .slider { background: var(--primary); }
+
+/* ---------- 顶部栏菜单：修正各主题对 .sidebar 的横向布局污染 ----------
+   桌面主题里 html[data-theme] .sidebar 设了 width:236px / 纵向 padding / border-right，
+   与 body.menu-top .sidebar（width:100% / 横向 flex）同特异性(0,2,1)，但主题源码靠后而胜出，
+   导致顶部栏在这些主题下被压成窄竖条。此处用更高特异性(0,3,1)在末尾重新声明横向布局。 */
+@media (min-width: 721px) {
+  html[data-theme] body.menu-top .sidebar {
+    width: 100%; height: auto; flex-direction: row; align-items: center;
+    position: sticky; top: 0; border-right: none; border-bottom: 1px solid var(--line);
+    padding: 10px 20px; gap: 8px;
+  }
+  html[data-theme] body.menu-top .nav { flex-direction: row; flex-wrap: wrap; flex: 1; }
+  html[data-theme] body.menu-top .nav-item { flex-direction: row; align-items: center; padding: 8px 13px; gap: 8px; }
+  html[data-theme] body.menu-top .side-brand { display: block; }
+}
 
 /* ============================================================
    移动端底部导航：与主题协调

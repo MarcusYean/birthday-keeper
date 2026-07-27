@@ -590,7 +590,7 @@ function listRowHtml(r) {
   const cells = [];
   cells.push(`<td class="select-col" data-label="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}" ${SELECTED_IDS.has(r.id) ? "checked" : ""}></td>`);
   if (hasField("avatar")) cells.push(`<td data-label="${t("field.avatar")}">${avatarHtml(r)}</td>`);
-  if (hasField("name")) cells.push(`<td data-label="${t("field.name")}"><div class="name-cell" onclick="editContact(${r.id})"><div class="name-line"><b>${esc(r.name)}</b>${statusTags(r)}</div>${subLine(r)}</div></td>`);
+  if (hasField("name")) cells.push(`<td data-label="${t("field.name")}"><div class="name-cell" onclick="editContact(${r.id})"><div class="name-line"><b>${esc(r.name)}</b>${statusTags(r)}${subLine(r)}</div></div></td>`);
   if (hasField("relationship")) cells.push(`<td data-label="${t("field.relationship")}">${esc(r.relationship || "-")}</td>`);
   if (hasField("gender")) cells.push(`<td data-label="${t("field.gender")}">${genderBadge(r.gender)}</td>`);
   if (hasField("birth_time")) cells.push(`<td data-label="${t("field.birthTime")}">${esc((r.birth_time || "").split(" ")[0] || "-")}</td>`);
@@ -671,7 +671,7 @@ function genderLabel(g) { const k = genderKey(g); return k ? t("gender." + k) : 
 function genderBadge(g) { const k = genderKey(g); if (!k) return "-"; return `<span class="tag ${k}">${t("gender." + k)}</span>`; }
 function zodiacBadge(z) { return z ? `<span class="tag zodiac">${esc(z)}</span>` : "-"; }
 function ageLabel(age) { return age != null ? `<span class="num">${age}</span> ${t("unit.years")}` : "-"; }
-function subLine(r) { return (r.relationship && !hasField("relationship")) ? `<div class="muted sm">${esc(r.relationship)}</div>` : ""; }
+function subLine(r) { return (r.relationship && !hasField("relationship")) ? `<span class="muted sm">· ${esc(r.relationship)}</span>` : ""; }
 function metaLine(r) {
   const parts = [];
   if (r.relationship && hasField("relationship")) parts.push(esc(r.relationship));
@@ -994,7 +994,7 @@ function upHead() {
 function upRow(r) {
   const isAnni = r.category === "anniversary";
   return `<tr>
-    <td data-label="${t("field.name")}"><div class="name-cell"><div class="name-line"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)} ${statusTags(r)}</div><div class="muted sm">${esc(isAnni ? (r.kind || "") : (r.relationship || ""))}</div></div></td>
+    <td data-label="${t("field.name")}"><div class="name-cell"><div class="name-line"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)} ${statusTags(r)} <span class="muted sm">${esc(isAnni ? (r.kind || "") : (r.relationship || ""))}</span></div></div></td>
     <td data-label="${t("field.relationship")}">${isAnni ? esc(r.kind || "-") : esc(r.relationship || "-")}</td>
     <td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>
     <td data-label="${t("field.date")}"><span class="mono">${r.occ_date}</span>${r.is_leap ? ` <span class="muted sm">(${t("form.leapShort")})</span>` : ""}</td>
@@ -1325,7 +1325,7 @@ function loadProfile() {
         <div class="group-title">🪪 ${t("profile.basic")}</div>
         <p class="help">${t("profile.basicDesc")}</p>
         <div class="field"><label>${t("user.username")} <span class="muted">(${t("profile.accountFixed")})</span></label><input id="pf-username" type="text" value="${esc(ME.username)}" disabled /></div>
-        <div class="field"><label>${t("profile.nickname")}</label><input id="pf-nickname" value="${esc(ME.nickname || "")}" placeholder="${t("profile.nicknamePh")}" /></div>
+        <div class="field"><label>${t("profile.nickname")}</label><input id="pf-nickname" type="text" value="${esc(ME.nickname || "")}" placeholder="${t("profile.nicknamePh")}" /></div>
         <div class="field"><label>${t("profile.email")}</label><input id="pf-email" type="email" value="${esc(ME.email || "")}" placeholder="${t("profile.emailPh")}" /></div>
         <div class="modal-actions"><button class="btn btn-primary" id="pf-save">${t("btn.save")}</button></div>
 
