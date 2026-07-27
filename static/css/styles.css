@@ -1,5 +1,5 @@
 /* ============================================================
-   生日管家 v2.6.7 · 主流 UI 风格主题 + 多语言
+   生日管家 v2.6.8 · 主流 UI 风格主题 + 多语言
    5 套完全不同的界面风格：极简现代 / 玻璃拟态 / 新拟态 / 包豪斯 / Material You
    每套主题不仅换色，更在字体、布局、圆角、阴影、按钮、卡片、输入框、开关与复选框形态上独立设计。
    ============================================================ */
@@ -179,7 +179,8 @@ tbody tr:hover { background: #fafbfc; }
 /* ---------- 弹窗 ---------- */
 .overlay { position: fixed; inset: 0; background: rgba(29, 33, 41, .32); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
 .overlay.show { display: flex; }
-.modal { background: #fff; border-radius: 20px; width: 100%; max-width: 760px; padding: 34px; max-height: 92vh; overflow: auto; box-shadow: var(--shadow-lift); }
+.modal { background: #fff; border-radius: 20px; width: 100%; max-width: 760px; max-height: 92vh; overflow: hidden; box-shadow: var(--shadow-lift); }
+.modal-inner { max-height: 92vh; overflow-y: auto; padding: 34px; }
 .modal h2 { margin: 0 0 22px; font-size: 16.5px; font-weight: 500; letter-spacing: .03em; color: var(--text-strong); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
@@ -223,6 +224,7 @@ tbody tr:hover { background: #fafbfc; }
   width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); font: inherit; background: #fbfcfd; transition: all .18s;
 }
 .modal-form input:focus, .modal-form select:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px var(--primary-soft); }
+.modal-form input[readonly] { background: var(--cool-1); color: var(--muted); cursor: default; }
 .modal-form select { appearance: auto; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: end; }
@@ -426,8 +428,9 @@ tbody tr:hover { background: #fafbfc; }
 .drawer {
   position: fixed; top: 0; right: 0; height: 100vh; width: 480px; max-width: 94vw;
   background: #fff; box-shadow: -12px 0 48px rgba(23,26,33,.12);
-  transform: translateX(100%); transition: transform .28s cubic-bezier(.32,.72,.35,1); overflow: auto; padding: 32px;
+  transform: translateX(100%); transition: transform .28s cubic-bezier(.32,.72,.35,1); overflow: hidden;
 }
+.drawer-inner { height: 100vh; overflow-y: auto; padding: 32px; }
 .drawer-overlay.show .drawer { transform: translateX(0); }
 .drawer h2 { margin: 0 0 22px; font-size: 16.5px; font-weight: 500; letter-spacing: .03em; color: var(--text-strong); }
 
@@ -506,7 +509,8 @@ body.menu-top .topbar { padding: 15px 36px; }
   .settings-nav-item { white-space: nowrap; flex-shrink: 0; }
 
   .overlay { padding: 0; align-items: flex-end; }
-  .modal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0; padding: 22px 18px calc(22px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; }
+  .modal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0; max-height: 92vh; }
+  .modal-inner { padding: 22px 18px calc(22px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; }
   .modal h2 { font-size: 16px; }
   .grid2, .grid3 { grid-template-columns: 1fr; }
   .field input[type=text], .field input[type=number], .field input[type=password], .field select,
@@ -514,7 +518,8 @@ body.menu-top .topbar { padding: 15px 36px; }
   .modal-actions { flex-direction: column-reverse; gap: 8px; }
   .modal-actions .btn { width: 100%; }
 
-  .drawer { width: 100%; max-width: 100%; padding: 22px 18px calc(22px + env(safe-area-inset-bottom, 0px)); }
+  .drawer { width: 100%; max-width: 100%; }
+  .drawer-inner { padding: 22px 18px calc(22px + env(safe-area-inset-bottom, 0px)); }
 
   .auth-wrap { padding: 16px; }
   .auth-card { padding: 32px 24px; }
@@ -548,7 +553,7 @@ body.menu-top .topbar { padding: 15px 36px; }
    mint  = 新拟态 (Neumorphism / Soft UI)
    morandi = 包豪斯 (Bauhaus / Brutalist)
    sakura = Material You
-   v2.6.7 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
+   v2.6.8 升级：每套主题不再是颜色差异，而是字体、圆角、阴影、
    按钮、卡片、表格、标签、输入框、侧边栏、导航、开关、复选框形态上的独立设计语言。
    ============================================================ */
 

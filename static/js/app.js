@@ -46,12 +46,12 @@ function esc(s) {
 }
 
 /* ============ 弹窗 / 抽屉 ============ */
-function openModal(html) { $("#modal").innerHTML = html; $("#overlay").classList.add("show"); }
+function openModal(html) { $("#modal").innerHTML = `<div class="modal-inner">${html}</div>`; $("#overlay").classList.add("show"); }
 function closeModal() { $("#overlay").classList.remove("show"); $("#modal").innerHTML = ""; }
 
 function showEditor(html) {
   if (UI_PREFS.contact_edit_mode === "drawer") {
-    $("#drawer").innerHTML = html;
+    $("#drawer").innerHTML = `<div class="drawer-inner">${html}</div>`;
     $("#drawer-overlay").classList.add("show");
   } else {
     openModal(html);
@@ -265,8 +265,23 @@ function buildFieldMeta() {
 let FIELD_META = buildFieldMeta();
 
 function chNames() { return { wechat: t("ch.wechat"), feishu: t("ch.feishu"), email: t("ch.email") }; }
+function getChineseZodiac(year) {
+  const y = Number(year);
+  if (!Number.isFinite(y) || y < 1) return null;
+  return CHINESE_ZODIACS[y % 12];
+}
+function daysPickerHtml(name, selected) {
+  const opts = [1, 2, 3, 5, 7, 10, 15, 30];
+  const set = new Set((selected || []).map(Number).filter((n) => Number.isFinite(n)));
+  return `<div class="chk-row" id="${name}">${opts.map((d) => `<label class="chk"><input type="checkbox" value="${d}" ${set.has(d) ? "checked" : ""}/> ${d}${t("unit.days")}</label>`).join("")}</div>`;
+}
+function collectDays(name) {
+  const vals = $$(`#${name} input:checked`).map((i) => Number(i.value));
+  return vals.length ? vals : null;
+}
 const BIRTH_TIMES = ["", "子时 23:00-01:00", "丑时 01:00-03:00", "寅时 03:00-05:00", "卯时 05:00-07:00", "辰时 07:00-09:00", "巳时 09:00-11:00", "午时 11:00-13:00", "未时 13:00-15:00", "申时 15:00-17:00", "酉时 17:00-19:00", "戌时 19:00-21:00", "亥时 21:00-23:00"];
 const ZODIACS = ["", "白羊座", "金牛座", "双子座", "巨蟹座", "狮子座", "处女座", "天秤座", "天蝎座", "射手座", "摩羯座", "水瓶座", "双鱼座"];
+const CHINESE_ZODIACS = ["猴", "鸡", "狗", "猪", "鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊"];
 const AVATARS = ["", "🎂", "🎈", "🎁", "🧸", "🎊", "🎉", "👶", "👧", "👦", "👩", "👨", "👴", "👵", "🧑", "🐶", "🐱", "🐰", "🐯", "🐼", "🐨", "🦊", "🦁"];
 const BLOOD_TYPES = ["", "A", "B", "AB", "O"];
 const MBTI_TYPES = ["", "INTJ", "INTP", "ENTJ", "ENTP", "INFJ", "INFP", "ENFJ", "ENFP", "ISTJ", "ISFJ", "ESTJ", "ESFJ", "ISTP", "ISFP", "ESTP", "ESFP"];
@@ -549,9 +564,10 @@ function openFieldPicker() {
 /* 添加/编辑联系人（modal 或 drawer） */
 function openContactEditor(r) {
   const isEdit = !!r; r = r || {};
-  const nd = (r.notify_days || []).join(","); const chs = r.channels || [];
+  const days = r.notify_days || []; const chs = r.channels || [];
   const gender = r.gender || "", avatar = r.avatar || "", birthTime = r.birth_time || "", hobbies = r.hobbies || "";
   const mbti = r.mbti || "", blood = r.blood_type || "";
+  const cnZodiac = getChineseZodiac(r.year) || "";
   const uploadHtml = `<div class="avatar-upload">
       <div class="avatar-preview">${avatarHtml(r, true)}</div>
       <div>
@@ -577,9 +593,10 @@ function openContactEditor(r) {
         <div class="field"><label>${t("form.mbti")} <span class="info-ic" id="c-mbti-info" data-tip="${esc(mbtiTip(mbti))}">ℹ️</span></label><select id="c-mbti">${MBTI_TYPES.map((v) => `<option value="${v}" ${mbti === v ? "selected" : ""}>${v || t("mbti.unset")}</option>`).join("")}</select></div>
         <div class="field"><label>${t("form.blood")} <span class="info-ic" id="c-blood-info" data-tip="${esc(bloodTip(blood))}">ℹ️</span></label><select id="c-blood">${BLOOD_TYPES.map((v) => `<option value="${v}" ${blood === v ? "selected" : ""}>${v || t("blood.unset")}</option>`).join("")}</select></div>
       </div>
-      <div class="grid2">
+      <div class="grid3">
         <div class="field"><label>${t("form.calType")}</label><select id="c-cal"><option value="solar" ${r.calendar_type !== "lunar" ? "selected" : ""}>${t("cal.solarFull")}</option><option value="lunar" ${r.calendar_type === "lunar" ? "selected" : ""}>${t("cal.lunarFull")}</option></select></div>
         <div class="field"><label>${t("form.zodiac")}</label><select id="c-zodiac">${ZODIACS.map((v) => `<option value="${v}" ${r.zodiac === v ? "selected" : ""}>${v || t("zodiac.auto")}</option>`).join("")}</select></div>
+        <div class="field"><label>${t("form.chineseZodiac")}</label><input id="c-chinese-zodiac" type="text" value="${cnZodiac}" readonly placeholder="${t("zodiac.auto")}" /></div>
       </div>
       <div class="grid3">
         <div class="field"><label>${t("form.year")}</label><input id="c-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="${t("form.year")}" /></div>
@@ -588,7 +605,7 @@ function openContactEditor(r) {
       </div>
       <div class="field"><label class="chk"><input id="c-leap" type="checkbox" ${r.is_leap ? "checked" : ""}/> ${t("form.leap")}</label></div>
       <div class="field"><label>${t("form.hobbies")}</label><input id="c-hobbies" type="text" value="${esc(hobbies)}" placeholder="${t("form.hobbies")}" /></div>
-      <div class="field"><label>${t("form.notifyDays")}</label><input id="c-days" type="text" value="${nd}" placeholder="${t("form.notifyDaysPh")}" /></div>
+      <div class="field"><label>${t("form.notifyDays")}</label>${daysPickerHtml("c-days", days)}</div>
       <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="c-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
       <div class="field"><label>${t("form.note")}</label><input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
@@ -609,6 +626,10 @@ function openContactEditor(r) {
   const msel = $("#c-mbti"), bsel = $("#c-blood");
   msel.addEventListener("change", () => $("#c-mbti-info").setAttribute("data-tip", mbtiTip(msel.value)));
   bsel.addEventListener("change", () => $("#c-blood-info").setAttribute("data-tip", bloodTip(bsel.value)));
+  // 出生年份变化时自动计算属相
+  const yearEl = $("#c-year"), czEl = $("#c-chinese-zodiac");
+  const updateCnZodiac = () => { const z = getChineseZodiac(yearEl.value); czEl.value = z || ""; };
+  yearEl.addEventListener("input", updateCnZodiac);
   // 头像上传
   $("#c-avatar-file").addEventListener("change", async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -631,7 +652,7 @@ function openContactEditor(r) {
       avatar: $("#c-avatar").value || null, mbti: $("#c-mbti").value || null, blood_type: $("#c-blood").value || null,
       calendar_type: $("#c-cal").value, year: $("#c-year").value ? parseInt($("#c-year").value) : null,
       month: parseInt($("#c-month").value), day: parseInt($("#c-day").value), is_leap: $("#c-leap").checked,
-      notify_days: $("#c-days").value.trim() ? $("#c-days").value.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => n >= 0) : null,
+      notify_days: collectDays("c-days"),
       channels: $$(".c-ch:checked").length ? $$(".c-ch:checked").map((i) => i.value) : null,
       note: $("#c-note").value.trim() || null, enabled: $("#c-enabled").checked,
       visibility: (document.querySelector('#c-vis input:checked') || {}).value || null,
@@ -720,7 +741,7 @@ function renderAnniversaries() {
 }
 function openAnniEditor(r) {
   const isEdit = !!r; r = r || {};
-  const nd = (r.notify_days || []).join(","); const chs = r.channels || [];
+  const days = r.notify_days || []; const chs = r.channels || [];
   const visTip = `${t("vis.privateTip")}；${t("vis.familyTip")}；${t("vis.publicTip")}`;
   const html = `
     <h2>${isEdit ? t("anni.editTitle") : t("anni.addTitle")}</h2>
@@ -732,7 +753,7 @@ function openAnniEditor(r) {
       <div class="grid3"><div class="field"><label>${t("form.startYear")}</label><input id="a-year" type="number" min="1900" max="2100" value="${r.year || ""}" placeholder="${t("form.startYear")}" /></div>
       <div class="field"><label>${t("form.month")} *</label><input id="a-month" type="number" min="1" max="12" required value="${r.month || ""}" /></div>
       <div class="field"><label>${t("form.day")} *</label><input id="a-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div></div>
-      <div class="field"><label>${t("form.reminderDays")}</label><input id="a-days" type="text" value="${nd}" placeholder="${t("form.notifyDaysPh")}" /></div>
+      <div class="field"><label>${t("form.reminderDays")}</label>${daysPickerHtml("a-days", days)}</div>
       <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
       <div class="field"><label>${t("form.note")}</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
@@ -751,7 +772,7 @@ function openAnniEditor(r) {
       name: $("#a-name").value.trim(), relationship: $("#a-rel").value.trim() || null, kind: $("#a-kind").value.trim() || t("anni.default"),
       calendar_type: $("#a-cal").value, year: $("#a-year").value ? parseInt($("#a-year").value) : null,
       month: parseInt($("#a-month").value), day: parseInt($("#a-day").value), is_leap: false,
-      notify_days: $("#a-days").value.trim() ? $("#a-days").value.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => n >= 0) : null,
+      notify_days: collectDays("a-days"),
       channels: $$(".a-ch:checked").length ? $$(".a-ch:checked").map((i) => i.value) : null,
       note: $("#a-note").value.trim() || null, enabled: $("#a-enabled").checked,
       visibility: (document.querySelector('#a-vis input:checked') || {}).value || null,
@@ -1044,7 +1065,7 @@ function fieldHtml(f) {
   const val = getPath(SETTINGS_CACHE, f.path); const id = fieldId(f.path); let input = "";
   if (f.type === "bool") input = `<label class="switch"><input type="checkbox" id="${id}" ${val ? "checked" : ""} /><span class="slider"></span></label>`;
   else if (f.type === "select") input = `<select id="${id}">${f.options.map(([v, tt]) => `<option value="${v}" ${v === val ? "selected" : ""}>${tt}</option>`).join("")}</select>`;
-  else if (f.type === "numlist") input = `<input id="${id}" type="text" value="${esc((val || []).join(","))}" placeholder="${t("form.notifyDaysPh")}" />`;
+  else if (f.type === "numlist") input = daysPickerHtml(id, val);
   else if (f.type === "channels") { const chosen = val || []; input = `<div class="chk-row" id="${id}">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" value="${c}" ${chosen.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div>`; }
   else if (f.type === "password") input = `<input id="${id}" type="password" value="${esc(val || "")}" autocomplete="new-password" placeholder="●●●●●●" />`;
   else if (f.type === "number") input = `<input id="${id}" type="number" value="${val ?? ""}" ${f.min != null ? `min="${f.min}"` : ""} ${f.max != null ? `max="${f.max}"` : ""} />`;
@@ -1062,7 +1083,7 @@ function collectSettings() {
     let v;
     if (f.type === "bool") v = el.checked;
     else if (f.type === "number") v = el.value === "" ? getPath(SETTINGS_CACHE, f.path) : Number(el.value);
-    else if (f.type === "numlist") v = el.value.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => Number.isFinite(n) && n >= 0);
+    else if (f.type === "numlist") v = Array.from(el.querySelectorAll("input:checked")).map((i) => Number(i.value));
     else if (f.type === "channels") v = Array.from(el.querySelectorAll("input:checked")).map((i) => i.value);
     else v = el.value.trim();
     setPath(out, f.path, v);
