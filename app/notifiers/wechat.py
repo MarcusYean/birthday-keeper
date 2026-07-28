@@ -5,8 +5,9 @@ import requests
 from .result import NotificationResult
 
 
-def send(title: str, content: str, cfg: dict) -> NotificationResult:
-    w = cfg.get("wechat", {})
+def send(title: str, content: str, cfg: dict, user_cfg: dict | None = None) -> NotificationResult:
+    # 优先使用用户个人资料里配置的微信推送；未配置时回退全局
+    w = user_cfg if (isinstance(user_cfg, dict) and user_cfg) else cfg.get("wechat", {})
     if not w.get("enabled"):
         return NotificationResult(False, "微信推送未启用")
     token = w.get("token")

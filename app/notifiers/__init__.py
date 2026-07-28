@@ -3,7 +3,7 @@
 user_prefs（可选）用于按用户个性化：
 - email: 用该用户的邮箱作为收件人（覆盖系统默认 to_addr）
 - webhook: 用该用户自定义的 webhook_url
-其它渠道（wechat/feishu）使用系统全局配置。
+- wechat/feishu: 优先使用用户个人资料里配置的凭据，未配置时回退系统全局配置。
 """
 
 from .result import NotificationResult
@@ -34,5 +34,7 @@ def send_all(channels: list, title: str, content: str, cfg: dict, user_prefs: di
             if mod is None:
                 results.append((ch, NotificationResult(False, f"未知渠道：{ch}")))
                 continue
-            results.append((ch, mod.send(title, content, cfg)))
+            # 微信/飞书优先使用用户个人资料中配置，缺省回退全局
+            user_cfg = up.get(ch) if ch in ("wechat", "feishu") else None
+            results.append((ch, mod.send(title, content, cfg, user_cfg=user_cfg)))
     return results

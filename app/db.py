@@ -78,6 +78,8 @@ _SCHEMA = [
         email        TEXT,          -- 该用户接收提醒所用的邮箱（邮件渠道时必填）
         webhook_url  TEXT,          -- 该用户的 Webhook 地址（webhook 渠道时必填）
         template_body TEXT,         -- 自定义提醒正文模板（NULL=使用系统默认）
+        wechat       TEXT,           -- JSON: 用户自己的微信推送配置（迁移自管理员全局配置）
+        feishu       TEXT,           -- JSON: 用户自己的飞书机器人配置
         enabled      INTEGER DEFAULT 1
     )
     """,
@@ -165,6 +167,10 @@ _COLUMN_MIGRATIONS = {
     },
     "notify_log": {
         "user_id": "INTEGER",
+    },
+    "user_prefs": {
+        "wechat": "TEXT",
+        "feishu": "TEXT",
     },
 }
 
@@ -1127,6 +1133,8 @@ DEFAULT_USER_PREFS = {
     "email": "",
     "webhook_url": "",
     "template_body": None,
+    "wechat": {},
+    "feishu": {},
     "enabled": 1,
 }
 
@@ -1142,7 +1150,7 @@ def get_user_prefs(user_id: int) -> dict:
     d = dict(DEFAULT_USER_PREFS)
     d.update(dict(r))
     # 解析 JSON 字段
-    for k in ("channels", "advance_days"):
+    for k in ("channels", "advance_days", "wechat", "feishu"):
         if isinstance(d.get(k), str):
             try:
                 d[k] = json.loads(d[k])
@@ -1159,15 +1167,22 @@ def get_user_prefs(user_id: int) -> dict:
 def set_user_prefs(user_id: int, data: dict) -> None:
     channels = data.get("channels") or ["inapp"]
     advance_days = data.get("advance_days") or [1, 3, 7]
+    wechat = data.get("wechat") or {}
+    feishu = data.get("feishu") or {}
+    if not isinstance(wechat, dict):
+        wechat = {}
+    if not isinstance(feishu, dict):
+        feishu = {}
     conn = _get_conn()
     try:
         conn.execute(
-            """INSERT INTO user_prefs(user_id, channels, advance_days, email, webhook_url, template_body, enabled)
-               VALUES(?,?,?,?,?,?,?)
+            """INSERT INTO user_prefs(user_id, channels, advance_days, email, webhook_url, template_body, wechat, feishu, enabled)
+               VALUES(?,?,?,?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET
                  channels=excluded.channels, advance_days=excluded.advance_days,
                  email=excluded.email, webhook_url=excluded.webhook_url,
-                 template_body=excluded.template_body, enabled=excluded.enabled""",
+                 template_body=excluded.template_body, wechat=excluded.wechat,
+                 feishu=excluded.feishu, enabled=excluded.enabled""",
             (
                 user_id,
                 json.dumps(channels, ensure_ascii=False),
@@ -1175,6 +1190,8 @@ def set_user_prefs(user_id: int, data: dict) -> None:
                 (data.get("email") or "").strip(),
                 (data.get("webhook_url") or "").strip(),
                 data.get("template_body") or None,
+                json.dumps(wechat, ensure_ascii=False),
+                json.dumps(feishu, ensure_ascii=False),
                 int(bool(data.get("enabled", True))),
             ),
         )

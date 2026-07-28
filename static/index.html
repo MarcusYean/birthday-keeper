@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="app.title">🎂 生日管家</title>
-<link rel="stylesheet" href="/static/css/styles.css?v=2.6.17" />
+<link rel="stylesheet" href="/static/css/styles.css?v=2.6.18" />
 </head>
 <body class="menu-left">
 <!-- 登录 / 初始化 -->
@@ -77,8 +77,7 @@
       <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span class="nav-ic">📌</span> <span class="nav-label" data-i18n="nav.anniversaries">纪念日</span></a>
       <a class="nav-item" data-view="upcoming"><span class="nav-ic">⏰</span> <span class="nav-label" data-i18n="nav.upcoming">即将到来</span></a>
       <a class="nav-item" data-view="family"><span class="nav-ic">🏠</span> <span class="nav-label" data-i18n="nav.family">家庭</span> <span id="invite-badge" class="badge hidden"></span></a>
-      <a class="nav-item" data-view="profile"><span class="nav-ic">🪪</span> <span class="nav-label" data-i18n="nav.profile">个人资料</span></a>
-      <a class="nav-item" data-view="prefs"><span class="nav-ic">👤</span> <span class="nav-label" data-i18n="nav.prefs">偏好</span></a>
+      <a class="nav-item" data-view="profile"><span class="nav-ic">🪪</span> <span class="nav-label" data-i18n="nav.profile">个人资料及偏好</span></a>
       <a class="nav-item admin-only" data-view="settings"><span class="nav-ic">⚙️</span> <span class="nav-label" data-i18n="nav.settings">设置</span></a>
       <a class="nav-item admin-only" data-view="users"><span class="nav-ic">🧑‍💼</span> <span class="nav-label" data-i18n="nav.users">用户管理</span></a>
     </nav>
@@ -258,20 +257,12 @@
         <div id="family-list"></div>
       </section>
 
-      <!-- 个人资料 -->
+      <!-- 个人资料及偏好 -->
       <section id="view-profile" class="view hidden">
         <div class="toolbar">
-          <div class="muted" data-i18n="profile.title">个人资料与提醒设置</div>
+          <div class="muted" data-i18n="profile.title">个人资料及偏好</div>
         </div>
         <div id="profile-content"></div>
-      </section>
-
-      <!-- 偏好 -->
-      <section id="view-prefs" class="view hidden">
-        <div class="toolbar">
-          <div class="muted" data-i18n="prefs.title">偏好设置</div>
-        </div>
-        <div class="card" id="prefs-card"></div>
       </section>
 
       <!-- 设置 -->
@@ -312,12 +303,12 @@
 <div id="toast"></div>
 <div id="tooltip" class="tooltip" role="tooltip"></div>
 
-<script src="/static/js/i18n.js?v=2.6.17"></script>
+<script src="/static/js/i18n.js?v=2.6.18"></script>
 <script>
   /* 等待 i18n 加载完当前语言再启动 app.js */
   I18N.init().then(function () {
     var s = document.createElement("script");
-    s.src = "/static/js/app.js?v=2.6.17";
+    s.src = "/static/js/app.js?v=2.6.18";
     document.head.appendChild(s);
   });
 </script>

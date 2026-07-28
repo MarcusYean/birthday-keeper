@@ -12,40 +12,12 @@ log = logging.getLogger("birthday")
 _sched = None
 
 
-def _process_records(records, kind, cfg, today, sent):
-    for r in records:
-        if not r.get("enabled", True):
-            continue
-        target = lunar.next_occurrence(
-            r["calendar_type"], r["month"], r["day"], bool(r.get("is_leap"))
-        )
-        if not target:
-            continue
-        days_until = (target - today).days
-        notify_days = r.get("notify_days") or cfg["notify"]["default_notify_days"]
-        if days_until not in notify_days:
-            continue
-        key = (r["id"], target.year, days_until)
-        if db.has_notified(*key):
-            continue
-        channels = r.get("channels") or cfg["notify"]["default_channels"]
-        builder = messages.build_reminder if kind == "birthday" else messages.build_anniversary_reminder
-        title, content = builder(r, days_until)
-        results = notifiers.send_all(channels, title, content, cfg)
-        summary = "; ".join(
-            f"{c}:{'ok' if res.ok else 'fail'}({res.message})" for c, res in results
-        )
-        db.mark_notified(*key, summary)
-        sent += 1
-        log.info("已通知 %s(%s) 通过 %s", r["name"], kind, channels)
-    return sent
-
-
 def check_once(cfg=None) -> int:
     """按「每条记录 × 其可见用户」逐人发送提醒。
 
-    每个用户拥有独立的提醒偏好（渠道 / 提前天数 / 自定义内容），
-    互不影响；去重以 (用户, 记录, 年, 天数) 为键，确保每人每年每档只提醒一次。
+    提醒的提前天数以「每条记录各自设置的 notify_days」为准（未设置则回退
+    全局默认）；每个用户拥有独立的渠道偏好与自定义内容，互不影响。
+    去重以 (用户, 记录, 年, 天数) 为键，确保每人每年每档只提醒一次。
     """
     cfg = cfg or config.CONFIG
     today = date.today()
@@ -63,6 +35,10 @@ def check_once(cfg=None) -> int:
         if not target:
             continue
         days_until = (target - today).days
+        # 每人独立的提前提醒天数（本需求：以每条记录的设置为主）
+        notify_days = r.get("notify_days") or cfg["notify"]["default_notify_days"]
+        if days_until not in notify_days:
+            continue
         is_anni = "kind" in r and bool(r.get("kind"))   # 纪念日表有 kind 字段；生日表没有
         builder = messages.build_anniversary_reminder if is_anni else messages.build_reminder
 
@@ -72,8 +48,6 @@ def check_once(cfg=None) -> int:
                 prefs = db.get_user_prefs(uid)
                 prefs_cache[uid] = prefs
             if not prefs.get("enabled"):
-                continue
-            if days_until not in (prefs.get("advance_days") or []):
                 continue
             if db.has_notified_user(uid, r["id"], target.year, days_until):
                 continue

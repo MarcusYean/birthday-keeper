@@ -17,8 +17,9 @@ def _sign(secret: str, timestamp: str) -> str:
     return base64.b64encode(hmac_code).decode("utf-8")
 
 
-def send(title: str, content: str, cfg: dict) -> NotificationResult:
-    f = cfg.get("feishu", {})
+def send(title: str, content: str, cfg: dict, user_cfg: dict | None = None) -> NotificationResult:
+    # 优先使用用户个人资料里配置的飞书机器人；未配置时回退全局
+    f = user_cfg if (isinstance(user_cfg, dict) and user_cfg) else cfg.get("feishu", {})
     if not f.get("enabled"):
         return NotificationResult(False, "飞书未启用")
     url = f.get("webhook")

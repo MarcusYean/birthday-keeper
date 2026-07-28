@@ -221,7 +221,6 @@ function renderUserChip() {
   chip.innerHTML = '<span class="chip-avatar">' + (ME.role === "admin" ? "👑" : "👤") + '</span><span class="chip-name">' + esc(name) + '</span><span class="chip-caret">▾</span>' +
     '<div class="user-menu" id="user-menu">' +
       '<button type="button" class="user-menu-item" data-go="profile">' + t("nav.profile") + '</button>' +
-      '<button type="button" class="user-menu-item" data-go="prefs">' + t("nav.prefs") + '</button>' +
       '<button type="button" class="user-menu-item" data-go="settings">' + t("nav.settings") + '</button>' +
       '<div class="user-menu-sep"></div>' +
       '<button type="button" class="user-menu-item danger" id="user-logout">' + t("topbar.logout") + '</button>' +
@@ -263,7 +262,6 @@ function switchView(name) {
   if (name === "anniversaries") loadAnniversaries();
   if (name === "upcoming") loadUpcoming();
   if (name === "family") loadFamily();
-  if (name === "prefs") loadPrefs();
   if (name === "settings") loadSettings();
   if (name === "users") loadUsers();
   if (name === "profile") loadProfile();
@@ -310,9 +308,9 @@ function getChineseZodiac(year) {
   return CHINESE_ZODIACS[y % 12];
 }
 function daysPickerHtml(name, selected) {
-  const opts = [1, 2, 3, 5, 7, 10, 15, 30];
+  const opts = [0, 1, 2, 3, 5, 7, 10, 15, 30];
   const set = new Set((selected || []).map(Number).filter((n) => Number.isFinite(n)));
-  return `<div class="chk-row" id="${name}">${opts.map((d) => `<label class="chk"><input type="checkbox" value="${d}" ${set.has(d) ? "checked" : ""}/> ${d}${t("unit.days")}</label>`).join("")}</div>`;
+  return `<div class="chk-row" id="${name}">${opts.map((d) => `<label class="chk"><input type="checkbox" value="${d}" ${set.has(d) ? "checked" : ""}/> ${d === 0 ? t("notify.day0") : d + t("unit.days")}</label>`).join("")}</div>`;
 }
 function collectDays(name) {
   const vals = $$(`#${name} input:checked`).map((i) => Number(i.value));
@@ -716,7 +714,7 @@ function openFieldPicker() {
 /* 添加/编辑联系人（modal 或 drawer） */
 function openContactEditor(r) {
   const isEdit = !!r; r = r || {};
-  const days = r.notify_days || []; const chs = r.channels || [];
+  const days = r.notify_days || [];
   const gender = r.gender || "", avatar = r.avatar || "", birthTime = r.birth_time || "", hobbies = r.hobbies || "";
   const mbti = r.mbti || "", blood = r.blood_type || "";
   const cnZodiac = getChineseZodiac(r.year) || "";
@@ -758,7 +756,6 @@ function openContactEditor(r) {
       <div class="field"><label class="chk"><input id="c-leap" type="checkbox" ${r.is_leap ? "checked" : ""}/> ${t("form.leap")}</label></div>
       <div class="field"><label>${t("form.hobbies")}</label><input id="c-hobbies" type="text" value="${esc(hobbies)}" placeholder="${t("form.hobbies")}" /></div>
       <div class="field"><label>${t("form.notifyDays")}</label>${daysPickerHtml("c-days", days)}</div>
-      <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="c-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
       <div class="field"><label>${t("form.note")}</label><input id="c-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.note")}" /></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
         <div class="vis-picker" id="c-vis">${visOptions().map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="c-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
@@ -806,7 +803,6 @@ function openContactEditor(r) {
       calendar_type: $("#c-cal").value, year: $("#c-year").value ? parseInt($("#c-year").value) : null,
       month: parseInt($("#c-month").value), day: parseInt($("#c-day").value), is_leap: $("#c-leap").checked,
       notify_days: collectDays("c-days"),
-      channels: $$(".c-ch:checked").length ? $$(".c-ch:checked").map((i) => i.value) : null,
       note: $("#c-note").value.trim() || null, enabled: $("#c-enabled").checked,
       visibility: (document.querySelector('#c-vis input:checked') || {}).value || null,
     };
@@ -895,7 +891,7 @@ function renderAnniversaries() {
 }
 function openAnniEditor(r) {
   const isEdit = !!r; r = r || {};
-  const days = r.notify_days || []; const chs = r.channels || [];
+  const days = r.notify_days || [];
   const visTip = `${t("vis.privateTip")}；${t("vis.familyTip")}；${t("vis.publicTip")}`;
   const html = `
     <h2>${isEdit ? t("anni.editTitle") : t("anni.addTitle")}</h2>
@@ -908,7 +904,6 @@ function openAnniEditor(r) {
       <div class="field"><label>${t("form.day")} *</label><input id="a-day" type="number" min="1" max="31" required value="${r.day || ""}" /></div>
       <div class="field"><label>${t("form.anniDesc")}</label><input id="a-note" type="text" value="${esc(r.note || "")}" placeholder="${t("form.anniDesc")}" /></div></div>
       <div class="field"><label>${t("form.reminderDays")}</label>${daysPickerHtml("a-days", days)}</div>
-      <div class="field"><label>${t("form.channels")}</label><div class="chk-row">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" class="a-ch" value="${c}" ${chs.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div></div>
       <div class="field"><label>${t("form.visibility")} <span class="info-ic" data-tip="${visTip}">ℹ️</span></label>
         <div class="vis-picker" id="a-vis">${visOptions().map((v) => `<label class="vis-opt ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "active" : ""}"><input type="radio" name="a-vis" value="${v}" ${((r.visibility || UI_PREFS.default_visibility || "private") === v) ? "checked" : ""} hidden />${VIS_ICONS[v]} ${t("vis." + v)}</label>`).join("")}</div>
       </div>
@@ -930,7 +925,6 @@ function openAnniEditor(r) {
       calendar_type: $("#a-cal").value, year: $("#a-year").value ? parseInt($("#a-year").value) : null,
       month: parseInt($("#a-month").value), day: parseInt($("#a-day").value), is_leap: false,
       notify_days: collectDays("a-days"),
-      channels: $$(".a-ch:checked").length ? $$(".a-ch:checked").map((i) => i.value) : null,
       note: $("#a-note").value.trim() || null, enabled: $("#a-enabled").checked,
       visibility: (document.querySelector('#a-vis input:checked') || {}).value || null,
     };
@@ -1294,16 +1288,13 @@ window.leaveFamily = (fid, fname) => {
     .catch((err) => toast(err.message, false));
 };
 
-/* ============ 个人资料 + 每用户提醒设置 ============ */
+/* ============ 个人资料及偏好（基本资料 + 提醒 + 主题/语言） ============ */
 
 const NOTIFY_CHANNELS = [
   { key: "inapp", icon: "📥", label: "notify.chanInapp", desc: "notify.chanInappDesc" },
-  { key: "email", icon: "📧", label: "notify.chanEmail", desc: "notify.chanEmailDesc" },
-  { key: "webhook", icon: "🔗", label: "notify.chanWebhook", desc: "notify.chanWebhookDesc" },
   { key: "wechat", icon: "💬", label: "notify.chanWechat", desc: "notify.chanWechatDesc" },
   { key: "feishu", icon: "🚀", label: "notify.chanFeishu", desc: "notify.chanFeishuDesc" },
 ];
-const ADVANCE_DAYS = [0, 1, 3, 7, 15];
 const DEFAULT_BODY_TPL = "{when}{name}的{type}（{calendar_type}{month}月{day}日）{age}\n关系：{relationship}\n备注：{note}";
 
 function loadProfile() {
@@ -1315,11 +1306,16 @@ function loadProfile() {
       const on = (prefs.channels || []).includes(c.key);
       return `<label class="chk"><input type="checkbox" class="np-chan" value="${c.key}" ${on ? "checked" : ""}/> ${c.icon} <b>${t(c.label)}</b><br><small class="muted">${t(c.desc)}</small></label>`;
     }).join("");
-    const advHtml = ADVANCE_DAYS.map((d) => {
-      const on = (prefs.advance_days || []).includes(d);
-      const lbl = d === 0 ? t("notify.day0") : t("notify.dayN", { n: d });
-      return `<label class="chk"><input type="checkbox" class="np-adv" value="${d}" ${on ? "checked" : ""}/> ${lbl}</label>`;
-    }).join("");
+    const wc = prefs.wechat || {};
+    const fc = prefs.feishu || {};
+    const themes = (typeof THEMES !== "undefined" && THEMES) || [];
+    const langs = (typeof LANGS !== "undefined" && LANGS) || [];
+    const curTheme = (typeof getTheme === "function" ? getTheme() : "clean") || "clean";
+    const curLang = (typeof getLang === "function" ? getLang() : "zh") || "zh";
+    function themeLabel(th) { const k = "theme." + th.code; const s = t(k); return (s !== k ? s : th.label); }
+    const themeOpts = themes.map((th) => `<label class="vis-opt ${th.code === curTheme ? "active" : ""}"><input type="radio" name="np-theme" value="${esc(th.code)}" ${th.code === curTheme ? "checked" : ""} hidden />${th.icon || ""} ${esc(themeLabel(th))}</label>`).join("");
+    const langOpts = langs.map((lg) => `<label class="vis-opt ${lg.code === curLang ? "active" : ""}"><input type="radio" name="np-lang" value="${esc(lg.code)}" ${lg.code === curLang ? "checked" : ""} hidden />${esc(lg.label)}</label>`).join("");
+
     box.innerHTML = `
       <div class="card">
         <div class="group-title">🪪 ${t("profile.basic")}</div>
@@ -1344,12 +1340,20 @@ function loadProfile() {
         <div class="field"><label>${t("notify.channels")}</label>
           <div class="chk-row">${chanHtml}</div>
         </div>
-        <div class="field"><label>${t("notify.advance")}</label>
-          <div class="chk-row">${advHtml}</div>
-          <p class="help">${t("notify.advanceHelp")}</p>
+        <div class="field np-inapp-field" style="display:none"><p class="help">${t("profile.inappNote")}</p></div>
+        <div class="field np-wechat-field" style="display:none">
+          <div class="group-subtitle">💬 ${t("profile.wechatCfg")}</div>
+          <div class="field"><label>${t("settings.wechatEnabled")}</label><label class="switch"><input type="checkbox" id="np-wc-en" ${wc.enabled ? "checked" : ""}/><span class="slider"></span></label></div>
+          <div class="field"><label>${t("settings.wechatType")}</label><select id="np-wc-type">${[["serverchan", t("settings.wechatServerchan")], ["pushplus", t("settings.wechatPushplus")], ["bark", t("settings.wechatBark")]].map(([v, tt]) => `<option value="${v}" ${v === (wc.type || "serverchan") ? "selected" : ""}>${tt}</option>`).join("")}</select></div>
+          <div class="field"><label>${t("settings.wechatToken")}</label><input id="np-wc-token" type="password" value="${esc(wc.token || "")}" placeholder="●●●●●●" /></div>
+          <div class="field"><label>${t("settings.barkServer")}</label><input id="np-wc-bark" type="text" value="${esc(wc.bark_server || "")}" placeholder="https://api.day.app" /></div>
         </div>
-        <div class="field np-email-field" style="display:none"><label>📧 ${t("notify.emailAddr")}</label><input id="np-email" type="email" value="${esc(prefs.email || "")}" placeholder="${t("notify.emailPh")}" /></div>
-        <div class="field np-webhook-field" style="display:none"><label>🔗 ${t("notify.webhookAddr")}</label><input id="np-webhook" value="${esc(prefs.webhook_url || "")}" placeholder="${t("notify.webhookPh")}" /></div>
+        <div class="field np-feishu-field" style="display:none">
+          <div class="group-subtitle">🚀 ${t("profile.feishuCfg")}</div>
+          <div class="field"><label>${t("settings.feishuEnabled")}</label><label class="switch"><input type="checkbox" id="np-fs-en" ${fc.enabled ? "checked" : ""}/><span class="slider"></span></label></div>
+          <div class="field"><label>${t("settings.webhook")}</label><input id="np-fs-webhook" type="text" value="${esc(fc.webhook || "")}" placeholder="https://open.feishu.cn/..." /></div>
+          <div class="field"><label>${t("settings.secret")}</label><input id="np-fs-secret" type="password" value="${esc(fc.secret || "")}" placeholder="●●●●●●" /></div>
+        </div>
 
         <div class="field"><label>${t("notify.content")}</label>
           <textarea id="np-body" rows="4" placeholder="${t("notify.contentPh")}">${esc(prefs.template_body || DEFAULT_BODY_TPL)}</textarea>
@@ -1357,12 +1361,24 @@ function loadProfile() {
           <button class="btn btn-ghost btn-sm" id="np-reset-tpl">${t("notify.resetTpl")}</button>
         </div>
         <div class="modal-actions"><button class="btn btn-primary" id="np-save">${t("btn.save")}</button></div>
+      </div>
+
+      <div class="card">
+        <div class="group-title">🎨 ${t("prefs.theme")}</div>
+        <p class="help">${t("prefs.themeDesc")}</p>
+        <div class="vis-picker" id="np-themes">${themeOpts}</div>
+      </div>
+      <div class="card">
+        <div class="group-title">🌐 ${t("prefs.lang")}</div>
+        <p class="help">${t("prefs.langDesc")}</p>
+        <div class="vis-picker" id="np-langs">${langOpts}</div>
       </div>`;
 
     const toggleExtra = () => {
       const chans = Array.from(box.querySelectorAll(".np-chan:checked")).map((i) => i.value);
-      box.querySelector(".np-email-field").style.display = chans.includes("email") ? "" : "none";
-      box.querySelector(".np-webhook-field").style.display = chans.includes("webhook") ? "" : "none";
+      box.querySelector(".np-inapp-field").style.display = chans.includes("inapp") ? "" : "none";
+      box.querySelector(".np-wechat-field").style.display = chans.includes("wechat") ? "" : "none";
+      box.querySelector(".np-feishu-field").style.display = chans.includes("feishu") ? "" : "none";
     };
     box.querySelectorAll(".np-chan").forEach((c) => c.addEventListener("change", toggleExtra));
     toggleExtra();
@@ -1384,18 +1400,36 @@ function loadProfile() {
     $("#np-reset-tpl").addEventListener("click", () => { $("#np-body").value = DEFAULT_BODY_TPL; });
     $("#np-save").addEventListener("click", async () => {
       const channels = Array.from(box.querySelectorAll(".np-chan:checked")).map((i) => i.value);
-      const advance_days = Array.from(box.querySelectorAll(".np-adv:checked")).map((i) => parseInt(i.value));
       const body = $("#np-body").value.trim();
+      const wechat = channels.includes("wechat") ? {
+        enabled: $("#np-wc-en").checked,
+        type: $("#np-wc-type").value,
+        token: $("#np-wc-token").value.trim(),
+        bark_server: $("#np-wc-bark").value.trim() || "https://api.day.app",
+      } : {};
+      const feishu = channels.includes("feishu") ? {
+        enabled: $("#np-fs-en").checked,
+        webhook: $("#np-fs-webhook").value.trim(),
+        secret: $("#np-fs-secret").value.trim(),
+      } : {};
       const payload = {
         channels: channels.length ? channels : ["inapp"],
-        advance_days: advance_days.length ? advance_days : [1, 3, 7],
-        email: $("#np-email").value.trim(),
-        webhook_url: $("#np-webhook").value.trim(),
+        wechat: wechat,
+        feishu: feishu,
         template_body: body === DEFAULT_BODY_TPL ? null : body,
       };
       try { await api("/api/me/prefs", { method: "PUT", body: JSON.stringify(payload) }); toast(t("toast.saved")); }
       catch (e) { toast(e.message, false); }
     });
+
+    $$("#np-themes input").forEach((i) => i.addEventListener("change", () => {
+      $$("#np-themes .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
+      setTheme(i.value); toast(t("toast.themeSaved"));
+    }));
+    $$("#np-langs input").forEach((i) => i.addEventListener("change", () => {
+      $$("#np-langs .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
+      setLang(i.value).then(() => toast(t("toast.langSaved")));
+    }));
   }).catch((e) => { box.innerHTML = ""; toast(e.message, false); });
 }
 
@@ -1444,41 +1478,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-/* ============ 偏好（主题 + 语言） ============ */
-function loadPrefs() {
-  const box = $("#prefs-card"); if (!box) return;
-  const themes = (typeof THEMES !== "undefined" && THEMES) || [];
-  const langs = (typeof LANGS !== "undefined" && LANGS) || [];
-  if (!themes.length || !langs.length) {
-    box.innerHTML = '<div class="empty">' + (t("prefs.loadError") || "偏好数据未加载，请按 Ctrl+F5 强制刷新缓存后再试。") + '</div>';
-    return;
-  }
-  const curTheme = (typeof getTheme === "function" ? getTheme() : "clean") || "clean";
-  const curLang = (typeof getLang === "function" ? getLang() : "zh") || "zh";
-  function themeLabel(th) { const k = "theme." + th.code; const s = t(k); return (s !== k ? s : th.label); }
-  const themeOpts = themes.map((th) => `<label class="vis-opt ${th.code === curTheme ? "active" : ""}"><input type="radio" name="pref-theme" value="${esc(th.code)}" ${th.code === curTheme ? "checked" : ""} hidden />${th.icon || ""} ${esc(themeLabel(th))}</label>`).join("");
-  const langOpts = langs.map((lg) => `<label class="vis-opt ${lg.code === curLang ? "active" : ""}"><input type="radio" name="pref-lang" value="${esc(lg.code)}" ${lg.code === curLang ? "checked" : ""} hidden />${esc(lg.label)}</label>`).join("");
-  box.innerHTML = `
-    <div class="field setting-field">
-      <div class="field-main"><label>${t("prefs.theme")}</label></div>
-      <p class="help">${t("prefs.themeDesc")}</p>
-      <div class="vis-picker" id="pref-themes">${themeOpts}</div>
-    </div>
-    <div class="field setting-field">
-      <div class="field-main"><label>${t("prefs.lang")}</label></div>
-      <p class="help">${t("prefs.langDesc")}</p>
-      <div class="vis-picker" id="pref-langs">${langOpts}</div>
-    </div>`;
-  $$("#pref-themes input").forEach((i) => i.addEventListener("change", () => {
-    $$("#pref-themes .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
-    setTheme(i.value); toast(t("toast.themeSaved"));
-  }));
-  $$("#pref-langs input").forEach((i) => i.addEventListener("change", () => {
-    $$("#pref-langs .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
-    setLang(i.value).then(() => toast(t("toast.langSaved")));
-  }));
-}
-
 /* ============ 设置（每个参数带说明 + 二级菜单） ============ */
 let SETTINGS_SCHEMA = buildSettingsSchema();
 function buildSettingsSchema() {
@@ -1496,28 +1495,7 @@ function buildSettingsSchema() {
     { path: "notify.check_hour", label: t("settings.checkHour"), type: "number", min: 0, max: 23, help: "系统每天在这个小时执行一次生日/纪念日检查（24小时制，0-23）。保存后立即生效，无需重启。" },
     { path: "notify.check_minute", label: t("settings.checkMinute"), type: "number", min: 0, max: 59, help: "配合上面的小时使用，精确到分钟（0-59）。" },
     { path: "notify.default_notify_days", label: t("settings.defaultDays"), type: "numlist", help: "全局默认的提前提醒天数，多个值用逗号分隔。例如「1,3,7」表示每位联系人会在生日前 7/3/1 天各收到一次提醒。联系人单独设置则以联系人自己的为准。填 0 表示当天也提醒。" },
-    { path: "notify.default_channels", label: t("settings.defaultChannels"), type: "channels", help: "全局默认使用哪些渠道（可多选）。联系人未单独指定渠道时使用此设置。勾选的渠道还需在对应板块中「启用」并填好参数才能真正发出。" },
-  ] },
-  { key: "wechat", icon: "💬", title: t("settings.group.wechat"), desc: t("settings.wechatDesc"), fields: [
-    { path: "wechat.enabled", label: t("settings.wechatEnabled"), type: "bool", help: "总开关。关闭后即使联系人选择了微信渠道，也不会发送微信提醒。" },
-    { path: "wechat.type", label: t("settings.wechatType"), type: "select", options: [["serverchan", t("settings.wechatServerchan")], ["pushplus", t("settings.wechatPushplus")], ["bark", t("settings.wechatBark")]], help: "选择你使用的推送服务商。" },
-    { path: "wechat.token", label: t("settings.wechatToken"), type: "password", help: "推送服务的密钥。" },
-    { path: "wechat.bark_server", label: t("settings.barkServer"), type: "text", help: "仅使用 Bark 时需要。默认官方服务器 https://api.day.app。" },
-  ] },
-  { key: "feishu", icon: "🚀", title: t("settings.group.feishu"), desc: t("settings.feishuDesc"), fields: [
-    { path: "feishu.enabled", label: t("settings.feishuEnabled"), type: "bool", help: "总开关。" },
-    { path: "feishu.webhook", label: t("settings.webhook"), type: "text", help: "自定义机器人的 Webhook URL。" },
-    { path: "feishu.secret", label: t("settings.secret"), type: "password", help: "若创建机器人时勾选了签名校验，把密钥填在这里。" },
-  ] },
-  { key: "email", icon: "📧", title: t("settings.group.email"), desc: t("settings.emailDesc"), fields: [
-    { path: "email.enabled", label: t("settings.emailEnabled"), type: "bool", help: "总开关。" },
-    { path: "email.smtp_host", label: t("settings.smtpHost"), type: "text", help: "发件邮箱的 SMTP 服务器域名。" },
-    { path: "email.smtp_port", label: t("settings.smtpPort"), type: "number", min: 1, max: 65535, help: "SSL 一般为 465。" },
-    { path: "email.use_tls", label: t("settings.useTls"), type: "bool", help: "端口 465 时应开启。" },
-    { path: "email.smtp_user", label: t("settings.smtpUser"), type: "text", help: "发件邮箱完整地址。" },
-    { path: "email.smtp_pass", label: t("settings.smtpPass"), type: "password", help: "注意：不是邮箱登录密码，而是 SMTP 授权码。" },
-    { path: "email.from_addr", label: t("settings.fromAddr"), type: "text", help: "一般与登录账号相同，留空自动使用。" },
-    { path: "email.to_addr", label: t("settings.toAddr"), type: "text", help: "提醒邮件发送到哪个邮箱，多个用逗号分隔。" },
+    { path: "notify.default_channels", label: t("settings.defaultChannels"), type: "channels", help: "全局默认使用哪些渠道（可多选）。联系人未单独指定渠道、且本人「个人资料及偏好」也未指定时使用此设置。" },
   ] },
   { key: "templates", icon: "📝", title: t("settings.group.templates"), desc: t("settings.templatesDesc"), fields: [
     { path: "templates.birthday_title", label: t("settings.birthdayTitle"), type: "textarea", help: t("settings.templateVars") },
@@ -1568,7 +1546,7 @@ function fieldHtml(f) {
   if (f.type === "bool") input = `<label class="switch"><input type="checkbox" id="${id}" ${val ? "checked" : ""} /><span class="slider"></span></label>`;
   else if (f.type === "select") input = `<select id="${id}">${f.options.map(([v, tt]) => `<option value="${v}" ${v === val ? "selected" : ""}>${tt}</option>`).join("")}</select>`;
   else if (f.type === "numlist") input = daysPickerHtml(id, val);
-  else if (f.type === "channels") { const chosen = val || []; input = `<div class="chk-row" id="${id}">${["wechat", "feishu", "email"].map((c) => `<label class="chk"><input type="checkbox" value="${c}" ${chosen.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div>`; }
+  else if (f.type === "channels") { const chosen = val || []; input = `<div class="chk-row" id="${id}">${["wechat", "feishu"].map((c) => `<label class="chk"><input type="checkbox" value="${c}" ${chosen.includes(c) ? "checked" : ""}/> ${chNames()[c]}</label>`).join("")}</div>`; }
   else if (f.type === "password") input = `<input id="${id}" type="password" value="${esc(val || "")}" autocomplete="new-password" placeholder="●●●●●●" />`;
   else if (f.type === "number") input = `<input id="${id}" type="number" value="${val ?? ""}" ${f.min != null ? `min="${f.min}"` : ""} ${f.max != null ? `max="${f.max}"` : ""} />`;
   else if (f.type === "textarea") input = `<textarea id="${id}" rows="3">${esc(val ?? "")}</textarea>`;

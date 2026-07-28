@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 AVATAR_DIR = Path(db.DB_PATH).resolve().parent / "avatars"
 
-app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.17")
+app = FastAPI(title="生日管家 Birthday Keeper", version="2.6.18")
 
 
 # ---------- 鉴权依赖 ----------
@@ -398,11 +398,12 @@ def test_birthdays(body: BatchTestIn, user: dict = Depends(get_current_user)):
     if not rows:
         return {"tested": 0, "results": []}
     cfg = config.CONFIG
+    prefs = db.get_user_prefs(user["id"])
+    channels = list(prefs.get("channels") or ["inapp"])
     out = []
     for r in rows:
-        channels = r.get("channels") or cfg["notify"]["default_channels"]
         title, content = messages.build_test(r)
-        results = notifiers.send_all(channels, title, content, cfg)
+        results = notifiers.send_all(channels, title, content, cfg, user_prefs=prefs)
         out.append({
             "id": r["id"],
             "name": r["name"],
@@ -432,11 +433,12 @@ def test_anniversaries(body: BatchTestIn, user: dict = Depends(get_current_user)
     if not rows:
         return {"tested": 0, "results": []}
     cfg = config.CONFIG
+    prefs = db.get_user_prefs(user["id"])
+    channels = list(prefs.get("channels") or ["inapp"])
     out = []
     for r in rows:
-        channels = r.get("channels") or cfg["notify"]["default_channels"]
         title, content = messages.build_anniversary_test(r)
-        results = notifiers.send_all(channels, title, content, cfg)
+        results = notifiers.send_all(channels, title, content, cfg, user_prefs=prefs)
         out.append({
             "id": r["id"],
             "name": r["name"],
