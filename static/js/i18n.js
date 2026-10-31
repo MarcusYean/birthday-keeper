@@ -26,13 +26,10 @@
     { code: "ja", label: "日本語" },
   ];
 
-  /* 5 种主流 UI 风格主题：变量、字体、圆角、阴影、按钮、卡片、开关、复选框形态全部独立 */
+  /* Two neutral themes: the app screen's chrome holds no colour, so the only choice is light or dark. */
   var THEMES = [
-    { code: "clean", label: "Clean Modern", icon: "✨" },
-    { code: "warm", label: "Glassmorphism", icon: "🧊" },
-    { code: "mint", label: "Soft UI", icon: "🥚" },
-    { code: "morandi", label: "Bauhaus", icon: "🎨" },
-    { code: "sakura", label: "Material You", icon: "🍬" },
+    { code: "light", label: "Light" },
+    { code: "dark", label: "Dark" },
   ];
 
   /* 已加载语言字典 */
@@ -42,9 +39,11 @@
 
   /* 当前语言 / 主题（持久化到 localStorage） */
   var LANG = "zh";
-  var THEME = "clean";
+  var THEME = "light";
   try { LANG = localStorage.getItem("bk_lang") || "zh"; } catch (e) {}
-  try { THEME = localStorage.getItem("bk_theme") || "clean"; } catch (e) {}
+  try { THEME = localStorage.getItem("bk_theme") || "light"; } catch (e) {}
+  /* a theme removed from the list (the old decorative five) falls back to light */
+  if (THEME !== "light" && THEME !== "dark") THEME = "light";
 
   function setLs(key, val) {
     try { localStorage.setItem(key, val); } catch (e) {}

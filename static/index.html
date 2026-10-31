@@ -1,19 +1,75 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="clean">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title data-i18n="app.title">🎂 生日管家</title>
-<link rel="stylesheet" href="/static/css/styles.css?v=2.6.18" />
+<title data-i18n="app.title">生日管家</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/css/styles.css?v=2.6.19" />
 </head>
 <body class="menu-left">
+
+<!-- icon set: 16px outline, drawn for this product -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="ic-cake" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 21h16" /><path d="M6.5 21v-9h11v9" />
+      <path d="M12 12V8.5" /><path d="M12 8.8c1.4-1 1.4-2.5 0-3.4-1.4.9-1.4 2.4 0 3.4z" />
+    </g>
+    <g id="ic-cal" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4.5" width="18" height="17" rx="2" /><path d="M16 2.5v4M8 2.5v4M3 10h18" />
+    </g>
+    <g id="ic-people" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="8" r="3.6" /><path d="M2.5 21c0-3.4 2.9-5.2 6.5-5.2S15.5 17.6 15.5 21" />
+      <path d="M16 5.4a3.6 3.6 0 010 5.4M18.2 21c0-2.6-1.3-4.4-3.4-5.1" />
+    </g>
+    <g id="ic-person" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
+    </g>
+    <g id="ic-flag" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 22V3" /><path d="M5 4h13l-2.5 4.5L18 13H5" />
+    </g>
+    <g id="ic-clock" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9" /><path d="M12 6.8V12l3.4 2" />
+    </g>
+    <g id="ic-home" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 11.2L12 3l9 8.2" /><path d="M5.5 10v11h13V10" />
+    </g>
+    <g id="ic-badge" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" />
+      <path d="M6 19.2c1.6-3 3.5-4.4 6-4.4s4.4 1.4 6 4.4" />
+    </g>
+    <g id="ic-gear" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1" />
+    </g>
+    <g id="ic-bell" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8.5a6 6 0 10-12 0c0 6.5-3 8.5-3 8.5h18s-3-2-3-8.5" />
+      <path d="M13.7 20.5a2 2 0 01-3.4 0" />
+    </g>
+    <g id="ic-menu" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </g>
+    <g id="ic-plus" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </g>
+    <g id="ic-filter" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 4.5h18l-7 8.2v5.6l-4 2.2v-7.8z" />
+    </g>
+    <g id="ic-info" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9" /><path d="M12 11.2v5" /><path d="M12 7.9h.01" />
+    </g>
+  </defs>
+</svg>
+
 <!-- 登录 / 初始化 -->
 <div id="auth-view" class="auth-wrap">
   <div class="auth-card">
     <div class="brand">
-      <div class="brand-logo">🎂</div>
       <h1 data-i18n="app.name">生日管家</h1>
-      <p class="brand-sub" id="auth-sub" data-i18n="auth.sub.login">记录亲友生日 · 农历/公历 · 微信 & 飞书提醒</p>
+      <p class="brand-sub" id="auth-sub" data-i18n="auth.sub.login">记录亲友生日 · 农历/公历 · 微信 &amp; 飞书提醒</p>
     </div>
 
     <form id="login-form" class="auth-form">
@@ -70,25 +126,31 @@
 <!-- 主应用 -->
 <div id="app-view" class="app hidden">
   <aside class="sidebar">
-    <div class="side-brand">🎂 <span data-i18n="app.name">生日管家</span></div>
+    <div class="side-brand">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#ic-cake" /></svg>
+      <span data-i18n="app.name">生日管家</span>
+    </div>
     <nav class="nav">
-      <a class="nav-item" data-view="dashboard"><span class="nav-ic">📊</span> <span class="nav-label" data-i18n="nav.dashboard">首页</span></a>
-      <a class="nav-item" data-view="contacts"><span class="nav-ic">👥</span> <span class="nav-label" data-i18n="nav.contacts">联系人</span></a>
-      <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><span class="nav-ic">📌</span> <span class="nav-label" data-i18n="nav.anniversaries">纪念日</span></a>
-      <a class="nav-item" data-view="upcoming"><span class="nav-ic">⏰</span> <span class="nav-label" data-i18n="nav.upcoming">即将到来</span></a>
-      <a class="nav-item" data-view="family"><span class="nav-ic">🏠</span> <span class="nav-label" data-i18n="nav.family">家庭</span> <span id="invite-badge" class="badge hidden"></span></a>
-      <a class="nav-item" data-view="profile"><span class="nav-ic">🪪</span> <span class="nav-label" data-i18n="nav.profile">个人资料及偏好</span></a>
-      <a class="nav-item admin-only" data-view="settings"><span class="nav-ic">⚙️</span> <span class="nav-label" data-i18n="nav.settings">设置</span></a>
-      <a class="nav-item admin-only" data-view="users"><span class="nav-ic">🧑‍💼</span> <span class="nav-label" data-i18n="nav.users">用户管理</span></a>
+      <a class="nav-item" data-view="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cal" /></svg> <span class="nav-label" data-i18n="nav.dashboard">首页</span></a>
+      <a class="nav-item" data-view="contacts"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-person" /></svg> <span class="nav-label" data-i18n="nav.contacts">联系人</span></a>
+      <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-flag" /></svg> <span class="nav-label" data-i18n="nav.anniversaries">纪念日</span></a>
+      <a class="nav-item" data-view="upcoming"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-clock" /></svg> <span class="nav-label" data-i18n="nav.upcoming">即将到来</span></a>
+      <a class="nav-item" data-view="family"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-home" /></svg> <span class="nav-label" data-i18n="nav.family">家庭</span> <span id="invite-badge" class="badge hidden"></span></a>
+      <a class="nav-item" data-view="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-badge" /></svg> <span class="nav-label" data-i18n="nav.profile">个人资料及偏好</span></a>
+      <a class="nav-item admin-only" data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-gear" /></svg> <span class="nav-label" data-i18n="nav.settings">设置</span></a>
+      <a class="nav-item admin-only" data-view="users"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-people" /></svg> <span class="nav-label" data-i18n="nav.users">用户管理</span></a>
     </nav>
-    <div class="side-foot">v2.6.9 · <span data-i18n="side.foot">自托管</span></div>
+    <div class="side-foot">v2.6.19 · <span data-i18n="side.foot">自托管</span></div>
   </aside>
 
   <div class="main">
     <header class="topbar">
-      <div class="topbar-title" id="view-title">联系人</div>
+      <div style="display:flex;align-items:center;min-width:0">
+        <button class="nav-toggle" id="nav-toggle" aria-label="菜单"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-menu" /></svg></button>
+        <div class="topbar-title" id="view-title">联系人</div>
+      </div>
       <div class="topbar-right">
-        <button class="icon-btn" id="notif-bell" title="提醒">🔔<span class="badge hidden" id="notif-unread"></span></button>
+        <button class="icon-btn" id="notif-bell" aria-label="提醒"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-bell" /></svg><span class="badge hidden" id="notif-unread"></span></button>
         <div class="notif-panel hidden" id="notif-panel">
           <div class="notif-head"><b data-i18n="notif.title">我的提醒</b><button class="btn btn-ghost btn-sm" id="notif-read-all" data-i18n="notif.readAll">全部已读</button></div>
           <div id="notif-list" class="notif-list"></div>
@@ -114,18 +176,18 @@
       <section id="view-contacts" class="view">
         <div class="toolbar" id="contacts-toolbar">
           <div class="toolbar-left">
-            <button class="btn btn-primary" id="add-btn">+ <span data-i18n="contact.add">添加联系人</span></button>
+            <button class="btn btn-primary" id="add-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="contact.add">添加联系人</span></button>
             <button class="btn btn-ghost" id="refresh-btn" data-i18n="btn.refresh">刷新</button>
             <div class="select-group">
               <button class="btn btn-ghost btn-sm" id="select-all-btn" data-i18n="toolbar.selectAll">全选</button>
               <button class="btn btn-ghost btn-sm" id="select-inv-btn" data-i18n="toolbar.selectInv">反选</button>
               <button class="btn btn-ghost btn-sm" id="select-none-btn" data-i18n="toolbar.selectNone">取消</button>
             </div>
-            <button class="btn btn-ghost" id="batch-test-btn">🔔 <span data-i18n="toolbar.batchTest">批量测试</span> <span id="batch-count" class="badge"></span></button>
+            <button class="btn btn-ghost" id="batch-test-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-bell" /></svg> <span data-i18n="toolbar.batchTest">批量测试</span> <span id="batch-count" class="badge"></span></button>
           </div>
           <div class="toolbar-right">
             <input id="contact-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
-            <button class="btn btn-ghost" id="contact-filter-toggle">⚙ <span data-i18n="filter.title">筛选</span> <span id="contact-filter-count" class="badge"></span></button>
+            <button class="btn btn-ghost" id="contact-filter-toggle"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-filter" /></svg> <span data-i18n="filter.title">筛选</span> <span id="contact-filter-count" class="badge"></span></button>
             <div class="tool-group">
               <label for="per-page" data-i18n="toolbar.perPage">每页</label>
               <select id="per-page"><option value="10">10</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="0" data-i18n="pagination.all">全部</option></select>
@@ -195,13 +257,13 @@
       <section id="view-anniversaries" class="view hidden">
         <div class="toolbar">
           <div class="toolbar-left">
-            <button class="btn btn-primary" id="add-anni-btn">+ <span data-i18n="anni.addTitle">添加纪念日</span></button>
+            <button class="btn btn-primary" id="add-anni-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="anni.addTitle">添加纪念日</span></button>
             <button class="btn btn-ghost" id="refresh-anni-btn" data-i18n="anni.refresh">刷新</button>
-            <button class="btn btn-ghost" id="batch-test-anni-btn">🔔 <span data-i18n="anni.batchTest">批量测试</span></button>
+            <button class="btn btn-ghost" id="batch-test-anni-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-bell" /></svg> <span data-i18n="anni.batchTest">批量测试</span></button>
           </div>
           <div class="toolbar-right">
             <input id="anni-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
-            <button class="btn btn-ghost" id="anni-filter-toggle">⚙ <span data-i18n="filter.title">筛选</span> <span id="anni-filter-count" class="badge"></span></button>
+            <button class="btn btn-ghost" id="anni-filter-toggle"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-filter" /></svg> <span data-i18n="filter.title">筛选</span> <span id="anni-filter-count" class="badge"></span></button>
           </div>
         </div>
         <div class="filter-panel hidden" id="anni-filter-panel">
@@ -226,7 +288,7 @@
           </div>
           <div class="toolbar-right">
             <input id="upcoming-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
-            <button class="btn btn-ghost" id="upcoming-filter-toggle">⚙ <span data-i18n="filter.title">筛选</span> <span id="upcoming-filter-count" class="badge"></span></button>
+            <button class="btn btn-ghost" id="upcoming-filter-toggle"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-filter" /></svg> <span data-i18n="filter.title">筛选</span> <span id="upcoming-filter-count" class="badge"></span></button>
             <div class="tool-group">
               <label for="up-view-mode" data-i18n="toolbar.view">视图</label>
               <select id="up-view-mode"><option value="list" data-i18n="view.list">列表</option><option value="card" data-i18n="view.card">卡片</option><option value="compact" data-i18n="view.compact">紧凑</option></select>
@@ -282,7 +344,7 @@
       <!-- 用户管理 -->
       <section id="view-users" class="view hidden">
         <div class="toolbar">
-          <button class="btn btn-primary" id="add-user-btn"><span data-i18n="users.add">+ 新增用户</span></button>
+          <button class="btn btn-primary" id="add-user-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="users.add">新增用户</span></button>
         </div>
         <div class="card" id="users-list"></div>
       </section>
@@ -301,14 +363,14 @@
 </div>
 
 <div id="toast"></div>
-<div id="tooltip" class="tooltip" role="tooltip"></div>
+<div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 
-<script src="/static/js/i18n.js?v=2.6.18"></script>
+<script src="/static/js/i18n.js?v=2.6.19"></script>
 <script>
   /* 等待 i18n 加载完当前语言再启动 app.js */
   I18N.init().then(function () {
     var s = document.createElement("script");
-    s.src = "/static/js/app.js?v=2.6.18";
+    s.src = "/static/js/app.js?v=2.6.19";
     document.head.appendChild(s);
   });
 </script>
