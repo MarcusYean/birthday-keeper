@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-mode="light" data-accent="teal">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title data-i18n="app.title">生日管家</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/css/styles.css?v=2.6.19" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/css/styles.css?v=2.7.0" />
 </head>
-<body class="menu-left">
+<body>
 
 <!-- icon set: 16px outline, drawn for this product -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -60,6 +60,26 @@
     </g>
     <g id="ic-info" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="9" /><path d="M12 11.2v5" /><path d="M12 7.9h.01" />
+    </g>
+    <g id="ic-grid" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.8" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.8" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.8" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.8" />
+    </g>
+    <g id="ic-list" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 6h13M8 12h13M8 18h13" /><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+    </g>
+    <g id="ic-dot" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
+    </g>
+    <g id="ic-logout" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 4h4.5a1.5 1.5 0 011.5 1.5v13a1.5 1.5 0 01-1.5 1.5H14" /><path d="M10 8l-4 4 4 4" /><path d="M6 12h9" />
+    </g>
+    <g id="ic-sun" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" />
+    </g>
+    <g id="ic-moon" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z" />
     </g>
   </defs>
 </svg>
@@ -127,10 +147,10 @@
 <div id="app-view" class="app hidden">
   <aside class="sidebar">
     <div class="side-brand">
-      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#ic-cake" /></svg>
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><use href="#ic-cake" /></svg>
       <span data-i18n="app.name">生日管家</span>
     </div>
-    <nav class="nav">
+    <nav class="nav" id="nav">
       <a class="nav-item" data-view="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cal" /></svg> <span class="nav-label" data-i18n="nav.dashboard">首页</span></a>
       <a class="nav-item" data-view="contacts"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-person" /></svg> <span class="nav-label" data-i18n="nav.contacts">联系人</span></a>
       <a class="nav-item" id="nav-anniversaries" data-view="anniversaries"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-flag" /></svg> <span class="nav-label" data-i18n="nav.anniversaries">纪念日</span></a>
@@ -140,40 +160,38 @@
       <a class="nav-item admin-only" data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-gear" /></svg> <span class="nav-label" data-i18n="nav.settings">设置</span></a>
       <a class="nav-item admin-only" data-view="users"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-people" /></svg> <span class="nav-label" data-i18n="nav.users">用户管理</span></a>
     </nav>
-    <div class="side-foot">v2.6.19 · <span data-i18n="side.foot">自托管</span></div>
-  </aside>
 
-  <div class="main">
-    <header class="topbar">
-      <div style="display:flex;align-items:center;min-width:0">
-        <button class="nav-toggle" id="nav-toggle" aria-label="菜单"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-menu" /></svg></button>
-        <div class="topbar-title" id="view-title">联系人</div>
-      </div>
-      <div class="topbar-right">
+    <div class="side-foot">
+      <div style="position:relative;display:flex;align-items:center;gap:6px">
         <button class="icon-btn" id="notif-bell" aria-label="提醒"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-bell" /></svg><span class="badge hidden" id="notif-unread"></span></button>
+        <button class="side-user" id="user-chip"></button>
         <div class="notif-panel hidden" id="notif-panel">
           <div class="notif-head"><b data-i18n="notif.title">我的提醒</b><button class="btn btn-ghost btn-sm" id="notif-read-all" data-i18n="notif.readAll">全部已读</button></div>
           <div id="notif-list" class="notif-list"></div>
         </div>
-        <span class="user-chip" id="user-chip"></span>
-        <button class="btn btn-ghost btn-sm" id="logout-btn" data-i18n="topbar.logout">退出</button>
+        <div class="user-menu" id="user-menu">
+          <button type="button" class="user-menu-item" data-go="profile" data-i18n="nav.profile">个人资料及偏好</button>
+          <button type="button" class="user-menu-item" data-go="settings" data-i18n="nav.settings">设置</button>
+          <div class="user-menu-sep"></div>
+          <button type="button" class="user-menu-item danger" id="user-logout" data-i18n="topbar.logout">退出</button>
+        </div>
       </div>
-    </header>
+      <div class="side-foot-note">v2.7.0 · <span data-i18n="side.foot">自托管</span></div>
+    </div>
+  </aside>
 
+  <div class="main">
     <main class="content">
+
       <!-- 首页看板 -->
       <section id="view-dashboard" class="view hidden">
-        <div class="toolbar">
-          <div class="muted" data-i18n="dashboard.summary">数据概览</div>
-          <div class="toolbar-right">
-            <button class="btn btn-ghost" id="dash-refresh" data-i18n="dashboard.refresh">刷新看板</button>
-          </div>
-        </div>
-        <div id="dashboard-content"></div>
+        <div class="page-head" id="head-dashboard"><div class="head-main"></div><div class="acts"><button class="btn btn-ghost" id="dash-refresh" data-i18n="dashboard.refresh">刷新看板</button></div></div>
+        <div id="dashboard-content" style="display:flex;flex-direction:column;gap:16px"></div>
       </section>
 
       <!-- 联系人 -->
-      <section id="view-contacts" class="view">
+      <section id="view-contacts" class="view hidden">
+        <div class="page-head" id="head-contacts"><div class="head-main"></div></div>
         <div class="toolbar" id="contacts-toolbar">
           <div class="toolbar-left">
             <button class="btn btn-primary" id="add-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="contact.add">添加联系人</span></button>
@@ -192,9 +210,9 @@
               <label for="per-page" data-i18n="toolbar.perPage">每页</label>
               <select id="per-page"><option value="10">10</option><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="0" data-i18n="pagination.all">全部</option></select>
             </div>
-            <div class="tool-group">
-              <label for="view-mode" data-i18n="toolbar.view">视图</label>
-              <select id="view-mode"><option value="list" data-i18n="view.list">列表</option><option value="card" data-i18n="view.card">卡片</option><option value="compact" data-i18n="view.compact">紧凑</option></select>
+            <div class="seg" id="view-mode" role="group">
+              <button type="button" data-mode="card" class="on"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><use href="#ic-grid" /></svg> <span data-i18n="view.card">卡片</span></button>
+              <button type="button" data-mode="list"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><use href="#ic-list" /></svg> <span data-i18n="view.table">表格</span></button>
             </div>
             <div class="tool-group">
               <label for="sort-by" data-i18n="toolbar.sort">排序</label>
@@ -249,12 +267,13 @@
           </div>
           <button class="btn btn-ghost btn-sm" id="f-reset" data-i18n="filter.reset">重置</button>
         </div>
-        <div id="contacts-list" class="card"></div>
+        <div id="contacts-list"></div>
         <div class="pagination" id="contacts-paging"></div>
       </section>
 
       <!-- 纪念日 -->
       <section id="view-anniversaries" class="view hidden">
+        <div class="page-head" id="head-anniversaries"><div class="head-main"></div></div>
         <div class="toolbar">
           <div class="toolbar-left">
             <button class="btn btn-primary" id="add-anni-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="anni.addTitle">添加纪念日</span></button>
@@ -264,6 +283,10 @@
           <div class="toolbar-right">
             <input id="anni-search" class="search-input" type="search" data-i18n-ph="search.placeholder" placeholder="搜索…" />
             <button class="btn btn-ghost" id="anni-filter-toggle"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-filter" /></svg> <span data-i18n="filter.title">筛选</span> <span id="anni-filter-count" class="badge"></span></button>
+            <div class="seg" id="anni-view-mode" role="group">
+              <button type="button" data-mode="card" class="on"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><use href="#ic-grid" /></svg> <span data-i18n="view.card">卡片</span></button>
+              <button type="button" data-mode="list"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><use href="#ic-list" /></svg> <span data-i18n="view.table">表格</span></button>
+            </div>
           </div>
         </div>
         <div class="filter-panel hidden" id="anni-filter-panel">
@@ -277,11 +300,12 @@
           </div>
           <button class="btn btn-ghost btn-sm" id="a-f-reset" data-i18n="filter.reset">重置</button>
         </div>
-        <div id="anniversaries-list" class="card"></div>
+        <div id="anniversaries-list"></div>
       </section>
 
       <!-- 即将到来 -->
       <section id="view-upcoming" class="view hidden">
+        <div class="page-head" id="head-upcoming"><div class="head-main"></div></div>
         <div class="toolbar" id="upcoming-toolbar">
           <div class="toolbar-left">
             <button class="btn btn-ghost" id="refresh-up-btn" data-i18n="btn.refresh">刷新</button>
@@ -291,7 +315,7 @@
             <button class="btn btn-ghost" id="upcoming-filter-toggle"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-filter" /></svg> <span data-i18n="filter.title">筛选</span> <span id="upcoming-filter-count" class="badge"></span></button>
             <div class="tool-group">
               <label for="up-view-mode" data-i18n="toolbar.view">视图</label>
-              <select id="up-view-mode"><option value="list" data-i18n="view.list">列表</option><option value="card" data-i18n="view.card">卡片</option><option value="compact" data-i18n="view.compact">紧凑</option></select>
+              <select id="up-view-mode"><option value="list" data-i18n="view.table">表格</option><option value="card" data-i18n="view.card">卡片</option></select>
             </div>
           </div>
         </div>
@@ -311,24 +335,20 @@
 
       <!-- 家庭 -->
       <section id="view-family" class="view hidden">
-        <div class="toolbar">
-          <button class="btn btn-primary" id="create-family-btn"><span data-i18n="family.create">创建家庭</span></button>
-          <span class="muted" data-i18n="family.hint">家庭成员之间可共享「家庭」权限的数据。</span>
-        </div>
+        <div class="page-head" id="head-family"><div class="head-main"></div><div class="acts"><button class="btn btn-primary" id="create-family-btn"><span data-i18n="family.create">创建家庭</span></button></div></div>
         <div id="family-invites"></div>
         <div id="family-list"></div>
       </section>
 
       <!-- 个人资料及偏好 -->
       <section id="view-profile" class="view hidden">
-        <div class="toolbar">
-          <div class="muted" data-i18n="profile.title">个人资料及偏好</div>
-        </div>
-        <div id="profile-content"></div>
+        <div class="page-head" id="head-profile"><div class="head-main"></div></div>
+        <div id="profile-content" style="display:flex;flex-direction:column;gap:16px"></div>
       </section>
 
       <!-- 设置 -->
       <section id="view-settings" class="view hidden">
+        <div class="page-head" id="head-settings"><div class="head-main"></div></div>
         <div class="settings-layout">
           <nav class="settings-nav" id="settings-nav"></nav>
           <div class="settings-main">
@@ -343,14 +363,22 @@
 
       <!-- 用户管理 -->
       <section id="view-users" class="view hidden">
-        <div class="toolbar">
-          <button class="btn btn-primary" id="add-user-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="users.add">新增用户</span></button>
-        </div>
-        <div class="card" id="users-list"></div>
+        <div class="page-head" id="head-users"><div class="head-main"></div><div class="acts"><button class="btn btn-primary" id="add-user-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-plus" /></svg> <span data-i18n="users.add">新增用户</span></button></div></div>
+        <div id="users-list"></div>
       </section>
+
     </main>
   </div>
 </div>
+
+<!-- 窄屏底部标签栏 -->
+<nav class="tabbar" id="tabbar">
+  <button class="tab on" data-view="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cal" /></svg><span data-i18n="nav.dashboard">首页</span></button>
+  <button class="tab" data-view="contacts"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-person" /></svg><span data-i18n="nav.contacts">联系人</span></button>
+  <button class="tab" data-view="anniversaries"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-flag" /></svg><span data-i18n="nav.anniversaries">纪念日</span></button>
+  <button class="tab" data-view="upcoming"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-clock" /></svg><span data-i18n="nav.upcoming">即将到来</span></button>
+  <button class="tab" id="tab-more"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-dot" /></svg><span data-i18n="nav.more">更多</span></button>
+</nav>
 
 <!-- 右侧抽屉（联系人/纪念日编辑） -->
 <div class="drawer-overlay" id="drawer-overlay">
@@ -365,12 +393,12 @@
 <div id="toast"></div>
 <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 
-<script src="/static/js/i18n.js?v=2.6.19"></script>
+<script src="/static/js/i18n.js?v=2.7.0"></script>
 <script>
   /* 等待 i18n 加载完当前语言再启动 app.js */
   I18N.init().then(function () {
     var s = document.createElement("script");
-    s.src = "/static/js/app.js?v=2.6.19";
+    s.src = "/static/js/app.js?v=2.7.0";
     document.head.appendChild(s);
   });
 </script>

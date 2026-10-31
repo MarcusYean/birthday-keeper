@@ -171,6 +171,7 @@ _COLUMN_MIGRATIONS = {
     "user_prefs": {
         "wechat": "TEXT",
         "feishu": "TEXT",
+        "theme": "TEXT",
     },
 }
 
@@ -1156,6 +1157,13 @@ def get_user_prefs(user_id: int) -> dict:
                 d[k] = json.loads(d[k])
             except Exception:
                 d[k] = DEFAULT_USER_PREFS[k]
+    if isinstance(d.get("theme"), str):
+        try:
+            d["theme"] = json.loads(d["theme"])
+        except Exception:
+            d["theme"] = {}
+    if not isinstance(d.get("theme"), dict):
+        d["theme"] = {}
     if not d.get("channels"):
         d["channels"] = list(DEFAULT_USER_PREFS["channels"])
     if not d.get("advance_days"):
@@ -1173,16 +1181,19 @@ def set_user_prefs(user_id: int, data: dict) -> None:
         wechat = {}
     if not isinstance(feishu, dict):
         feishu = {}
+    theme = data.get("theme") or {}
+    if not isinstance(theme, dict):
+        theme = {}
     conn = _get_conn()
     try:
         conn.execute(
-            """INSERT INTO user_prefs(user_id, channels, advance_days, email, webhook_url, template_body, wechat, feishu, enabled)
-               VALUES(?,?,?,?,?,?,?,?,?)
+            """INSERT INTO user_prefs(user_id, channels, advance_days, email, webhook_url, template_body, wechat, feishu, enabled, theme)
+               VALUES(?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET
                  channels=excluded.channels, advance_days=excluded.advance_days,
                  email=excluded.email, webhook_url=excluded.webhook_url,
                  template_body=excluded.template_body, wechat=excluded.wechat,
-                 feishu=excluded.feishu, enabled=excluded.enabled""",
+                 feishu=excluded.feishu, enabled=excluded.enabled, theme=excluded.theme""",
             (
                 user_id,
                 json.dumps(channels, ensure_ascii=False),
@@ -1193,6 +1204,7 @@ def set_user_prefs(user_id: int, data: dict) -> None:
                 json.dumps(wechat, ensure_ascii=False),
                 json.dumps(feishu, ensure_ascii=False),
                 int(bool(data.get("enabled", True))),
+                json.dumps(theme, ensure_ascii=False),
             ),
         )
         conn.commit()

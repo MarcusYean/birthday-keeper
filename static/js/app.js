@@ -9,7 +9,14 @@ let TOKEN = localStorage.getItem("bk_token") || "";
 let ME = null;
 let CONTACTS = [];
 let ANNIS = [];
+let MY_PREFS = { channels: ["inapp"], theme: {}, wechat: {}, feishu: {} };
 let UI_PREFS = { menu_position: "left", contact_edit_mode: "modal", anniversary_enabled: true, default_visibility: "private", allow_register: false };
+
+/* 强调色的十六进制值：设置页的色板要用它画小方块 */
+const ACCENT_HEX = {
+  teal: "#1b6e66", clay: "#b04b2c", indigo: "#4a45c4",
+  forest: "#3f6b45", ochre: "#8a6520", graphite: "#3b3a37",
+};
 
 /* visibility is named in words on the tag; no icon, and no colour (the chrome holds none) */
 const VIS_ICONS = { private: "", family: "", public: ""};
@@ -198,7 +205,8 @@ $("#setup-form").addEventListener("submit", async (e) => {
     } catch (err) { toast(err.message, false); }
   });
 
-$("#logout-btn").addEventListener("click", async () => { try { await api("/api/logout", { method: "POST"}); } catch (_) {} logoutLocal(); });
+const logoutBtn = $("#logout-btn");
+if (logoutBtn) logoutBtn.addEventListener("click", async () => { try { await api("/api/logout", { method: "POST"}); } catch (_) {} logoutLocal(); });
 
 async function enterApp() {
   $("#auth-view").classList.add("hidden"); $("#app-view").classList.remove("hidden");
@@ -206,8 +214,13 @@ async function enterApp() {
   renderUserChip();
   $$(".admin-only").forEach((el) => el.classList.toggle("hidden", ME.role !== "admin"));
   try { UI_PREFS = await api("/api/ui"); } catch (_) {}
-  document.body.classList.toggle("menu-top", UI_PREFS.menu_position === "top");
-  document.body.classList.toggle("menu-left", UI_PREFS.menu_position !== "top");
+  try {
+    MY_PREFS = await api("/api/me/prefs");
+    /* 账号里保存的配色优先于本机偏好 */
+    const th = (MY_PREFS && MY_PREFS.theme) || {};
+    if (th.accent && typeof setAccent === "function") setAccent(th.accent);
+    if (th.mode && typeof setMode === "function") setMode(th.mode);
+  } catch (_) {}
   $("#nav-anniversaries") && $("#nav-anniversaries").classList.toggle("hidden", UI_PREFS.anniversary_enabled === false);
   refreshInviteBadge();
   refreshNotifBadge();
@@ -218,14 +231,7 @@ function renderUserChip() {
   if (!ME) return;
   const name = ME.nickname || ME.username;
   const chip = $("#user-chip");
-  chip.className = "user-chip clickable";
-  chip.innerHTML = '<span class="chip-avatar">' + esc(String(name || "").trim().charAt(0) || "?") + '</span><span class="chip-name">' + esc(name) + '</span><span class="chip-caret">▾</span>' +
-  '<div class="user-menu" id="user-menu">' +
-  '<button type="button" class="user-menu-item" data-go="profile">' + t("nav.profile") + '</button>' +
-  '<button type="button" class="user-menu-item" data-go="settings">' + t("nav.settings") + '</button>' +
-  '<div class="user-menu-sep"></div>' +
-  '<button type="button" class="user-menu-item danger" id="user-logout">' + t("topbar.logout") + '</button>' +
-  '</div>';
+  chip.innerHTML = '<span class="chip-avatar">' + esc(String(name || "").trim().charAt(0) || "?") + '</span><span class="chip-name">' + esc(name) + '</span>';
   chip.onclick = (e) => {
     const item = e.target.closest(".user-menu-item");
     if (item) {
@@ -240,7 +246,13 @@ function renderUserChip() {
 function toggleUserMenu() { const m = document.getElementById("user-menu"); if (m) m.classList.toggle("open"); }
 function closeUserMenu() { const m = document.getElementById("user-menu"); if (m) m.classList.remove("open"); }
 function doLogout() { api("/api/logout", { method: "POST"}).catch(() => {}); logoutLocal(); }
-document.addEventListener("click", (e) => { const m = document.getElementById("user-menu"); if (m && !e.target.closest("#user-chip")) m.classList.remove("open"); });
+document.addEventListener("click", (e) => { const m = document.getElementById("user-menu"); if (m && !e.target.closest("#user-chip") && !e.target.closest("#user-menu")) m.classList.remove("open"); });
+$("#user-menu").addEventListener("click", (e) => {
+    const item = e.target.closest(".user-menu-item");
+    if (!item) return;
+    if (item.id === "user-logout") { doLogout(); return; }
+    if (item.dataset.go) { switchView(item.dataset.go); closeUserMenu(); }
+  });
 
 async function refreshInviteBadge() {
   try {
@@ -258,7 +270,8 @@ function switchView(name) {
   $$(".view").forEach((v) => v.classList.add("hidden"));
   const sec = $("#view-"+ name); if (sec) sec.classList.remove("hidden");
   $$(".nav-item").forEach((n) => n.classList.toggle("active", n.dataset.view === name));
-  $("#view-title").textContent = t("viewTitle."+ name) || name;
+  $$(".tabbar .tab").forEach((n) => n.classList.toggle("on", n.dataset.view === name));
+  renderHead(name);
   if (name === "contacts") loadContacts();
   if (name === "anniversaries") loadAnniversaries();
   if (name === "upcoming") loadUpcoming();
@@ -268,12 +281,35 @@ function switchView(name) {
   if (name === "profile") loadProfile();
   if (name === "dashboard") loadDashboard();
 }
+
+/* 每个页面顶部的大标题：衬线标题 + 一行副信息，内容由数据生成。
+   只改 .head-main，右侧 .acts 里的按钮是静态的，事件绑定在加载时完成。 */
+function setHead(view, title, meta) {
+  const box = $("#head-" + view); if (!box) return;
+  const main = box.querySelector(".head-main") || box;
+  main.innerHTML = `<div class="h1">${title}</div>${meta ? `<div class="meta">${meta}</div>` : ""}`;
+}
+function renderHead(view) {
+  if (view === "dashboard") return;   /* 首页的标题由 renderDashboard 用数据生成 */
+  if (view === "contacts") setHead("contacts", esc(t("viewTitle.contacts")), esc(t("head.contacts", { n: CONTACTS.length })));
+  if (view === "anniversaries") setHead("anniversaries", esc(t("viewTitle.anniversaries")), esc(t("head.anniversaries", { n: ANNIS.length })));
+  if (view === "upcoming") setHead("upcoming", esc(t("viewTitle.upcoming")), esc(t("head.upcoming")));
+  if (view === "family") setHead("family", esc(t("viewTitle.family")), esc(t("head.family")));
+  if (view === "profile") setHead("profile", esc(t("viewTitle.profile")), esc(t("head.profile")));
+  if (view === "settings") setHead("settings", esc(t("viewTitle.settings")), esc(t("head.settings")));
+  if (view === "users") setHead("users", esc(t("viewTitle.users")), esc(t("head.users")));
+}
 $$(".nav-item").forEach((n) => n.addEventListener("click", () => {
       switchView(n.dataset.view);
-      document.body.classList.remove("nav-open"); /* the phone sheet closes once a destination is chosen */
     }));
-const navToggle = $("#nav-toggle");
-if (navToggle) navToggle.addEventListener("click", () => document.body.classList.toggle("nav-open"));
+$$(".tabbar .tab[data-view]").forEach((n) => n.addEventListener("click", () => switchView(n.dataset.view)));
+$("#tab-more").addEventListener("click", () => {
+    const items = $$(".nav-item").filter((n) => !n.classList.contains("hidden"))
+      .map((n) => `<button type="button" class="user-menu-item" data-goto="${n.dataset.view}">${esc(n.textContent.trim())}</button>`).join("");
+    openModal(`<h2>${esc(t("nav.more"))}</h2><div class="user-menu" style="display:block;position:static;padding:0">${items}</div>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">${esc(t("btn.cancel"))}</button></div>`);
+    $$("#modal [data-goto]").forEach((b) => b.addEventListener("click", () => { closeModal(); switchView(b.dataset.goto); }));
+  });
 
 /* 语言切换后重新渲染当前视图 */
 window.__onLangChange = function () { refreshStaticText(); switchView(CURRENT_VIEW); };
@@ -284,9 +320,17 @@ const DEFAULT_FIELDS = ["avatar", "name", "relationship", "gender", "calendar_ba
 
 function loadViewPrefs() { try { return JSON.parse(localStorage.getItem(VIEW_PREFS_KEY) || "{}"); } catch { return {}; } }
 function saveViewPrefs(p) { localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(p)); }
-let VIEW_PREFS = { mode: "list", sort: "days_until_asc", group: "none", per_page: 50, page: 1, fields: [...DEFAULT_FIELDS], ...loadViewPrefs() };
+let VIEW_PREFS = { mode: "card", sort: "days_until_asc", group: "none", per_page: 50, page: 1, fields: [...DEFAULT_FIELDS], ...loadViewPrefs() };
+if (VIEW_PREFS.mode === "list" || VIEW_PREFS.mode === "compact") VIEW_PREFS.mode = "card";
 let FIELD_SET = new Set(VIEW_PREFS.fields);
 let SELECTED_IDS = new Set();
+
+/* 纪念日的视图偏好独立一份 */
+const ANNI_PREFS_KEY = "bk_anni_prefs";
+function loadAnniPrefs() { try { return JSON.parse(localStorage.getItem(ANNI_PREFS_KEY) || "{}"); } catch { return {}; } }
+function saveAnniPrefs(p) { localStorage.setItem(ANNI_PREFS_KEY, JSON.stringify(p)); }
+let ANNI_PREFS = { mode: "card", ...loadAnniPrefs() };
+if (ANNI_PREFS.mode !== "list") ANNI_PREFS.mode = "card";
 
 const UPCOMING_PREFS_KEY = "bk_upcoming_prefs";
 function loadUpcomingPrefs() { try { return JSON.parse(localStorage.getItem(UPCOMING_PREFS_KEY) || "{}"); } catch { return {}; } }
@@ -423,7 +467,16 @@ function populateUpcomingFilters() {
 }
 
 /* ============ 联系人 ============ */
-$("#view-mode").addEventListener("change", (e) => { VIEW_PREFS.mode = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+/* 视图切换：卡片 / 表格（分段控件，不是下拉） */
+function bindSeg(sel, get, set) {
+  const el = $(sel); if (!el) return;
+  el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+        if (get() === b.dataset.mode) return;
+        set(b.dataset.mode);
+      }));
+}
+bindSeg("#view-mode", () => VIEW_PREFS.mode, (m) => { VIEW_PREFS.mode = m; saveViewPrefs(VIEW_PREFS); renderContacts(); });
+bindSeg("#anni-view-mode", () => ANNI_PREFS.mode, (m) => { ANNI_PREFS.mode = m; saveAnniPrefs(ANNI_PREFS); renderAnniversaries(); });
 $("#sort-by").addEventListener("change", (e) => { VIEW_PREFS.sort = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
 $("#group-by").addEventListener("change", (e) => { VIEW_PREFS.group = e.target.value; saveViewPrefs(VIEW_PREFS); renderContacts(); });
 $("#per-page").addEventListener("change", (e) => { VIEW_PREFS.per_page = parseInt(e.target.value) || 0; VIEW_PREFS.page = 1; saveViewPrefs(VIEW_PREFS); renderContacts(); });
@@ -473,7 +526,16 @@ async function loadContacts() {
   }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
-function applyToolbar() { $("#view-mode").value = VIEW_PREFS.mode; $("#sort-by").value = VIEW_PREFS.sort; $("#group-by").value = VIEW_PREFS.group; $("#per-page").value = VIEW_PREFS.per_page; const ue = $("#up-view-mode"); if (ue) ue.value = UPCOMING_PREFS.mode; }
+function applyToolbar() {
+  const vm = $("#view-mode");
+  if (vm) vm.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.mode === VIEW_PREFS.mode));
+  const am = $("#anni-view-mode");
+  if (am) am.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.mode === ANNI_PREFS.mode));
+  $("#sort-by").value = VIEW_PREFS.sort;
+  $("#group-by").value = VIEW_PREFS.group;
+  $("#per-page").value = VIEW_PREFS.per_page;
+  const ue = $("#up-view-mode"); if (ue) ue.value = UPCOMING_PREFS.mode;
+}
 
 function sortContacts(rows) {
   const s = VIEW_PREFS.sort; const a = [...rows];
@@ -529,9 +591,9 @@ function renderContacts() {
 }
 function renderGroup(g, idx) {
   const mode = VIEW_PREFS.mode;
-  const items = g.items.map((r) => mode === "card"? cardHtml(r) : mode === "compact"? compactRowHtml(r) : listRowHtml(r)).join("");
+  const items = g.items.map((r, i) => mode === "card"? cardHtml(r, idx * 12 + i) : mode === "compact"? compactRowHtml(r) : listRowHtml(r)).join("");
   const title = `${esc(g.title)} <span class="group-count">${g.items.length}</span> <label class="group-select" title="${t("group.selectAll")}"><input type="checkbox" class="group-select-all" data-gidx="${idx}"> <span data-i18n="group.selectAll">${t("group.selectAll")}</span></label>`;
-  if (mode === "card") return `<div class="group"><div class="group-title">${title}</div><div class="card-grid">${items}</div></div>`;
+  if (mode === "card") return `<div class="group"><div class="group-title">${title}</div><div class="pcards">${items}</div></div>`;
   if (mode === "compact") return `<div class="group"><div class="group-title">${title}</div><div class="compact-list">${items}</div></div>`;
   const cg = listColgroup();
   return `<div class="group"><div class="group-title">${title}</div><div class="table-card"><table class="table table-fixed"style="min-width:${cg.total}px">${cg.html}<thead>${listHeader()}</thead><tbody>${items}</tbody></table></div></div>`;
@@ -621,30 +683,49 @@ function listRowHtml(r) {
   if (hasField("note")) cells.push(`<td class="ellipsis" data-label="${t("field.note")}">${esc(r.note || "-")}</td>`);
   return `<tr>${cells.join("")}</tr>`;
 }
-function cardHtml(r) {
-  const name = esc(r.name);
+/* 每个人的固定色相偏移（-42…+42）。头像底色 = 强调色相 + 这个偏移，
+   所以换强调色时全家的头像一起换色，而彼此的色相关系保持不变。 */
+function hueOffset(key) {
+  const s = String(key == null ? "" : key);
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return ((h % 13) - 6) * 16;   /* -96 … +96，13 档 */
+}
+function notifyNodesHtml(days) {
+  const list = (Array.isArray(days) ? days : []).map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  if (!list.length) return "";
+  return list.map((d) => (d === 0 ? t("notify.day0") : d + t("unit.days"))).join(" + ");
+}
+function cardHtml(r, i = 0) {
+  const d = r.days_until;
+  const soon = d != null && d >= 0 && d <= 7;
+  const passed = d != null && d < 0;
+  const tags = [
+    r.relationship ? `<span class="tag">${esc(r.relationship)}</span>` : "",
+    calendarBadge(r),
+    r.zodiac ? `<span class="tag">${esc(r.zodiac)}</span>` : "",
+    r.enabled === false ? `<span class="tag tag-off">${esc(t("filter.statusOff"))}</span>` : "",
+  ].filter(Boolean).join("");
+  const nodes = notifyNodesHtml(r.notify_days);
+  const days = d == null ? "—" : passed ? Math.abs(d) : d;
+  const unit = d == null ? "" : passed ? t("days.ago") : t("days.left");
   return `
-  <div class="contact-card" data-id="${r.id}">
+  <div class="pcard${soon ? " soon": ""}" data-id="${r.id}" style="--i:${i}">
+  <div class="pcard-top">
   <label class="card-select" title="${t("toolbar.selectAll")}"><input type="checkbox" class="row-select" value="${r.id}"${SELECTED_IDS.has(r.id) ? "checked": ""}></label>
-  <div class="cc-head" onclick="editContact(${r.id})">
-  <div class="cc-avatar">${avatarHtml(r, true)}</div>
-  <div class="cc-head-info">
-  <div class="cc-name">${name}${calendarBadge(r)}${statusTags(r)}</div>
-  <div class="cc-sub">${metaLine(r)}</div>
+  <span onclick="editContact(${r.id})">${avatarHtml(r)}</span>
+  <div class="grow" onclick="editContact(${r.id})">
+  <div class="pcard-name">${esc(r.name)}</div>
+  <div class="pcard-meta">${tags}</div>
   </div>
+  <div class="pcard-days"><div class="n">${days}</div><div class="u">${esc(unit)}</div></div>
   </div>
-  <div class="cc-stats">
-  ${hasField("next_date") || hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.nextDate")}</span><span class="cc-stat-val">${nextDateLabel(r)}</span></div>` : ""}
-  ${hasField("days_until") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.countdown")}</span><span class="cc-stat-val">${daysBadge(r)}</span></div>` : ""}
-  ${hasField("age") || hasField("age_on_next") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.ageNext")}</span><span class="cc-stat-val">${ageLabel(r.age_on_next)}</span></div>` : ""}
-  ${hasField("days_lived") ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.daysLived")}</span><span class="cc-stat-val">${r.days_lived != null ? `<span class="num">${r.days_lived.toLocaleString()}</span>` : "-"}</span></div>` : ""}
+  <div class="pcard-foot">
+  <span class="tag">${nextDateLabel(r)}</span>
+  ${nodes ? `<span class="tag">${esc(nodes)}</span>` : `<span class="muted">${esc(t("card.noReminder"))}</span>`}
+  <span class="spacer"></span>
+  <span class="muted">${r.age_on_next != null ? esc(t("card.willBe", { age: r.age_on_next })) : ""}</span>
   </div>
-  <div class="cc-tags">
-  ${r.mbti ? `<span class="tag">${esc(r.mbti)}<span class="info-ic" data-tip="${esc(mbtiTip(r.mbti))}"><svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><use href="#ic-info"/></svg></span></span>` : ""}
-  ${r.blood_type ? `<span class="tag">${esc(r.blood_type)}<span class="info-ic" data-tip="${esc(bloodTip(r.blood_type))}"><svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><use href="#ic-info"/></svg></span></span>` : ""}
-  ${hasField("hobbies") && r.hobbies ? `<span class="muted">${t("field.hobbies")}：</span>${esc(r.hobbies)}` : ""}
-  </div>
-  ${hasField("note") && r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
   </div>`;
 }
 function compactRowHtml(r) {
@@ -666,10 +747,13 @@ function compactRowHtml(r) {
 
 /* 小部件 */
 function avatarHtml(r, big = false) {
-  if (r.avatar_url) return `<span class="avatar ${big ? "avatar-lg": ""}"><img src="${esc(r.avatar_url)}" alt=""/></span>`;
+  const po = hueOffset(r.id != null ? r.id : r.name);
+  const cls = "avatar" + (big ? " avatar-lg": "");
+  const style = `style="--po:${po}"`;
+  if (r.avatar_url) return `<span class="${cls}" ${style}><img src="${esc(r.avatar_url)}" alt=""/></span>`;
   /* a monogram: the person's own initial, stable and readable at 24px */
   const initial = String(r.name || "").trim().charAt(0) || "?";
-  return `<span class="avatar ${big ? "avatar-lg": ""}">${esc(initial)}</span>`;
+  return `<span class="${cls}" ${style}>${esc(initial)}</span>`;
 }
 function calendarBadge(r) { return r.calendar_type === "lunar"? '<span class="tag tag-lunar">' + t("cal.lunar") + '</span>' : '<span class="tag tag-solar">' + t("cal.solar") + '</span>'; }
 function genderKey(g) {
@@ -891,6 +975,30 @@ function runBatchTestSelection(kind) {
       if (!ANNIS.length) { box.innerHTML = '<div class="empty">' + t("empty.annis") + '</div>'; return; }
       const rows = getFilteredAnnis();
       if (!rows.length) { box.innerHTML = '<div class="empty">' + t("filter.noResult") + '</div>'; return; }
+      if (ANNI_PREFS.mode === "card") {
+        const cards = rows.map((r, i) => {
+            const d = r.days_until;
+            const soon = d != null && d >= 0 && d <= 7;
+            const nodes = notifyNodesHtml(r.notify_days);
+            const tags = [r.kind ? `<span class="tag">${esc(r.kind)}</span>` : "", calendarBadge(r), r.enabled === false ? `<span class="tag tag-off">${esc(t("filter.statusOff"))}</span>` : ""].filter(Boolean).join("");
+            return `<div class="pcard${soon ? " soon": ""}" style="--i:${i}">
+            <div class="pcard-top" onclick="editAnni(${r.id})">
+              <span class="avatar" style="--po:${hueOffset(r.id)}">${esc(String(r.name || "").trim().charAt(0) || "?")}</span>
+              <div class="grow"><div class="pcard-name">${esc(r.name)}</div><div class="pcard-meta">${tags}</div></div>
+              <div class="pcard-days"><div class="n">${d == null ? "—" : d}</div><div class="u">${d == null ? "" : esc(t("days.left"))}</div></div>
+            </div>
+            ${r.note ? `<div class="pcard-note">${esc(r.note)}</div>` : ""}
+            <div class="pcard-foot">
+              <span class="tag">${nextDateLabel(r)}</span>
+              ${nodes ? `<span class="tag">${esc(nodes)}</span>` : `<span class="muted">${esc(t("card.noReminder"))}</span>`}
+              <span class="spacer"></span>
+              ${r.years_passed != null ? `<span class="muted">${esc(t("field.passed"))} ${r.years_passed} ${esc(t("unit.anniv"))}</span>` : ""}
+            </div>
+            </div>`;
+          }).join("");
+        box.innerHTML = `<div class="pcards">${cards}</div>`;
+        return;
+      }
       const body = rows.map((r) => `
         <tr>
         <td data-label="${t("field.name")}"><div class="name-cell" onclick="editAnni(${r.id})"><div class="name-line"><b>${esc(r.name)}</b>${statusTags(r)}</div></div></td>
@@ -902,7 +1010,7 @@ function runBatchTestSelection(kind) {
         <td data-label="${t("field.countdown")}">${daysBadge(r)}</td>
         <td data-label="${t("field.passed")}">${r.years_passed != null ? `<span class="num">${r.years_passed}</span> ${t("unit.anniv")}` : "-"}</td>
         </tr>`).join("");
-        box.innerHTML = `<div class="table-card"><table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th></tr></thead><tbody>${body}</tbody></table></div>`;
+      box.innerHTML = `<div class="table-card"><table class="table"><thead><tr><th>${t("field.name")}</th><th>${t("field.desc")}</th><th>${t("form.type")}</th><th>${t("field.calBadge")}</th><th>${t("field.date")}</th><th>${t("field.nextDate")}</th><th>${t("field.countdown")}</th><th>${t("field.passed")}</th></tr></thead><tbody>${body}</tbody></table></div>`;
       }
       function openAnniEditor(r) {
         const isEdit = !!r; r = r || {};
@@ -1003,7 +1111,7 @@ function runBatchTestSelection(kind) {
       function upRow(r) {
         const isAnni = r.category === "anniversary";
         return `<tr>
-        <td data-label="${t("field.name")}"><div class="name-cell"><div class="name-line"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)} ${statusTags(r)} <span class="muted sm">${esc(isAnni ? (r.kind || "") : (r.relationship || ""))}</span></div></div></td>
+        <td data-label="${t("field.name")}"><div class="name-cell"><div class="name-line"><b>${esc(r.name)}</b> ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)} ${statusTags(r)}</div></div></td>
         <td data-label="${t("field.relationship")}">${isAnni ? esc(r.kind || "-") : esc(r.relationship || "-")}</td>
         <td data-label="${t("field.calBadge")}">${calendarBadge(r)}</td>
         <td data-label="${t("field.date")}"><span class="mono">${r.occ_date}</span>${r.is_leap ? ` <span class="muted sm">(${t("form.leapShort")})</span>` : ""}</td>
@@ -1011,26 +1119,25 @@ function runBatchTestSelection(kind) {
         <td data-label="${t("field.note")}">${esc(r.note || "-")}</td>
         </tr>`;
       }
-      function upCard(r) {
+      function upCard(r, i = 0) {
         const isAnni = r.category === "anniversary";
+        const soon = r.days_until != null && r.days_until >= 0 && r.days_until <= 7;
+        const tags = [isAnni ? anniKindBadge(r.kind) : calendarBadge(r), isAnni ? "" : (r.relationship ? `<span class="tag">${esc(r.relationship)}</span>` : "")].filter(Boolean).join("");
         const extra = isAnni
-        ? (r.anniv_num != null ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.passed")}</span><span class="cc-stat-val"><span class="num">${r.anniv_num}</span> ${t("unit.anniv")}</span></div>` : "")
-        : (r.age_on_occ != null ? `<div class="cc-stat"><span class="cc-stat-label">${t("field.age")}</span><span class="cc-stat-val"><span class="num">${r.age_on_occ}</span> ${t("unit.years")}</span></div>` : "");
-        return `<div class="contact-card" data-id="${r.id}">
-        <div class="cc-head">
-        <div class="cc-avatar">${avatarHtml(r, true)}</div>
-        <div class="cc-head-info">
-        <div class="cc-name">${esc(r.name)} ${isAnni ? anniKindBadge(r.kind) : calendarBadge(r)}</div>
-        <div class="cc-sub">${esc(upSubLabel(r))}</div>
+        ? (r.anniv_num != null ? `<span class="muted">${r.anniv_num} ${esc(t("unit.anniv"))}</span>` : "")
+        : (r.age_on_occ != null ? `<span class="muted">${esc(t("card.willBe", { age: r.age_on_occ }))}</span>` : "");
+        return `<div class="pcard${soon ? " soon": ""}" style="--i:${i}">
+        <div class="pcard-top">
+        ${avatarHtml(r)}
+        <div class="grow"><div class="pcard-name">${esc(r.name)}</div><div class="pcard-meta">${tags}</div></div>
+        <div class="pcard-days"><div class="n">${r.days_until == null ? "—" : r.days_until}</div><div class="u">${esc(t("days.left"))}</div></div>
         </div>
-        </div>
-        <div class="cc-stats">
-        <div class="cc-stat"><span class="cc-stat-label">${t("field.date")}</span><span class="cc-stat-val"><span class="mono">${r.occ_date}</span></span></div>
-        <div class="cc-stat"><span class="cc-stat-label">${t("field.countdown")}</span><span class="cc-stat-val">${upDaysBadge(r)}</span></div>
+        <div class="pcard-foot">
+        <span class="tag">${esc(r.occ_date || "")}</span>
         ${extra}
+        <span class="spacer"></span>
+        ${r.note ? `<span class="muted ellipsis" style="max-width:44%">${esc(r.note)}</span>` : ""}
         </div>
-        ${r.relationship || r.kind ? `<div class="cc-note">${isAnni ? esc(r.kind || "") : esc(r.relationship || "")}</div>` : ""}
-        ${r.note ? `<div class="cc-note">${esc(r.note)}</div>` : ""}
         </div>`;
       }
       function upCompact(r) {
@@ -1052,8 +1159,8 @@ function runBatchTestSelection(kind) {
         const rows = getFilteredUpcoming();
         if (!rows.length) { box.innerHTML = '<div class="empty">' + t("filter.noResult") + '</div>'; return; }
         const mode = UPCOMING_PREFS.mode;
-        const build = (r) => mode === "card"? upCard(r) : mode === "compact"? upCompact(r) : upRow(r);
-        const wrapOpen = mode === "card"? `<div class="card-grid">` : mode === "compact"? `<div class="compact-list">` : `<div class="table-card"><table class="table"><thead>${upHead()}</thead><tbody>`;
+        const build = (r, i) => mode === "card"? upCard(r, i) : mode === "compact"? upCompact(r) : upRow(r);
+        const wrapOpen = mode === "card"? `<div class="pcards">` : mode === "compact"? `<div class="compact-list">` : `<div class="table-card"><table class="table"><thead>${upHead()}</thead><tbody>`;
         const wrapClose = mode === "card"? `</div>` : mode === "compact"? `</div>` : `</tbody></table></div>`;
         const renderGroup = (title, items) => {
           if (!items.length) return "";
@@ -1065,6 +1172,61 @@ function runBatchTestSelection(kind) {
       }
 
       /* ============ 首页看板 ============ */
+      function _dist(rows, key) {
+        const m = {};
+        rows.forEach((r) => { const k = (r[key] && String(r[key]).trim()) || t("group.unfiled"); m[k] = (m[k] || 0) + 1; });
+        const max = Object.values(m).length ? Math.max(...Object.values(m)) : 0;
+        return { entries: Object.entries(m).sort((a, b) => b[1] - a[1]), max };
+      }
+      function _distBars(entries, max) {
+        if (!entries.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
+        const rows = entries.map(([k, v]) => `<div class="dist-row"><span class="dist-label">${esc(k)}</span><span class="dist-track"><span class="dist-fill"style="width:${max ? Math.round(v / max * 100) : 0}%"></span></span><span class="dist-num">${v}</span></div>`).join("");
+        return `<div class="dist">${rows}</div>`;
+      }
+
+      /* ---------- 日期与日历 ---------- */
+      function _locale() {
+        return ({ zh: "zh-CN", "zh-Hant": "zh-TW", en: "en-US", ja: "ja-JP", ko: "ko-KR" })[getLang()] || "zh-CN";
+      }
+      /* 星期名按当前语言给，不写死中文 */
+      function _weekLabels() {
+        try {
+          const fmt = new Intl.DateTimeFormat(_locale(), { weekday: "short" });
+          return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i)));
+        } catch (e) {
+          return ["一", "二", "三", "四", "五", "六", "日"];
+        }
+      }
+      function _monthName(y, m) {
+        try { return new Intl.DateTimeFormat(_locale(), { month: "long" }).format(new Date(y, m - 1, 1)); }
+        catch (e) { return m + " " + t("unit.month"); }
+      }
+      function _today() { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() }; }
+
+      /* 月历：命中日用强调色实心块，其余是白卡；上/下月的日子留空但不占视觉重量 */
+      function _monthGrid(y, m, marks) {
+        const first = new Date(y, m - 1, 1);
+        const lead = (first.getDay() + 6) % 7;               /* 周一为一周之首 */
+        const dim = new Date(y, m, 0).getDate();
+        const prevDim = new Date(y, m - 1, 0).getDate();
+        const cells = [];
+        for (let i = lead - 1; i >= 0; i--) cells.push({ d: prevDim - i, out: true });
+        for (let d = 1; d <= dim; d++) cells.push({ d, out: false });
+        const trail = (7 - (cells.length % 7)) % 7;
+        for (let d = 1; d <= trail; d++) cells.push({ d, out: true });
+        const now = _today();
+        const html = cells.map((c) => {
+            const hit = (!c.out && marks[c.d] && marks[c.d].length) ? marks[c.d] : null;
+            const isToday = !c.out && y === now.y && m === now.m && c.d === now.d;
+            const cls = c.out ? "cal-cell out" : (hit ? "cal-cell hit" : (isToday ? "cal-cell today" : "cal-cell"));
+            const who = hit ? `<span class="who">${esc(String(hit[0]).slice(0, 2))}</span>` : "";
+            return `<div class="${cls}"><span>${c.d}</span>${who}</div>`;
+          }).join("");
+        const wd = _weekLabels().map((w) => `<div class="cal-wd">${esc(w)}</div>`).join("");
+        return `<div class="cal">${wd}</div><div class="cal">${html}</div>`;
+      }
+
+      /* ---------- 首页看板 ---------- */
       async function loadDashboard() {
         const box = $("#dashboard-content");
         if (box) box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
@@ -1077,147 +1239,128 @@ function runBatchTestSelection(kind) {
           renderDashboard();
         } catch (err) { if (box) box.innerHTML = ""; toast(err.message, false); }
       }
-      /* the strip is drawn one unit per pixel, so it has to be drawn again when the width changes */
+      /* 窗口变宽窄时重画日历（月份标签宽度会变） */
       let _resizeTimer = null;
       window.addEventListener("resize", () => {
         clearTimeout(_resizeTimer);
-        _resizeTimer = setTimeout(() => { if (CURRENT_VIEW === "dashboard"&& CONTACTS.length) renderDashboard(); }, 200);
+        _resizeTimer = setTimeout(() => { if (CURRENT_VIEW === "dashboard" && CONTACTS.length) renderDashboard(); }, 220);
       });
-      function _dist(rows, key) {
-        const m = {};
-        rows.forEach((r) => { const k = (r[key] && String(r[key]).trim()) || t("group.unfiled"); m[k] = (m[k] || 0) + 1; });
-        const max = Object.values(m).length ? Math.max(...Object.values(m)) : 0;
-        return { entries: Object.entries(m).sort((a, b) => b[1] - a[1]), max };
-      }
-      function _distBars(entries, max) {
-        if (!entries.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
-        const rows = entries.map(([k, v], i) => `<div class="dist-row"><span class="dist-label">${esc(k)}</span><span class="dist-track"><span class="dist-fill${i === 0 ? " top": ""}"style="width:${max ? Math.round(v / max * 100) : 0}%"></span></span><span class="dist-num">${v}</span></div>`).join("");
-        return `<div class="dist-block">${rows}</div>`;
+
+      /* 提醒渠道概览：哪几个开了、飞书配了没有 */
+      function _channelSummary() {
+        const chans = (MY_PREFS && MY_PREFS.channels) || [];
+        const rows = [
+          { key: "inapp", label: t("ch.inapp"), on: chans.includes("inapp") },
+          { key: "wechat", label: t("ch.wechat"), on: chans.includes("wechat") && !!(MY_PREFS.wechat || {}).enabled },
+          { key: "feishu", label: t("ch.feishu"), on: chans.includes("feishu") && !!(MY_PREFS.feishu || {}).enabled },
+        ];
+        return rows.map((r) => `<div class="dash-kv"><span>${esc(r.label)}</span><span class="tag${r.on ? " tag-on": " tag-off"}">${esc(r.on ? t("dash.on") : t("dash.off"))}</span></div>`).join("");
       }
 
-      /* The signature element: a year strip. Every person is one tick on the twelve months of this year;
-      the nearer the day, the heavier the tick, and only what is close enough to act on is named.
-      One hue, on the one thing this screen is for. */
-      function _yearStrip(rows, widthHint) {
-        const pts = rows
-        .filter((r) => r.month >= 1 && r.month <= 12)
-        .map((r) => {
-            const x = ((r.month - 1) + ((r.day || 1) - 1) / 31) / 12;
-            const d = r.days_until;
-            const soon = d != null && d >= 0 && d <= 7;
-            const near = d != null && d >= 0 && d <= 30;
-            return { x, name: r.name, d, soon, near };
-          })
-        .sort((a, b) => a.x - b.x);
-        if (!pts.length) return '<div class="muted sm">' + t("dashboard.noData") + '</div>';
-
-        /* Draw one SVG unit per CSS pixel, so a 13px label is 13px on a phone as well as on a
-        desktop. A fixed viewBox would shrink the type to a third of its size at 390px. */
-        const W = Math.max(320, Math.round(widthHint || 900));
-        const H = 150, PAD = 8, BASE = 96;
-        const px = (u) => PAD + u * (W - PAD * 2);
-        // month gridlines and labels; on a narrow strip every other month is enough
-        const everyOther = W < 560;
-        const months = [];
-        for (let m = 0; m <= 12; m++) {
-          const x = px(m / 12);
-          months.push(`<line x1="${x.toFixed(1)}" y1="24" x2="${x.toFixed(1)}" y2="${BASE}" stroke="var(--grid)" stroke-width="1"/>`);
-          if (m < 12 && (!everyOther || m % 2 === 0)) {
-            months.push(`<text x="${(px((m + 0.5) / 12)).toFixed(1)}" y="${BASE + 20}" text-anchor="middle" font-size="13" fill="var(--muted)">${m + 1}</text>`);
-          }
-        }
-        // ticks: the far ones are quiet, the near ones are ink, the coming week is the hue
-        const ticks = pts.map((p) => {
-            const x = px(p.x).toFixed(1);
-            const w = p.soon ? 3 : p.near ? 2.5 : 2;
-            const h = p.soon ? 62 : p.near ? 48 : 38;
-            const fill = p.soon ? "var(--hue)" : p.near ? "var(--chart-1)" : "var(--chart-2)";
-            const y = BASE - h;
-            const label = p.near
-            ? `<text x="${x}" y="${y - 8}" text-anchor="middle" font-size="13" fill="${p.soon ? "var(--hue)": "var(--text)"}">${esc(p.name)}</text>`
-            : "";
-            return `${label}<rect x="${(x - w / 2).toFixed(1)}" y="${y}" width="${w}" height="${h}" fill="${fill}"><title>${esc(p.name)} · ${p.month}/${p.day}</title></rect>`;
-          }).join("");
-
-        return `<div class="yearstrip"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t("dashboard.yearStrip"))}">
-        <line x1="${PAD}" y1="${BASE}" x2="${W - PAD}" y2="${BASE}" stroke="var(--border)" stroke-width="1"/>
-        ${months.join("")}${ticks}
-        </svg></div>`;
-      }
-      function _dashRows(rows, labelKey, dateKey) {
-        if (!rows.length) return '<div class="muted sm" style="padding:8px 0">' + t("dashboard.noData") + '</div>';
-        return rows.map((r) => {
-            const d = r.days_until;
-            const soon = d != null && d >= 0 && d <= 7;
-            const past = d != null && d < 0;
-            /* a relative figure always names what it is measured against */
-            const when = d == null ? "—" : past ? t("field.passedDays", {n: Math.abs(d)}) : d + " " + t("days.left");
-            return `<div class="dash-row${past ? " past": ""}">
-            <span class="nm ellipsis">${esc(r.name)}</span>
-            <span class="rel ellipsis">${esc(r[labelKey] || "")}</span>
-            <span class="dd${soon ? " soon": ""}">${when}</span>
-            <span class="dt">${esc(r[dateKey] || "")}</span>
-            </div>`;
-          }).join("");
-      }
       function renderDashboard() {
         const box = $("#dashboard-content"); if (!box) return;
-        const today = CONTACTS.filter((r) => r.is_today);
-        const upcoming30 = CONTACTS.filter((r) => r.days_until != null && r.days_until >= 0 && r.days_until <= 30);
-        const nextBirthdays = CONTACTS.filter((r) => r.days_until != null && r.days_until >= 0).sort((a, b) => a.days_until - b.days_until).slice(0, 5);
-        /* Anniversaries are few: after the ones still to come, fill the list with what has already
-        passed this year, named as passed, so the card is not a frame around four rows of nothing. */
-        const annisAll = (UPCOMING_ROWS || []).filter((r) => r.category === "anniversary" && r.days_until != null);
-        const nextAnnis = annisAll.filter((r) => r.days_until >= 0).sort((a, b) => a.days_until - b.days_until)
-        .concat(annisAll.filter((r) => r.days_until < 0).sort((a, b) => b.days_until - a.days_until))
-        .slice(0, 5);
+
+        const upcoming = CONTACTS.filter((r) => r.days_until != null && r.days_until >= 0)
+          .sort((a, b) => a.days_until - b.days_until);
+        const todayList = CONTACTS.filter((r) => r.is_today);
+        const in30 = upcoming.filter((r) => r.days_until <= 30);
+        const next = upcoming[0] || null;
+        const now = _today();
+
+        /* 问候语由数据生成，不写「欢迎回来」 */
+        const hour = new Date().getHours();
+        const greetKey = hour < 6 ? "greet.night" : hour < 12 ? "greet.morning" : hour < 18 ? "greet.afternoon" : "greet.evening";
+        let head, meta;
+        if (todayList.length) {
+          head = t(todayList.length > 1 ? "greet.todayMany" : "greet.todayOne", { n: todayList.length });
+          meta = t("greet.todayMeta", { names: todayList.map((r) => r.name).join("、") });
+        } else if (next && next.days_until <= 30) {
+          head = t("greet.soon", { n: next.days_until });
+          meta = t("greet.soonMeta", { name: next.name, date: next.next_date || "" });
+        } else {
+          head = t("greet.none");
+          meta = t("greet.noneMeta");
+        }
+        setHead("dashboard", esc(t(greetKey) + "，" + head), esc(`${_monthName(now.y, now.m)} ${now.d} ${t("unit.day")} · ${meta}`));
+
+        /* 日历主视图：下一个有生日的月份 */
+        let calY = now.y, calM = now.m, marks = {};
+        if (next && next.next_date) {
+          const parts = String(next.next_date).split("-");
+          calY = parseInt(parts[0], 10) || now.y;
+          calM = parseInt(parts[1], 10) || now.m;
+        }
+        const inMonth = CONTACTS.filter((r) => {
+            if (!r.next_date || r.days_until == null || r.days_until < 0) return false;
+            const p = String(r.next_date).split("-");
+            return parseInt(p[0], 10) === calY && parseInt(p[1], 10) === calM;
+          });
+        inMonth.forEach((r) => {
+            const day = parseInt(String(r.next_date).split("-")[2], 10);
+            if (!marks[day]) marks[day] = [];
+            marks[day].push(r.name);
+          });
+        const calTitle = t("dash.nextIn", { month: _monthName(calY, calM) });
+
+        /* 「接下来」清单：生日与纪念日混排 */
+        const mixed = [];
+        CONTACTS.forEach((r) => { if (r.days_until != null && r.days_until >= 0) mixed.push({ ...r, _kind: "birthday" }); });
+        (UPCOMING_ROWS || []).forEach((r) => { if (r.category === "anniversary" && r.days_until != null && r.days_until >= 0) mixed.push({ ...r, _kind: "anniversary" }); });
+        mixed.sort((a, b) => a.days_until - b.days_until);
+        const nextList = mixed.slice(0, 6);
 
         const rel = _dist(CONTACTS, "relationship");
-        const z = _dist(CONTACTS, "zodiac");
-        const zc = _dist(CONTACTS, "chinese_zodiac");
-        /* Six rows in each column, so the three distributions stand on one line. The tail of a
-        long distribution is not worth a column twice the height of its neighbours. */
-        const bars = (d) => d.entries.length ? _distBars(d.entries.slice(0, 6), d.max) : '<div class="muted sm">' + t("dashboard.noData") + '</div>';
-
-        // one finding, in words, beside the strip it comes from
-        const soonest = nextBirthdays[0];
-        const finding = soonest
-        ? t("dashboard.finding", { name: soonest.name, n: soonest.days_until })
-        : t("dashboard.findingNone");
-
         const ages = CONTACTS.map((r) => r.age).filter((a) => a != null);
         const avgAge = ages.length ? (ages.reduce((s, a) => s + a, 0) / ages.length).toFixed(1) : "—";
-        const insights = [
-          t("insight.upcoming", { n: upcoming30.length }),
-          rel.entries[0] ? t("insight.topRel", { rel: rel.entries[0][0], n: rel.entries[0][1] }) : null,
-          z.entries[0] ? t("insight.topZodiac", { z: z.entries[0][0], n: z.entries[0][1] }) : null,
-          t("insight.avgAge", { age: avgAge }),
-        ].filter(Boolean);
+        /* 今年已经过掉的生日：年度事件里标了 is_passed 的那些 */
+        const passedThisYear = (UPCOMING_ROWS || []).filter((r) => r.category === "birthday" && r.is_passed).length;
+
+        const rowsHtml = nextList.length ? nextList.map((r, i) => {
+            const soon = r.days_until <= 7;
+            const who = r._kind === "anniversary" ? r.name : r.name;
+            const rel2 = r._kind === "anniversary" ? (r.kind || t("anni.default")) : (r.relationship || "");
+            return `<div class="row" style="--i:${i}">
+            <span class="avatar avatar-sm" style="--po:${hueOffset(r.id)}">${esc(String(who || "").trim().charAt(0) || "?")}</span>
+            <div class="grow"><div class="nm">${esc(who)}</div>${rel2 ? `<div class="sub">${esc(rel2)}</div>` : ""}</div>
+            <div class="when${soon ? " strong": ""}">${r.days_until} ${esc(t("days.left"))}</div>
+            </div>`;
+          }).join("") : `<div class="muted sm">${esc(t("dashboard.noData"))}</div>`;
 
         box.innerHTML = `
-        <div class="dash-cards">
-        <div class="dash-card"><div class="dash-label">${t("dashboard.totalContacts")}</div><div class="dash-num">${CONTACTS.length}</div></div>
-        <div class="dash-card"><div class="dash-label">${t("dashboard.totalAnnis")}</div><div class="dash-num">${ANNIS.length}</div></div>
-        <div class="dash-card"><div class="dash-label">${t("dashboard.upcoming30")}</div><div class="dash-num">${upcoming30.length}</div></div>
-        <div class="dash-card"><div class="dash-label">${t("dashboard.today")}</div><div class="dash-num">${today.length}</div></div>
+        <div class="stats">
+        <div class="stat"><div class="label">${esc(t("dashboard.totalContacts"))}</div><div class="value">${CONTACTS.length}</div></div>
+        <div class="stat"><div class="label">${esc(t("dashboard.totalAnnis"))}</div><div class="value">${ANNIS.length}</div></div>
+        <div class="stat${in30.length ? " accent": ""}"><div class="label">${esc(t("dashboard.upcoming30"))}</div><div class="value">${in30.length}</div></div>
         </div>
-        <div class="card dash-section">
-        <div class="group-title">${t("dashboard.yearStrip")}</div>
-        <p class="help">${esc(finding)}</p>
-        ${_yearStrip(CONTACTS, box.clientWidth ? box.clientWidth - 40 : 0)}
+
+        <div class="dash-9-3">
+        <div class="panel">
+          <div class="dash-split-head">
+            <div><div class="h2">${esc(calTitle)}</div><div class="panel-note">${esc(next ? t("dash.nextOn", { name: next.name, date: next.next_date }) : t("dash.nothingSoon"))}</div></div>
+            ${next ? `<span class="tag today">${esc(t("dash.inDays", { n: next.days_until }))}</span>` : ""}
+          </div>
+          ${_monthGrid(calY, calM, marks)}
+          ${next ? `<div class="dash-person">${avatarHtml(next)}<div class="grow"><div class="pcard-name">${esc(next.name)}</div><div class="pcard-meta">${esc([next.relationship, next.zodiac].filter(Boolean).join(" · "))}</div></div><span class="tag">${esc(next.next_date || "")}</span></div>` : ""}
         </div>
-        <div class="dash-grid">
-        <div class="card dash-section"><div class="group-title">${t("dashboard.nextBirthdays")}</div><div class="dash-birth">${_dashRows(nextBirthdays, "relationship", "next_date")}</div></div>
-        <div class="card dash-section"><div class="group-title">${t("dashboard.nextAnnis")}</div><div class="dash-birth">${_dashRows(nextAnnis, "kind", "occ_date")}</div></div>
+        <div class="panel">
+          <div class="panel-title" style="margin-bottom:6px">${esc(t("dash.nextUp"))}</div>
+          <div class="rows">${rowsHtml}</div>
         </div>
-        <div class="dash-grid grid3">
-        <div class="card dash-section"><div class="group-title">${t("chart.relDist")}</div>${bars(rel)}</div>
-        <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiac")}</div>${bars(z)}</div>
-        <div class="card dash-section"><div class="group-title">${t("dashboard.distZodiacCn")}</div>${bars(zc)}</div>
         </div>
-        <div class="card dash-section">
-        <div class="group-title">${t("chart.insight")}</div>
-        <div class="dash-findings">${insights.map((s) => `<div class="dash-finding">${esc(s)}</div>`).join("")}</div>
+
+        <div class="dash-6-6">
+        <div class="panel">
+          <div class="panel-title" style="margin-bottom:12px">${esc(t("chart.relDist"))}</div>
+          ${_distBars(rel.entries.slice(0, 6), rel.max)}
+        </div>
+        <div class="panel">
+          <div class="panel-title" style="margin-bottom:12px">${esc(t("dash.channels"))}</div>
+          ${_channelSummary()}
+          <div class="dash-insight-row">
+            <div><div class="label">${esc(t("dash.avgAge"))}</div><div class="value">${avgAge}</div></div>
+            <div><div class="label">${esc(t("dash.sentThisYear"))}</div><div class="value">${passedThisYear}</div></div>
+          </div>
+        </div>
         </div>`;
       }
 
@@ -1364,12 +1507,11 @@ function runBatchTestSelection(kind) {
                         }).join("");
                       const wc = prefs.wechat || {};
                       const fc = prefs.feishu || {};
-                      const themes = (typeof THEMES !== "undefined"&& THEMES) || [];
                       const langs = (typeof LANGS !== "undefined"&& LANGS) || [];
-                      const curTheme = (typeof getTheme === "function"? getTheme() : "clean") || "clean";
+                      let curAccent = (typeof getAccent === "function"? getAccent() : "teal") || "teal";
+                      let curMode = (typeof getMode === "function"? getMode() : "light") || "light";
                       const curLang = (typeof getLang === "function"? getLang() : "zh") || "zh";
-                      function themeLabel(th) { const k = "theme."+ th.code; const s = t(k); return (s !== k ? s : th.label); }
-                      const themeOpts = themes.map((th) => `<label class="vis-opt ${th.code === curTheme ? "active": ""}"><input type="radio" name="np-theme" value="${esc(th.code)}"${th.code === curTheme ? "checked": ""} hidden />${th.icon || ""} ${esc(themeLabel(th))}</label>`).join("");
+                      MY_PREFS = prefs;
                       const langOpts = langs.map((lg) => `<label class="vis-opt ${lg.code === curLang ? "active": ""}"><input type="radio" name="np-lang" value="${esc(lg.code)}"${lg.code === curLang ? "checked": ""} hidden />${esc(lg.label)}</label>`).join("");
 
                       box.innerHTML = `
@@ -1419,16 +1561,42 @@ function runBatchTestSelection(kind) {
                       <div class="modal-actions"><button class="btn btn-primary" id="np-save">${t("btn.save")}</button></div>
                       </div>
 
-                      <div class="card">
-                      <div class="group-title"> ${t("prefs.theme")}</div>
-                      <p class="help">${t("prefs.themeDesc")}</p>
-                      <div class="vis-picker" id="np-themes">${themeOpts}</div>
+                      <div class="panel">
+                      <div class="panel-title">${esc(t("prefs.theme"))}</div>
+                      <p class="help">${esc(t("prefs.themeDesc"))}</p>
+                      <div class="theme-modes" id="np-modes">
+                        ${MODES.map((m) => `<button type="button" class="theme-mode${m.code === curMode ? " on": ""}" data-mode="${m.code}">
+                          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><use href="#${m.code === "dark" ? "ic-moon" : "ic-sun"}" /></svg>${esc(t("mode." + m.code))}</button>`).join("")}
                       </div>
-                      <div class="card">
-                      <div class="group-title"> ${t("prefs.lang")}</div>
-                      <p class="help">${t("prefs.langDesc")}</p>
+                      <div class="theme-swatches" id="np-accents">
+                        ${ACCENTS.map((a) => `<button type="button" class="theme-swatch${a.code === curAccent ? " on": ""}" data-accent="${a.code}" title="${esc(t("accent." + a.code))}">
+                          <span class="sw" style="background:${ACCENT_HEX[a.code] || "#1b6e66"}"></span><span class="lb">${esc(t("accent." + a.code))}</span></button>`).join("")}
+                      </div>
+                      </div>
+                      <div class="panel">
+                      <div class="panel-title">${esc(t("prefs.lang"))}</div>
+                      <p class="help">${esc(t("prefs.langDesc"))}</p>
                       <div class="vis-picker" id="np-langs">${langOpts}</div>
                       </div>`;
+
+                      /* 配色即时生效，并存到账号里（换设备也一致） */
+                      const saveTheme = async () => {
+                        const theme = { accent: curAccent, mode: curMode };
+                        MY_PREFS.theme = theme;   /* PUT 只回 ok，别把整个偏好对象换掉 */
+                        try {
+                          await api("/api/me/prefs", { method: "PUT", body: JSON.stringify({ ...MY_PREFS, theme }) });
+                        } catch (_) {}
+                      };
+                      box.querySelectorAll(".theme-mode").forEach((b) => b.addEventListener("click", () => {
+                        curMode = b.dataset.mode;
+                        box.querySelectorAll(".theme-mode").forEach((x) => x.classList.toggle("on", x === b));
+                        setMode(curMode); saveTheme();
+                      }));
+                      box.querySelectorAll(".theme-swatch").forEach((b) => b.addEventListener("click", () => {
+                        curAccent = b.dataset.accent;
+                        box.querySelectorAll(".theme-swatch").forEach((x) => x.classList.toggle("on", x === b));
+                        setAccent(curAccent); saveTheme();
+                      }));
 
                       const toggleExtra = () => {
                         const chans = Array.from(box.querySelectorAll(".np-chan:checked")).map((i) => i.value);
@@ -1474,15 +1642,12 @@ function runBatchTestSelection(kind) {
                             wechat: wechat,
                             feishu: feishu,
                             template_body: body === DEFAULT_BODY_TPL ? null : body,
+                            theme: MY_PREFS.theme || {},
                           };
-                          try { await api("/api/me/prefs", { method: "PUT", body: JSON.stringify(payload) }); toast(t("toast.saved")); }
+                          try { await api("/api/me/prefs", { method: "PUT", body: JSON.stringify(payload) }); MY_PREFS = { ...MY_PREFS, ...payload }; toast(t("toast.saved")); }
                           catch (e) { toast(e.message, false); }
                         });
 
-                      $$("#np-themes input").forEach((i) => i.addEventListener("change", () => {
-                            $$("#np-themes .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
-                            setTheme(i.value); toast(t("toast.themeSaved"));
-                          }));
                       $$("#np-langs input").forEach((i) => i.addEventListener("change", () => {
                             $$("#np-langs .vis-opt").forEach((l) => l.classList.toggle("active", l.querySelector("input").checked));
                             setLang(i.value).then(() => toast(t("toast.langSaved")));

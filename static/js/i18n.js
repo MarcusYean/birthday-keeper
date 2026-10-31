@@ -26,11 +26,25 @@
     { code: "ja", label: "日本語" },
   ];
 
-  /* Two neutral themes: the app screen's chrome holds no colour, so the only choice is light or dark. */
-  var THEMES = [
+  /* 强调色：界面结构由「一层色调面板」承担，颜色只用来标记数据与身份。
+     用户可以在个人资料里换强调色，页面结构与配色方案保持不变。 */
+  var ACCENTS = [
+    { code: "teal", label: "Teal" },
+    { code: "clay", label: "Clay" },
+    { code: "indigo", label: "Indigo" },
+    { code: "forest", label: "Forest" },
+    { code: "ochre", label: "Ochre" },
+    { code: "graphite", label: "Graphite" },
+  ];
+
+  /* 明暗两档：只换表面层，强调色各自有深浅两套值。 */
+  var MODES = [
     { code: "light", label: "Light" },
     { code: "dark", label: "Dark" },
   ];
+
+  /* 兼容旧字段：THEMES 现在指向强调色列表 */
+  var THEMES = ACCENTS;
 
   /* 已加载语言字典 */
   var DICT = {};
@@ -39,11 +53,17 @@
 
   /* 当前语言 / 主题（持久化到 localStorage） */
   var LANG = "zh";
-  var THEME = "light";
+  var ACCENT = "teal";
+  var MODE = "light";
   try { LANG = localStorage.getItem("bk_lang") || "zh"; } catch (e) {}
-  try { THEME = localStorage.getItem("bk_theme") || "light"; } catch (e) {}
-  /* a theme removed from the list (the old decorative five) falls back to light */
-  if (THEME !== "light" && THEME !== "dark") THEME = "light";
+  try { ACCENT = localStorage.getItem("bk_accent") || "teal"; } catch (e) {}
+  try { MODE = localStorage.getItem("bk_mode") || "light"; } catch (e) {}
+  /* 旧版本只存了一个 bk_theme（light/dark），把它迁到明暗档 */
+  if (!localStorage.getItem("bk_mode")) {
+    try { var oldTheme = localStorage.getItem("bk_theme"); if (oldTheme === "light" || oldTheme === "dark") MODE = oldTheme; } catch (e) {}
+  }
+  if (["teal", "clay", "indigo", "forest", "ochre", "graphite"].indexOf(ACCENT) < 0) ACCENT = "teal";
+  if (MODE !== "light" && MODE !== "dark") MODE = "light";
 
   function setLs(key, val) {
     try { localStorage.setItem(key, val); } catch (e) {}
@@ -108,14 +128,29 @@
     }
   }
 
-  /* 主题应用 */
+  /* 主题应用：只改两个属性，其余交给 CSS */
   function applyTheme() {
-    document.documentElement.setAttribute("data-theme", THEME);
+    document.documentElement.setAttribute("data-accent", ACCENT);
+    document.documentElement.setAttribute("data-mode", MODE);
   }
 
   function setTheme(code) {
-    THEME = code || "clean";
-    setLs("bk_theme", THEME);
+    /* 旧接口：theme 曾经表示 light/dark，现在表示强调色 */
+    if (code === "light" || code === "dark") { setMode(code); return; }
+    ACCENT = code || "teal";
+    setLs("bk_accent", ACCENT);
+    applyTheme();
+  }
+
+  function setAccent(code) {
+    ACCENT = code || "teal";
+    setLs("bk_accent", ACCENT);
+    applyTheme();
+  }
+
+  function setMode(code) {
+    MODE = code === "dark" ? "dark" : "light";
+    setLs("bk_mode", MODE);
     applyTheme();
   }
 
@@ -131,7 +166,9 @@
   }
 
   function getLang() { return LANG; }
-  function getTheme() { return THEME; }
+  function getTheme() { return ACCENT; }
+  function getAccent() { return ACCENT; }
+  function getMode() { return MODE; }
 
   /* 初始化：加载默认语言并暴露全局 API */
   function init() {
@@ -140,22 +177,28 @@
     return loadLang(LANG).then(function () {
       applyI18n();
       var api = {
-        LANGS: LANGS, THEMES: THEMES, DICT: DICT,
+        LANGS: LANGS, THEMES: THEMES, ACCENTS: ACCENTS, MODES: MODES, DICT: DICT,
         register: register, loadLang: loadLang, t: t,
         applyI18n: applyI18n, applyTheme: applyTheme,
-        setTheme: setTheme, setLang: setLang,
-        getLang: getLang, getTheme: getTheme
+        setTheme: setTheme, setAccent: setAccent, setMode: setMode, setLang: setLang,
+        getLang: getLang, getTheme: getTheme, getAccent: getAccent, getMode: getMode
       };
       window.I18N = api;
       window.LANGS = LANGS;
       window.THEMES = THEMES;
+      window.ACCENTS = ACCENTS;
+      window.MODES = MODES;
       window.t = t;
       window.applyI18n = applyI18n;
       window.applyTheme = applyTheme;
       window.setTheme = setTheme;
+      window.setAccent = setAccent;
+      window.setMode = setMode;
       window.setLang = setLang;
       window.getLang = getLang;
       window.getTheme = getTheme;
+      window.getAccent = getAccent;
+      window.getMode = getMode;
     });
   }
 
