@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/css/styles.css?v=2.7.2" />
+<link rel="stylesheet" href="/static/css/styles.css?v=2.7.3" />
 </head>
 <body>
 
@@ -88,6 +88,7 @@
 <div id="auth-view" class="auth-wrap">
   <div class="auth-card">
     <div class="brand">
+      <svg class="brand-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cake" /></svg>
       <h1 data-i18n="app.name">生日管家</h1>
       <p class="brand-sub" id="auth-sub" data-i18n="auth.sub.login">记录亲友生日 · 农历/公历 · 微信 &amp; 飞书提醒</p>
     </div>
@@ -176,7 +177,7 @@
           <button type="button" class="user-menu-item danger" id="user-logout" data-i18n="topbar.logout">退出</button>
         </div>
       </div>
-      <div class="side-foot-note">v2.7.2 · <span data-i18n="side.foot">自托管</span></div>
+      <div class="side-foot-note">v2.7.3 · <span data-i18n="side.foot">自托管</span></div>
     </div>
   </aside>
 
@@ -393,12 +394,12 @@
 <div id="toast"></div>
 <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 
-<script src="/static/js/i18n.js?v=2.7.2"></script>
+<script src="/static/js/i18n.js?v=2.7.3"></script>
 <script>
   /* 等待 i18n 加载完当前语言再启动 app.js */
   I18N.init().then(function () {
     var s = document.createElement("script");
-    s.src = "/static/js/app.js?v=2.7.2";
+    s.src = "/static/js/app.js?v=2.7.3";
     document.head.appendChild(s);
   });
 </script>

@@ -1866,7 +1866,7 @@ function runBatchTestSelection(kind) {
                       box.innerHTML = `<div class="table-card table-fit"><table class="table"><thead><tr><th>${t("user.username")}</th><th>${t("user.role")}</th><th>${t("user.createdAt")}</th><th class="ta-r">${t("field.actions")}</th></tr></thead><tbody>${rows.map((u) => `<tr>
                       <td data-label="${t("user.username")}"><b>${esc(u.username)}</b>${ME && u.username === ME.username ? ' <span class="tag tag-solar">' + t("user.current") + '</span>' : ""}</td>
                       <td data-label="${t("user.role")}">${u.role === "admin"? '<span class="tag tag-on">' + t("user.admin") + '</span>' : '<span class="tag tag-off">' + t("user.normal") + '</span>'}</td>
-                      <td data-label="${t("user.createdAt")}"class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", ""))}</td>
+                      <td data-label="${t("user.createdAt")}"class="muted">${esc((u.created_at || "").slice(0, 16).replace("T", " "))}</td>
                       <td data-label="${t("field.actions")}"class="ta-r"><button class="btn btn-ghost btn-sm" onclick="resetUserPwd(${u.id}, '${esc(u.username)}')">${t("btn.resetPass")}</button><button class="btn btn-danger-ghost btn-sm" onclick="delUser(${u.id}, '${esc(u.username)}')">${t("btn.delete")}</button></td>
                       </tr>`).join("")}</tbody></table></div><p class="muted sm" style="padding:12px 16px">${t("user.note")}</p>`;
                     } catch (err) { box.innerHTML = ""; toast(err.message, false); }
