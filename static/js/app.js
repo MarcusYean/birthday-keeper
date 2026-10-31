@@ -525,6 +525,7 @@ async function loadContacts() {
     const validIds = new Set(CONTACTS.map((r) => r.id));
     SELECTED_IDS = new Set(Array.from(SELECTED_IDS).filter((id) => validIds.has(id)));
     applyToolbar(); updateBatchBadge(); renderContacts(); populateContactFilters();
+    renderHead("contacts");  /* 数据到位后重写标题计数，避免一直显示 0 */
   }
   catch (err) { box.innerHTML = ""; toast(err.message, false); }
 }
@@ -655,7 +656,7 @@ function listColgroup() {
   return { html: `<colgroup>${cols.join("")}</colgroup>`, total };
 }
 function listHeader() {
-  const ths = ['<th class="select-col"><input type="checkbox" id="select-all-page" title="' + t("toolbar.selectAllPage") + '"></th>'];
+  const ths = ['<th class="select-col"><input type="checkbox" class="page-select-all" title="' + t("toolbar.selectAllPage") + '"></th>'];
   CONTACT_COLUMNS.forEach((c) => {
       if (!hasField(c.key)) return;
       ths.push("<th"+ (c.cls ? ' class="' + c.cls + '"' : "") + ">"+ (c.label ? t(c.label) : "") + "</th>");
@@ -969,7 +970,7 @@ function runBatchTestSelection(kind) {
 
     async function loadAnniversaries() {
       const box = $("#anniversaries-list"); box.innerHTML = '<div class="empty">' + t("empty.loading") + '</div>';
-      try { ANNIS = await api("/api/anniversaries"); renderAnniversaries(); populateAnniFilters(); }
+      try { ANNIS = await api("/api/anniversaries"); renderAnniversaries(); populateAnniFilters(); renderHead("anniversaries"); }
       catch (err) { box.innerHTML = ""; toast(err.message, false); }
     }
     function renderAnniversaries() {
@@ -1913,12 +1914,13 @@ function runBatchTestSelection(kind) {
                             updateSelectStates();
                             return;
                           }
-                          if (e.target.id === "select-all-page") {
-                            const checked = e.target.checked;
-                            $$(".row-select").forEach((cb) => {
-                                const id = parseInt(cb.value);
-                                if (checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id);
-                              });
+                          /* 表头「全选本页」：每个分组各有一个表头，只作用于所在分组 */
+                          if (e.target.classList.contains("page-select-all")) {
+                            const grp = e.target.closest(".group");
+                            const ids = grp ? Array.from(grp.querySelectorAll(".row-select")).map((cb) => parseInt(cb.value)) : [];
+                            if (e.target.checked) ids.forEach((id) => SELECTED_IDS.add(id));
+                            else ids.forEach((id) => SELECTED_IDS.delete(id));
+                            syncRowChecks(grp);
                             updateBatchBadge();
                             updateSelectStates();
                             return;
@@ -1929,20 +1931,27 @@ function runBatchTestSelection(kind) {
                             const ids = grp ? Array.from(grp.querySelectorAll(".row-select")).map((cb) => parseInt(cb.value)) : [];
                             if (groupCb.checked) ids.forEach((id) => SELECTED_IDS.add(id));
                             else ids.forEach((id) => SELECTED_IDS.delete(id));
+                            syncRowChecks(grp);
                             updateBatchBadge();
                             updateSelectStates();
                           }
                         });
 
+                      /* 把 SELECTED_IDS 同步到行复选框的勾选状态（全选/本组全选后立即可见） */
+                      function syncRowChecks(scope) {
+                        (scope ? Array.from(scope.querySelectorAll(".row-select")) : $$(".row-select"))
+                          .forEach((cb) => { cb.checked = SELECTED_IDS.has(parseInt(cb.value)); });
+                      }
+
                       /* 同步「本页全选」与「各分组全选」的勾选/半选状态 */
                       function updateSelectStates() {
-                        const allPage = $("#select-all-page");
-                        if (allPage) {
-                          const visible = $$(".row-select");
-                          const sel = visible.filter((cb) => SELECTED_IDS.has(parseInt(cb.value))).length;
-                          allPage.checked = visible.length > 0 && sel === visible.length;
-                          allPage.indeterminate = sel > 0 && sel < visible.length;
-                        }
+                        $$(".page-select-all").forEach((pcb) => {
+                            const grp = pcb.closest(".group");
+                            const cbs = grp ? Array.from(grp.querySelectorAll(".row-select")) : [];
+                            const sel = cbs.filter((cb) => SELECTED_IDS.has(parseInt(cb.value))).length;
+                            pcb.checked = cbs.length > 0 && sel === cbs.length;
+                            pcb.indeterminate = sel > 0 && sel < cbs.length;
+                          });
                         $$(".group-select-all").forEach((gcb) => {
                             const grp = gcb.closest(".group");
                             const cbs = grp ? Array.from(grp.querySelectorAll(".row-select")) : [];

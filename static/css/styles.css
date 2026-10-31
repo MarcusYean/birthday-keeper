@@ -44,9 +44,10 @@
   --accent-soft: #e6efec;
   --accent-soft-ink: #14534d;
 
-  --font: "Instrument Sans", "Inter", system-ui, -apple-system, "Segoe UI",
-          "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-  --font-display: "Instrument Serif", Georgia, "Songti SC", "Noto Serif CJK SC", serif;
+  --font: "Instrument Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui,
+          -apple-system, "Segoe UI", "Noto Sans CJK SC", sans-serif;
+  --font-display: "Instrument Serif", "Noto Serif SC", Georgia, "Songti SC",
+          "Noto Serif CJK SC", serif;
 
   --fs-display: 44px;
   --fs-title: 26px;
@@ -409,7 +410,7 @@ select { appearance: none; padding-right: 32px;
 .panel-title { font-size: var(--fs-section); font-weight: 500; }
 .panel-note { font-size: var(--fs-small); color: var(--muted); }
 .card { background: var(--panel); border-radius: var(--r-card); padding: 18px 20px; }
-.table-card { background: var(--panel); border-radius: var(--r-card); overflow: hidden; }
+.table-card { background: var(--panel); border-radius: var(--r-card); overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 .card + .card { margin-top: 0; }
 .panel > .modal-actions { margin: 16px -20px -18px; padding: 14px 20px; }
 
