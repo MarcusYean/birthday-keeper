@@ -35,6 +35,14 @@
     { code: "forest", label: "Forest" },
     { code: "ochre", label: "Ochre" },
     { code: "graphite", label: "Graphite" },
+    { code: "custom", label: "Custom" },
+  ];
+
+  /* 皮肤：在强调色之外，换掉整套表面语言 */
+  var SKINS = [
+    { code: "plain", label: "Plain", accent: "teal" },
+    { code: "dopamine", label: "Dopamine", accent: "clay" },
+    { code: "ios", label: "iOS", accent: "indigo" },
   ];
 
   /* 明暗两档：只换表面层，强调色各自有深浅两套值。 */
@@ -55,15 +63,20 @@
   var LANG = "zh";
   var ACCENT = "teal";
   var MODE = "light";
+  var SKIN = "plain";
+  var CUSTOM_HEX = "#1b6e66";
   try { LANG = localStorage.getItem("bk_lang") || "zh"; } catch (e) {}
   try { ACCENT = localStorage.getItem("bk_accent") || "teal"; } catch (e) {}
   try { MODE = localStorage.getItem("bk_mode") || "light"; } catch (e) {}
+  try { SKIN = localStorage.getItem("bk_skin") || "plain"; } catch (e) {}
+  try { CUSTOM_HEX = localStorage.getItem("bk_accent_custom") || "#1b6e66"; } catch (e) {}
   /* 旧版本只存了一个 bk_theme（light/dark），把它迁到明暗档 */
   if (!localStorage.getItem("bk_mode")) {
     try { var oldTheme = localStorage.getItem("bk_theme"); if (oldTheme === "light" || oldTheme === "dark") MODE = oldTheme; } catch (e) {}
   }
-  if (["teal", "clay", "indigo", "forest", "ochre", "graphite"].indexOf(ACCENT) < 0) ACCENT = "teal";
+  if (["teal", "clay", "indigo", "forest", "ochre", "graphite", "custom"].indexOf(ACCENT) < 0) ACCENT = "teal";
   if (MODE !== "light" && MODE !== "dark") MODE = "light";
+  if (["plain", "dopamine", "ios"].indexOf(SKIN) < 0) SKIN = "plain";
 
   function setLs(key, val) {
     try { localStorage.setItem(key, val); } catch (e) {}
@@ -128,22 +141,50 @@
     }
   }
 
-  /* 主题应用：只改两个属性，其余交给 CSS */
+  /* 主题应用：只改几个属性，其余交给 CSS */
   function applyTheme() {
     document.documentElement.setAttribute("data-accent", ACCENT);
     document.documentElement.setAttribute("data-mode", MODE);
+    document.documentElement.setAttribute("data-skin", SKIN);
+    applyCustomAccent();
+  }
+
+  /* 取色板选出来的颜色：换算成 HSL 后写进根变量，CSS 再派生出淡色调与墨色 */
+  function hexToHsl(hex) {
+    var m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(String(hex || ""));
+    if (!m) return { h: 174, s: 45, l: 40 };
+    var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, h = 0, s = 0;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+      else if (max === g) h = ((b - r) / d + 2) * 60;
+      else h = ((r - g) / d + 4) * 60;
+    }
+    return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+  }
+  function applyCustomAccent() {
+    var c = hexToHsl(CUSTOM_HEX);
+    var root = document.documentElement.style;
+    root.setProperty("--accent-c", CUSTOM_HEX);
+    root.setProperty("--accent-h", String(c.h));
+    root.setProperty("--accent-c-ink", c.l > 62 ? "#1a1a1a" : "#ffffff");
   }
 
   function setTheme(code) {
     /* 旧接口：theme 曾经表示 light/dark，现在表示强调色 */
     if (code === "light" || code === "dark") { setMode(code); return; }
-    ACCENT = code || "teal";
-    setLs("bk_accent", ACCENT);
-    applyTheme();
+    setAccent(code);
   }
 
-  function setAccent(code) {
-    ACCENT = code || "teal";
+  function setAccent(code, hex) {
+    if (code === "custom") {
+      ACCENT = "custom";
+      if (hex) { CUSTOM_HEX = hex; setLs("bk_accent_custom", CUSTOM_HEX); }
+    } else {
+      ACCENT = code || "teal";
+    }
     setLs("bk_accent", ACCENT);
     applyTheme();
   }
@@ -151,6 +192,12 @@
   function setMode(code) {
     MODE = code === "dark" ? "dark" : "light";
     setLs("bk_mode", MODE);
+    applyTheme();
+  }
+
+  function setSkin(code) {
+    SKIN = ["plain", "dopamine", "ios"].indexOf(code) >= 0 ? code : "plain";
+    setLs("bk_skin", SKIN);
     applyTheme();
   }
 
@@ -169,6 +216,8 @@
   function getTheme() { return ACCENT; }
   function getAccent() { return ACCENT; }
   function getMode() { return MODE; }
+  function getSkin() { return SKIN; }
+  function getCustomHex() { return CUSTOM_HEX; }
 
   /* 初始化：加载默认语言并暴露全局 API */
   function init() {
@@ -177,28 +226,34 @@
     return loadLang(LANG).then(function () {
       applyI18n();
       var api = {
-        LANGS: LANGS, THEMES: THEMES, ACCENTS: ACCENTS, MODES: MODES, DICT: DICT,
+        LANGS: LANGS, THEMES: THEMES, ACCENTS: ACCENTS, MODES: MODES, SKINS: SKINS, DICT: DICT,
         register: register, loadLang: loadLang, t: t,
         applyI18n: applyI18n, applyTheme: applyTheme,
-        setTheme: setTheme, setAccent: setAccent, setMode: setMode, setLang: setLang,
-        getLang: getLang, getTheme: getTheme, getAccent: getAccent, getMode: getMode
+        setTheme: setTheme, setAccent: setAccent, setMode: setMode, setSkin: setSkin, setLang: setLang,
+        getLang: getLang, getTheme: getTheme, getAccent: getAccent, getMode: getMode,
+        getSkin: getSkin, getCustomHex: getCustomHex, hexToHsl: hexToHsl,
       };
       window.I18N = api;
       window.LANGS = LANGS;
       window.THEMES = THEMES;
       window.ACCENTS = ACCENTS;
       window.MODES = MODES;
+      window.SKINS = SKINS;
       window.t = t;
       window.applyI18n = applyI18n;
       window.applyTheme = applyTheme;
       window.setTheme = setTheme;
       window.setAccent = setAccent;
       window.setMode = setMode;
+      window.setSkin = setSkin;
       window.setLang = setLang;
       window.getLang = getLang;
       window.getTheme = getTheme;
       window.getAccent = getAccent;
       window.getMode = getMode;
+      window.getSkin = getSkin;
+      window.getCustomHex = getCustomHex;
+      window.hexToHsl = hexToHsl;
     });
   }
 

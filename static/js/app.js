@@ -218,8 +218,10 @@ async function enterApp() {
     MY_PREFS = await api("/api/me/prefs");
     /* 账号里保存的配色优先于本机偏好 */
     const th = (MY_PREFS && MY_PREFS.theme) || {};
-    if (th.accent && typeof setAccent === "function") setAccent(th.accent);
+    if (th.accent === "custom" && th.customAccent && typeof setAccent === "function") setAccent("custom", th.customAccent);
+    else if (th.accent && typeof setAccent === "function") setAccent(th.accent);
     if (th.mode && typeof setMode === "function") setMode(th.mode);
+    if (th.skin && typeof setSkin === "function") setSkin(th.skin);
   } catch (_) {}
   $("#nav-anniversaries") && $("#nav-anniversaries").classList.toggle("hidden", UI_PREFS.anniversary_enabled === false);
   refreshInviteBadge();
@@ -1510,6 +1512,8 @@ function runBatchTestSelection(kind) {
                       const langs = (typeof LANGS !== "undefined"&& LANGS) || [];
                       let curAccent = (typeof getAccent === "function"? getAccent() : "teal") || "teal";
                       let curMode = (typeof getMode === "function"? getMode() : "light") || "light";
+                      let curSkin = (typeof getSkin === "function"? getSkin() : "plain") || "plain";
+                      let curHex = (typeof getCustomHex === "function"? getCustomHex() : "#1b6e66") || "#1b6e66";
                       const curLang = (typeof getLang === "function"? getLang() : "zh") || "zh";
                       MY_PREFS = prefs;
                       const langOpts = langs.map((lg) => `<label class="vis-opt ${lg.code === curLang ? "active": ""}"><input type="radio" name="np-lang" value="${esc(lg.code)}"${lg.code === curLang ? "checked": ""} hidden />${esc(lg.label)}</label>`).join("");
@@ -1564,14 +1568,29 @@ function runBatchTestSelection(kind) {
                       <div class="panel">
                       <div class="panel-title">${esc(t("prefs.theme"))}</div>
                       <p class="help">${esc(t("prefs.themeDesc"))}</p>
+
+                      <div class="skin-picker" id="np-skins">
+                        ${SKINS.map((sk) => `<button type="button" class="skin-card${sk.code === curSkin ? " on": ""}" data-skin="${sk.code}">
+                          <span class="skin-prev skin-prev-${sk.code}"><i></i><i></i><i></i></span>
+                          <span class="lb">${esc(t("skin." + sk.code))}</span>
+                          <span class="desc">${esc(t("skin." + sk.code + "Desc"))}</span>
+                        </button>`).join("")}
+                      </div>
+
                       <div class="theme-modes" id="np-modes">
                         ${MODES.map((m) => `<button type="button" class="theme-mode${m.code === curMode ? " on": ""}" data-mode="${m.code}">
                           <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><use href="#${m.code === "dark" ? "ic-moon" : "ic-sun"}" /></svg>${esc(t("mode." + m.code))}</button>`).join("")}
                       </div>
+
                       <div class="theme-swatches" id="np-accents">
-                        ${ACCENTS.map((a) => `<button type="button" class="theme-swatch${a.code === curAccent ? " on": ""}" data-accent="${a.code}" title="${esc(t("accent." + a.code))}">
+                        ${ACCENTS.filter((a) => a.code !== "custom").map((a) => `<button type="button" class="theme-swatch${a.code === curAccent ? " on": ""}" data-accent="${a.code}" title="${esc(t("accent." + a.code))}">
                           <span class="sw" style="background:${ACCENT_HEX[a.code] || "#1b6e66"}"></span><span class="lb">${esc(t("accent." + a.code))}</span></button>`).join("")}
+                        <label class="theme-swatch custom${curAccent === "custom" ? " on": ""}" title="${esc(t("accent.custom"))}">
+                          <span class="sw"></span><span class="lb">${esc(t("accent.custom"))}</span>
+                          <input type="color" id="np-accent-color" value="${esc(curHex)}" aria-label="${esc(t("accent.custom"))}" />
+                        </label>
                       </div>
+                      <div class="color-preview"><span class="chip2" id="np-color-chip" style="background:${esc(curHex)}"></span><span id="np-color-text">${esc(curHex.toUpperCase())}</span></div>
                       </div>
                       <div class="panel">
                       <div class="panel-title">${esc(t("prefs.lang"))}</div>
@@ -1581,22 +1600,49 @@ function runBatchTestSelection(kind) {
 
                       /* 配色即时生效，并存到账号里（换设备也一致） */
                       const saveTheme = async () => {
-                        const theme = { accent: curAccent, mode: curMode };
+                        const theme = { accent: curAccent, mode: curMode, skin: curSkin, customAccent: curHex };
                         MY_PREFS.theme = theme;   /* PUT 只回 ok，别把整个偏好对象换掉 */
                         try {
                           await api("/api/me/prefs", { method: "PUT", body: JSON.stringify({ ...MY_PREFS, theme }) });
                         } catch (_) {}
                       };
+                      const markSwatches = () => {
+                        box.querySelectorAll(".theme-swatch").forEach((x) => {
+                          const code = x.dataset.accent || (x.classList.contains("custom") ? "custom" : "");
+                          x.classList.toggle("on", code === curAccent);
+                        });
+                        box.querySelectorAll(".skin-card").forEach((x) => x.classList.toggle("on", x.dataset.skin === curSkin));
+                        box.querySelectorAll(".theme-mode").forEach((x) => x.classList.toggle("on", x.dataset.mode === curMode));
+                      };
                       box.querySelectorAll(".theme-mode").forEach((b) => b.addEventListener("click", () => {
                         curMode = b.dataset.mode;
-                        box.querySelectorAll(".theme-mode").forEach((x) => x.classList.toggle("on", x === b));
-                        setMode(curMode); saveTheme();
+                        markSwatches(); setMode(curMode); saveTheme();
                       }));
-                      box.querySelectorAll(".theme-swatch").forEach((b) => b.addEventListener("click", () => {
+                      /* 皮肤自带一套默认强调色，除非用户正在用自定义色 */
+                      box.querySelectorAll(".skin-card").forEach((b) => b.addEventListener("click", () => {
+                        curSkin = b.dataset.skin;
+                        const sk = SKINS.find((x) => x.code === curSkin);
+                        if (sk && curAccent !== "custom") curAccent = sk.accent;
+                        markSwatches();
+                        setSkin(curSkin);
+                        if (curAccent !== "custom") setAccent(curAccent);
+                        saveTheme();
+                      }));
+                      box.querySelectorAll(".theme-swatch[data-accent]").forEach((b) => b.addEventListener("click", () => {
                         curAccent = b.dataset.accent;
-                        box.querySelectorAll(".theme-swatch").forEach((x) => x.classList.toggle("on", x === b));
-                        setAccent(curAccent); saveTheme();
+                        markSwatches(); setAccent(curAccent); saveTheme();
                       }));
+                      /* 调色板：直接取色 */
+                      const colorInput = $("#np-accent-color");
+                      colorInput.addEventListener("input", (e) => {
+                        curHex = e.target.value;
+                        curAccent = "custom";
+                        markSwatches();
+                        setAccent("custom", curHex);
+                        $("#np-color-chip").style.background = curHex;
+                        $("#np-color-text").textContent = curHex.toUpperCase();
+                        saveTheme();
+                      });
 
                       const toggleExtra = () => {
                         const chans = Array.from(box.querySelectorAll(".np-chan:checked")).map((i) => i.value);

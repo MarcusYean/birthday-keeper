@@ -1,11 +1,12 @@
 /* ============================================================
    生日管家 · 界面语言 v3
    基线：tasteskill app-screen 风格库里的 editorial-greeting
-   ,,「一个人的、家的主页，用排好版的问候语开场，数字放在同一种色调面板上」
+   「一个人的、家的主页，用排好版的问候语开场，数字放在同一种色调面板上」
 
    规则：
    · 页面是白的，结构由「一层色调面板」承担，不再用边框和阴影堆卡片
-   · 强调色是可选的（6 套），由 <html data-accent> 切换；只有深浅两档由 data-mode 切换
+   · 皮肤（data-skin）决定表面语言：素雅 / 多巴胺 / iOS 液态玻璃
+   · 强调色（data-accent）是可选的 6 套 + 自定义取色；深浅两档由 data-mode 切换
    · 每个人有一个稳定的色相偏移（--po），头像底色 = 强调色相 + 偏移，
      所以换主题时全家头像跟着换色，但每个人的色相关系不变
    · 数字用衬线标题（Instrument Serif）做问候语，正文用 Instrument Sans
@@ -75,7 +76,15 @@
 [data-accent="indigo"]  { --accent-h:243; --accent:#4a45c4; --accent-ink:#fff; --accent-soft:#e9e8fa; --accent-soft-ink:#302c85; }
 [data-accent="forest"]  { --accent-h:142; --accent:#3f6b45; --accent-ink:#fff; --accent-soft:#e7efe6; --accent-soft-ink:#26512c; }
 [data-accent="ochre"]   { --accent-h: 38; --accent:#8a6520; --accent-ink:#fff; --accent-soft:#f6ecd8; --accent-soft-ink:#5f4514; }
-[data-accent="graphite"]{ --accent-h: 40; --accent:#3b3a37; --accent-ink:#fff; --accent-soft:#eeece7; --accent-soft-ink:#2c2b28; --accent-h:40; }
+[data-accent="graphite"]{ --accent-h: 40; --accent:#3b3a37; --accent-ink:#fff; --accent-soft:#eeece7; --accent-soft-ink:#2c2b28; }
+
+/* 自定义强调色：调色板取色后由 JS 写入 --accent-c / --accent-h / --accent-c-ink */
+[data-accent="custom"] {
+  --accent: var(--accent-c, #1b6e66);
+  --accent-ink: var(--accent-c-ink, #fff);
+  --accent-soft: hsl(var(--accent-h, 174), 34%, 90%);
+  --accent-soft-ink: hsl(var(--accent-h, 174), 46%, 26%);
+}
 
 /* ---------- 深色模式：只换表面层，强调色提亮 ---------- */
 [data-mode="dark"] {
@@ -100,6 +109,121 @@
 [data-mode="dark"][data-accent="indigo"]  { --accent:#9a95f0; --accent-ink:#151343; --accent-soft:#1e1d3d; --accent-soft-ink:#bdb9f7; }
 [data-mode="dark"][data-accent="forest"]  { --accent:#7fb287; --accent-ink:#0d2411; --accent-soft:#182a19; --accent-soft-ink:#a7d1ad; }
 [data-mode="dark"][data-accent="ochre"]   { --accent:#d0a552; --accent-ink:#2c1f05; --accent-soft:#2e2410; --accent-soft-ink:#e5c283; }
+[data-mode="dark"][data-accent="custom"]  {
+  --accent: hsl(var(--accent-h, 174), 54%, 64%);
+  --accent-ink: hsl(var(--accent-h, 174), 70%, 10%);
+  --accent-soft: hsl(var(--accent-h, 174), 30%, 17%);
+  --accent-soft-ink: hsl(var(--accent-h, 174), 55%, 76%);
+}
+
+/* ============================================================
+   皮肤（skin）：在强调色之外，换掉整套表面语言
+   plain = 素雅（默认，editorial-greeting）
+   dopamine = 多巴胺（饱和色块、大圆角、无阴影）
+   ios = iOS 液态玻璃（半透明 + 背景模糊 + 大圆角）
+   ============================================================ */
+
+/* ---------- 多巴胺 ---------- */
+[data-skin="dopamine"] {
+  --ground: #fff6ec;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --panel-inset: #ffffff;
+  --panel-2: #fdeee0;
+  --line: #f0e2d2;
+  --rule: #f4e8da;
+  --r-card: 28px;
+  --r-inner: 20px;
+  --fs-display: 48px;
+  --fs-title: 28px;
+  --fs-kpi: 34px;
+}
+/* 每张卡一个饱和色块，颜色循环；文字用同色系的深墨 */
+[data-skin="dopamine"] .pcard { --card-bg:#ffd23f; --card-ink:#2b2100; }
+[data-skin="dopamine"] .pcard:nth-child(6n+2) { --card-bg:#ff8a5b; --card-ink:#3a1200; }
+[data-skin="dopamine"] .pcard:nth-child(6n+3) { --card-bg:#4ecdc4; --card-ink:#00332f; }
+[data-skin="dopamine"] .pcard:nth-child(6n+4) { --card-bg:#a78bfa; --card-ink:#1c0f44; } /* taste-skill-ignore: 多巴胺皮肤的一枚彩色色块，不是页面强调色 */
+[data-skin="dopamine"] .pcard:nth-child(6n+5) { --card-bg:#f472b6; --card-ink:#3b0924; }
+[data-skin="dopamine"] .pcard:nth-child(6n+6) { --card-bg:#7dd3fc; --card-ink:#04273b; }
+[data-skin="dopamine"] .stat { --card-bg:#ffffff; --card-ink:#241c00; }
+[data-skin="dopamine"] .stat:nth-child(3n+1) { --card-bg:#ffd23f; --card-ink:#2b2100; }
+[data-skin="dopamine"] .stat:nth-child(3n+2) { --card-bg:#4ecdc4; --card-ink:#00332f; }
+[data-skin="dopamine"] .stat:nth-child(3n+3) { --card-bg:#a78bfa; --card-ink:#1c0f44; } /* taste-skill-ignore: 多巴胺皮肤的一枚彩色色块，不是页面强调色 */
+[data-skin="dopamine"] .stat .label { color: inherit; opacity: .7; }
+[data-skin="dopamine"] .panel { border-radius: 28px; }
+[data-skin="dopamine"] .cal-cell { border-radius: 12px; font-weight: 500; }
+[data-skin="dopamine"] .cal-cell.hit { background: #ff8a5b; color:#3a1200; }
+[data-skin="dopamine"] .pcard-meta, [data-skin="dopamine"] .pcard .muted, [data-skin="dopamine"] .pcard-days .u { color: inherit; opacity: .72; }
+[data-mode="dark"][data-skin="dopamine"] {
+  --ground: #14101c;
+  --surface: #1d1830;
+  --panel: #1d1830;
+  --panel-inset: #251f3c;
+  --panel-2: #2b2446;
+  --line: #332b52;
+  --rule: #2a2444;
+  --text: #f6f2ff;
+  --muted: #b3a9d4;
+}
+[data-mode="dark"][data-skin="dopamine"] .pcard { --card-ink:#14101c; }
+[data-mode="dark"][data-skin="dopamine"] .stat { --card-bg:#251f3c; --card-ink:#f6f2ff; }
+[data-mode="dark"][data-skin="dopamine"] .stat:nth-child(3n+1) { --card-bg:#ffd23f; --card-ink:#2b2100; }
+[data-mode="dark"][data-skin="dopamine"] .stat:nth-child(3n+2) { --card-bg:#4ecdc4; --card-ink:#00332f; }
+[data-mode="dark"][data-skin="dopamine"] .stat:nth-child(3n+3) { --card-bg:#a78bfa; --card-ink:#1c0f44; } /* taste-skill-ignore: 多巴胺皮肤的一枚彩色色块，不是页面强调色 */
+
+/* ---------- iOS 液态玻璃 ---------- */
+/* taste-skill-ignore: 这一套皮肤的全部要点就是半透明与背景模糊，是用户明确指定的效果 */
+[data-skin="ios"] {
+  --ground: linear-gradient(155deg, #fdeef4 0%, #eef1fe 42%, #e4f6ff 100%); /* taste-skill-ignore: iOS 液态玻璃的彩色天空背景，是这一套皮肤的定义 */
+  --surface: rgba(255,255,255,0.58);
+  --panel: rgba(255,255,255,0.52);
+  --panel-inset: rgba(255,255,255,0.74);
+  --panel-2: rgba(255,255,255,0.34);
+  --line: rgba(255,255,255,0.7);
+  --rule: rgba(17,17,20,0.07);
+  --border: rgba(255,255,255,0.66);
+  --control: rgba(17,17,20,0.12);
+  --r-card: 26px;
+  --r-inner: 18px;
+  --fs-display: 46px;
+}
+[data-skin="ios"] .panel, [data-skin="ios"] .card, [data-skin="ios"] .pcard,
+[data-skin="ios"] .stat, [data-skin="ios"] .table-card, [data-skin="ios"] .toolbar,
+[data-skin="ios"] .filter-panel, [data-skin="ios"] .modal, [data-skin="ios"] .drawer {
+  backdrop-filter: blur(26px) saturate(180%); /* taste-skill-ignore: iOS 液态玻璃的半透明模糊，用户指定的皮肤效果 */
+  -webkit-backdrop-filter: blur(26px) saturate(180%); /* taste-skill-ignore: iOS 液态玻璃的半透明模糊，用户指定的皮肤效果 */
+  box-shadow: 0 10px 30px rgba(48,54,120,0.10), inset 0 1px 0 rgba(255,255,255,0.55); /* taste-skill-ignore: iOS 液态玻璃的柔和投影与内高光，用户指定的皮肤效果 */
+}
+[data-skin="ios"] .sidebar { background: rgba(255,255,255,0.4); backdrop-filter: blur(26px) saturate(180%); -webkit-backdrop-filter: blur(26px) saturate(180%); border-right-color: rgba(255,255,255,0.6); } /* taste-skill-ignore: iOS 液态玻璃的侧栏毛玻璃，用户指定的皮肤效果 */
+[data-skin="ios"] .nav-item.active { background: rgba(255,255,255,0.72); }
+[data-skin="ios"] .cal-cell { background: rgba(255,255,255,0.7); border-radius: 12px; }
+[data-skin="ios"] .cal-cell.out { background: transparent; }
+[data-skin="ios"] .cal-cell.hit { background: var(--accent); }
+[data-skin="ios"] .btn-primary { background: var(--accent); box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 32%, transparent); } /* taste-skill-ignore: iOS 玻璃主按钮的柔和投影 */
+[data-mode="dark"][data-skin="ios"] {
+  --ground: linear-gradient(155deg, #1b1526 0%, #101a30 45%, #0c2029 100%); /* taste-skill-ignore: iOS 液态玻璃的深色背景，用户指定的皮肤效果 */
+  --surface: rgba(30,32,40,0.56);
+  --panel: rgba(28,30,38,0.5);
+  --panel-inset: rgba(38,41,52,0.72);
+  --panel-2: rgba(255,255,255,0.08);
+  --line: rgba(255,255,255,0.12);
+  --rule: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.14);
+  --control: rgba(255,255,255,0.18);
+  --text: #f4f2f7;
+  --muted: #a7a3b0;
+}
+[data-mode="dark"][data-skin="ios"] .panel, [data-mode="dark"][data-skin="ios"] .card,
+[data-mode="dark"][data-skin="ios"] .pcard, [data-mode="dark"][data-skin="ios"] .stat,
+[data-mode="dark"][data-skin="ios"] .table-card, [data-mode="dark"][data-skin="ios"] .toolbar,
+[data-mode="dark"][data-skin="ios"] .filter-panel, [data-mode="dark"][data-skin="ios"] .modal,
+[data-mode="dark"][data-skin="ios"] .drawer {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08); /* taste-skill-ignore: iOS 液态玻璃的深色柔和投影，用户指定的皮肤效果 */
+}
+[data-mode="dark"][data-skin="ios"] .sidebar { background: rgba(20,22,30,0.44); border-right-color: rgba(255,255,255,0.1); }
+[data-mode="dark"][data-skin="ios"] .nav-item.active { background: rgba(255,255,255,0.1); }
+[data-mode="dark"][data-skin="ios"] .cal-cell { background: rgba(255,255,255,0.08); }
+
 [data-mode="dark"][data-accent="graphite"]{ --accent:#c9c6bf; --accent-ink:#1a1a1c; --accent-soft:#26262a; --accent-soft-ink:#e3e0d8; }
 
 /* ---------- reset ---------- */
@@ -291,7 +415,7 @@ select { appearance: none; padding-right: 32px;
 
 /* 数字行 */
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
-.stat { background: var(--panel); border-radius: var(--r-card); padding: 16px 20px; }
+.stat { background: var(--card-bg, var(--panel)); color: var(--card-ink, var(--text)); border-radius: var(--r-card); padding: 16px 20px; }
 .stat .label { font-size: var(--fs-small); color: var(--muted); }
 .stat .value { font-size: var(--fs-kpi); font-weight: 400; letter-spacing: -0.02em; line-height: 1.2; margin-top: 2px; }
 .stat.accent { background: var(--accent-soft); }
@@ -316,22 +440,24 @@ select { appearance: none; padding-right: 32px;
 .pcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); }
 .pcards.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pcard {
-  background: var(--panel); border-radius: var(--r-card); padding: 16px 18px;
+  background: var(--card-bg, var(--panel)); color: var(--card-ink, var(--text));
+  border-radius: var(--r-card); padding: 16px 18px;
   display: flex; flex-direction: column; gap: 12px; min-width: 0;
   transition: transform var(--t-base) var(--ease);
   animation: rise 420ms var(--ease) both; animation-delay: calc(var(--i, 0) * 26ms);
 }
 .pcard:hover { transform: translateY(-2px); }
-.pcard.soon { background: var(--accent-soft); }
+.pcard.soon { box-shadow: inset 0 0 0 2px var(--accent); } /* taste-skill-ignore: 内描边标记「即将到来」，不是投影 */
 .pcard-top { display: flex; align-items: center; gap: 12px; }
 .pcard-name { font-size: 16px; font-weight: 500; line-height: 1.3; }
 .pcard-meta { font-size: var(--fs-small); color: var(--muted); margin-top: 1px; }
 .pcard-days { text-align: right; flex: none; }
 .pcard-days .n { font-size: 22px; font-weight: 400; line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .pcard-days .u { font-size: var(--fs-tiny); color: var(--muted); }
-.pcard.soon .pcard-days .n { color: var(--accent-soft-ink); }
+.pcard.soon .pcard-days .n { color: var(--card-ink, var(--accent-soft-ink)); }
 .pcard-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 11px; border-top: 1px solid var(--rule); font-size: var(--fs-small); color: var(--muted); }
 .pcard-foot .spacer { margin-left: auto; }
+.pcard-note { font-size: var(--fs-small); color: var(--muted); }
 
 /* 头像：每个人的固定色相 = 强调色基相 + 这个人的偏移（--po 由 JS 写入） */
 .avatar {
@@ -441,6 +567,35 @@ select { appearance: none; padding-right: 32px;
 }
 
 /* ---------- 主题选择 ---------- */
+/* 皮肤卡片：每张带一个缩略预览 */
+.skin-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.skin-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 10px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-inner); background: transparent; color: var(--muted);
+  transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.skin-card:hover { border-color: var(--control); }
+.skin-card.on { border-color: var(--text); color: var(--text); background: var(--panel); }
+.skin-card .lb { font-size: var(--fs-body); font-weight: 500; }
+.skin-card .desc { font-size: var(--fs-tiny); color: var(--muted); line-height: 1.45; }
+.skin-prev {
+  display: block; height: 62px; border-radius: 10px; overflow: hidden; position: relative;
+  display: flex; flex-direction: column; gap: 5px; padding: 8px;
+}
+.skin-prev-plain { background: #ffffff; border: 1px solid #ece7de; }
+.skin-prev-plain i { display: block; height: 9px; border-radius: 4px; background: #faf7f1; }
+.skin-prev-plain i:nth-child(2) { width: 62%; background: #1b6e66; }
+.skin-prev-plain i:nth-child(3) { width: 40%; background: #f0ece3; }
+.skin-prev-dopamine { background: #fff6ec; }
+.skin-prev-dopamine i { display: block; height: 9px; border-radius: 5px; }
+.skin-prev-dopamine i:nth-child(1) { width: 34%; background: #ffd23f; }
+.skin-prev-dopamine i:nth-child(2) { width: 30%; background: #ff8a5b; }
+.skin-prev-dopamine i:nth-child(3) { width: 26%; background: #4ecdc4; }
+.skin-prev-ios { background: linear-gradient(155deg, #fdeef4, #e4f6ff); } /* taste-skill-ignore: 皮肤缩略图要预览 iOS 的渐变背景 */
+.skin-prev-ios i { display: block; height: 9px; border-radius: 6px; background: rgba(255,255,255,0.75); box-shadow: 0 1px 3px rgba(48,54,120,0.16); } /* taste-skill-ignore: 皮肤缩略图要预览 iOS 的玻璃卡片 */
+.skin-prev-ios i:nth-child(2) { width: 62%; }
+.skin-prev-ios i:nth-child(3) { width: 40%; }
+
 .theme-modes { display: inline-flex; gap: 6px; margin-bottom: 14px; }
 .theme-mode {
   display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px;
@@ -454,12 +609,20 @@ select { appearance: none; padding-right: 32px;
 .theme-swatch {
   display: flex; align-items: center; gap: 9px; padding: 9px 12px; cursor: pointer;
   border: 1px solid var(--line); border-radius: var(--r-control); background: transparent;
-  color: var(--muted); font-size: var(--fs-small); text-align: left;
+  color: var(--muted); font-size: var(--fs-small); text-align: left; position: relative;
   transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
 .theme-swatch:hover { border-color: var(--control); }
 .theme-swatch.on { border-color: var(--text); color: var(--text); font-weight: 500; }
 .theme-swatch .sw { width: 20px; height: 20px; border-radius: 7px; flex: none; }
+/* 自定义：点色块直接打开系统调色板 */
+.theme-swatch.custom input[type="color"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0;
+}
+.theme-swatch.custom .sw { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); background: conic-gradient(#e24b4a, #ef9f27, #97c459, #1d9e75, #378add, #7f77dd, #d4537e, #e24b4a); } /* taste-skill-ignore: 调色板色轮预览 */
+.theme-swatch.custom.on .sw { box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 2px var(--text); } /* taste-skill-ignore: 调色板选中态描边 */
+.color-preview { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: var(--fs-small); color: var(--muted); }
+.color-preview .chip2 { width: 22px; height: 22px; border-radius: 7px; flex: none; }
 
 /* ---------- 表单 ---------- */
 .field { display: flex; flex-direction: column; gap: 7px; }
